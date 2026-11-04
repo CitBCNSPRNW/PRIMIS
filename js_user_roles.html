@@ -361,7 +361,7 @@ function renderUserRolesTable(roles) {
         </td>
         <td>
           <div class="d-flex align-items-center gap-2">
-            <img src="${photo}" class="rounded-circle border" style="width: 36px; height: 36px; min-width: 36px; object-fit: cover;" onerror="this.onerror=null;this.src=(window.DEFAULT_STAFF_AVATAR || 'https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop')">
+            <img src="${photo}" class="rounded-circle border" style="width: 36px; height: 36px; min-width: 36px; object-fit: cover;" onerror="this.onerror=null;if(window.DEFAULT_STAFF_AVATAR)this.src=window.DEFAULT_STAFF_AVATAR;">
             <div>
               <div class="fw-bold text-dark d-flex align-items-center flex-wrap gap-1">${name} ${workStatusBadge}</div>
               <div class="text-muted small" style="font-size: 0.72rem;">${u.email || ''}</div>

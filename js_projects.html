@@ -6043,7 +6043,8 @@ function onAcadPosStatusChanged(val) {
 
 function openAcademicPositionModal(id) {
   const staff = (window.allPersonnelList || []).find(p => String(p.pin || p.user_pin || p.id) === String(currentAcademicStaffPin)) || {};
-  const nameTh = (staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '') || `บุคลากร #${currentAcademicStaffPin}`;
+  const rawStaffName = ((staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '')).trim();
+  const nameTh = rawStaffName || ('บุคลากร #' + currentAcademicStaffPin);
   const dept = staff.department || staff.main_group || '';
 
   $('#acadPosStaffBadge').text('#' + currentAcademicStaffPin);
@@ -6273,8 +6274,9 @@ function renderAcademicTrackingTable(records) {
   }
 
   records.forEach(r => {
-    const pin = r.staff_id || '';
-    const nameTh = (r.fname || '') + ' ' + (r.lname || '') || `บุคลากร #${pin}`;
+    const pin = String(r.staff_id || '').trim();
+    const rawName = ((r.fname || '') + ' ' + (r.lname || '')).trim();
+    const nameTh = rawName || ('บุคลากร #' + pin);
     const subDateStr = r.submission_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.submission_date) : r.submission_date) : '-';
     const appDateStr = r.appointed_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.appointed_date) : r.appointed_date) : '-';
 
@@ -6302,24 +6304,24 @@ function renderAcademicTrackingTable(records) {
         statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-circle-xmark me-1"></i>ไม่ผ่าน</span>';
         break;
       default:
-        statusBadge = `<span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">${r.status || 'ยื่นคำขอ'}</span>`;
+        statusBadge = '<span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">' + (r.status || 'ยื่นคำขอ') + '</span>';
     }
 
-    const orderInfo = r.order_number ? `<div>คำสั่ง: <strong>${r.order_number}</strong></div>` : '';
-    const dateInfo = (r.appointed_date && r.status === 'appointed') ? `<div class="text-muted" style="font-size: 0.70rem;">มีผล: ${appDateStr}</div>` : '';
-    const meetingInfo = r.council_meeting_no ? `<div class="text-secondary" style="font-size: 0.70rem;">มติ: ${r.council_meeting_no}</div>` : '';
+    const orderInfo = r.order_number ? '<div>คำสั่ง: <strong>' + r.order_number + '</strong></div>' : '';
+    const dateInfo = (r.appointed_date && r.status === 'appointed') ? '<div class="text-muted" style="font-size: 0.70rem;">มีผล: ' + appDateStr + '</div>' : '';
+    const meetingInfo = r.council_meeting_no ? '<div class="text-secondary" style="font-size: 0.70rem;">มติ: ' + r.council_meeting_no + '</div>' : '';
     const appCell = (orderInfo || dateInfo || meetingInfo) ? (orderInfo + dateInfo + meetingInfo) : '<span class="text-muted small">-</span>';
 
-    const docLink = r.doc_url ? `<a href="${r.doc_url}" target="_blank" class="btn btn-sm btn-outline-primary rounded-circle" style="width: 28px; height: 28px; padding: 0; line-height: 26px;" title="เปิดเอกสาร"><i class="fa-solid fa-file-pdf"></i></a>` : '<span class="text-muted small">-</span>';
+    const docLink = r.doc_url ? '<a href="' + r.doc_url + '" target="_blank" class="btn btn-sm btn-outline-primary rounded-circle" style="width: 28px; height: 28px; padding: 0; line-height: 26px;" title="เปิดเอกสาร"><i class="fa-solid fa-file-pdf"></i></a>' : '<span class="text-muted small">-</span>';
 
-    const photoUrl = r.photo_url || (window.DEFAULT_STAFF_AVATAR || 'https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop');
+    const photoUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(r.photo_url) : r.photo_url) || (window.DEFAULT_STAFF_AVATAR || '');
 
     const tr = `
       <tr>
         <td class="text-center"><span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#${pin}</span></td>
         <td>
           <div class="d-flex align-items-center gap-2">
-            <img src="${photoUrl}" class="rounded-circle border" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=(window.DEFAULT_STAFF_AVATAR || 'https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop')">
+            <img src="${photoUrl}" class="rounded-circle border" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null;if(window.DEFAULT_STAFF_AVATAR)this.src=window.DEFAULT_STAFF_AVATAR;">
             <div class="min-w-0">
               <a href="javascript:void(0)" class="fw-bold text-dark text-truncate d-block" onclick="openPersonnelInPaneDetail('${pin}')" style="font-size: 0.84rem;">${nameTh}</a>
               <div class="text-muted" style="font-size: 0.70rem;">${r.position_title || 'อาจารย์'} • ${r.department || ''}</div>
@@ -6334,7 +6336,7 @@ function renderAcademicTrackingTable(records) {
         <td class="text-center">${docLink}</td>
         <td class="text-center text-nowrap">
           <div class="btn-group btn-group-sm">
-            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPersonnelInPaneDetail('${pin}', '#editpane-tab-academic-track')" title="เปิดดูประวัติและแก้ไขคำขอของท่านนี้">
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPersonnelEditInPane('${pin}', '#editpane-tab-academic-track')" title="เปิดดูประวัติและแก้ไขคำขอของท่านนี้">
               <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>จัดการ
             </button>
           </div>
