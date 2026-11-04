@@ -8,7 +8,7 @@
   **วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์ | คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก**
 
   [![GitHub Pages](https://img.shields.io/badge/GitHub_Pages-Online-22c55e?style=for-the-badge&logo=github)](https://citbcnsprnw.github.io/PRIMIS/)
-  [![Status](https://img.shields.io/badge/Version-v1.7.06-3b82f6?style=for-the-badge)](https://citbcnsprnw.github.io/PRIMIS/)
+  [![Status](https://img.shields.io/badge/Version-v1.7.07-3b82f6?style=for-the-badge)](https://citbcnsprnw.github.io/PRIMIS/)
   [![PDPA Compliant](https://img.shields.io/badge/PDPA-Compliant-6366f1?style=for-the-badge)](https://citbcnsprnw.github.io/PRIMIS/)
 
   ---
