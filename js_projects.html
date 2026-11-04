@@ -1888,6 +1888,9 @@ function openPersonnelEditInPane(pin, targetTab) {
           loadInPaneServiceHistory(targetPin);
           loadInPaneSalaryHistory(targetPin);
 
+          // โหลดตำแหน่งทางวิชาการ สำหรับ Tab 5
+          loadInPaneAcademicPositions(targetPin, res.data.academic_positions);
+
           // สลับไปแท็บที่กำหนด หรือแท็บเดิมที่ค้างไว้ (Active Tab Persistence)
           const tabToActivate = targetTab || currentPersonnelEditActiveTab || '#editpane-tab-personal';
           const $targetBtn = $('#editPanePillsTab button[data-bs-target="' + tabToActivate + '"]');
@@ -5868,5 +5871,477 @@ function exportLicenseReportCsv() {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// =========================================================================
+// แท็บ 5: ตำแหน่งทางวิชาการ (Academic Titles & Promotion Pipeline Engine)
+// =========================================================================
+let currentAcademicPositions = [];
+let currentAcademicStaffPin = '';
+
+function loadInPaneAcademicPositions(pin, prefetched) {
+  if (!pin) return;
+  currentAcademicStaffPin = String(pin).trim();
+
+  if (Array.isArray(prefetched)) {
+    currentAcademicPositions = prefetched;
+    renderInPaneAcademicTable(currentAcademicPositions);
+    return;
+  }
+
+  const $tbody = $('#inPaneAcademicTableBody');
+  $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2 text-primary"></i>กำลังโหลดข้อมูลตำแหน่งทางวิชาการ...</td></tr>');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.status === 'success' && Array.isArray(res.data)) {
+        currentAcademicPositions = res.data;
+        renderInPaneAcademicTable(currentAcademicPositions);
+      } else {
+        renderInPaneAcademicTable([]);
+      }
+    })
+    .withFailureHandler(function(err) {
+      $tbody.html(`<tr><td colspan="7" class="text-center py-4 text-danger">การเชื่อมต่อขัดข้อง: ${err.message}</td></tr>`);
+    })
+    .getAcademicPositions(pin);
+}
+
+function renderInPaneAcademicTable(records) {
+  const $tbody = $('#inPaneAcademicTableBody');
+  $tbody.empty();
+
+  const list = Array.isArray(records) ? records.slice() : [];
+  // เรียงลำดับรายการล่าสุดไว้บนสุด (Sort by submission_date DESC, id DESC)
+  list.sort(function(a, b) {
+    const da = a.submission_date || '';
+    const db = b.submission_date || '';
+    if (db !== da) return db.localeCompare(da);
+    return (b.id || 0) - (a.id || 0);
+  });
+
+  $('#inPaneAcademicCountBadge').text(`${list.length} รายการ`);
+
+  // อัปเดต Banner ตำแหน่งปัจจุบัน
+  const currentAppointed = list.find(r => r.status === 'appointed') || (list.length > 0 ? list[0] : null);
+  if (currentAppointed) {
+    const titleText = currentAppointed.academic_title || 'อาจารย์';
+    $('#inPaneCurrentAcademicTitle').text(titleText);
+    const branchText = currentAppointed.academic_branch ? `สาขาวิชา: ${currentAppointed.academic_branch}` : 'ไม่ระบุสาขาวิชา';
+    const orderText = currentAppointed.order_number ? ` • คำสั่ง: ${currentAppointed.order_number}` : '';
+    const appDateText = currentAppointed.appointed_date ? ` (มีผล ${typeof formatThaiDateShort === 'function' ? formatThaiDateShort(currentAppointed.appointed_date) : currentAppointed.appointed_date})` : '';
+    const meetingText = currentAppointed.council_meeting_no ? ` • มติสภา: ${currentAppointed.council_meeting_no}` : '';
+    $('#inPaneCurrentAcademicBranch').text(branchText + orderText + appDateText + meetingText);
+  } else {
+    $('#inPaneCurrentAcademicTitle').text('อาจารย์');
+    $('#inPaneCurrentAcademicBranch').text('ยังไม่มีประวัติการยื่นคำขอตำแหน่งทางวิชาการในระบบ');
+  }
+
+  if (list.length === 0) {
+    $tbody.html(`
+      <tr>
+        <td colspan="7" class="text-center py-4 text-muted">
+          <i class="fa-solid fa-award fs-3 text-secondary opacity-50 d-block mb-2"></i>
+          <div>ยังไม่มีประวัติการยื่นคำขอตำแหน่งทางวิชาการ</div>
+          <div class="small mt-1">คลิกปุ่ม "+ ยื่นคำขอ / บันทึกประวัติ" ด้านบนเพื่อเริ่มบันทึกคำขอขาขึ้นค่ะ</div>
+        </td>
+      </tr>
+    `);
+    return;
+  }
+
+  const curRole = (window.currentUserRole || '').toLowerCase();
+  const canEdit = (curRole === 'super_admin' || curRole === 'hr_admin' || String(window.currentUserPin) === String(currentAcademicStaffPin));
+
+  list.forEach(function(r, idx) {
+    const isTop = (idx === 0);
+    const subDateStr = r.submission_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.submission_date) : r.submission_date) : '-';
+    const appDateStr = r.appointed_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.appointed_date) : r.appointed_date) : '-';
+
+    // Status Badge & Stage Description
+    let statusBadge = '';
+    switch (r.status) {
+      case 'submitted':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;"><i class="fa-solid fa-file-signature text-primary me-1"></i>1. ยื่นคำขอแล้ว</span>';
+        break;
+      case 'screening':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;"><i class="fa-solid fa-users-viewfinder me-1"></i>2. กลั่นกรองผลงาน</span>';
+        break;
+      case 'external_review':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;"><i class="fa-solid fa-envelope-open-text me-1"></i>3. ส่ง Reader ประเมิน</span>';
+        break;
+      case 'revision':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fdba74;"><i class="fa-solid fa-pen-to-square me-1"></i>4. ส่งกลับแก้ไข</span>';
+        break;
+      case 'council_approval':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;"><i class="fa-solid fa-building-columns me-1"></i>5. สภาสถาบันพิจารณา</span>';
+        break;
+      case 'appointed':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1 shadow-2xs" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac;"><i class="fa-solid fa-stamp me-1"></i>6. แต่งตั้งสมบูรณ์</span>';
+        break;
+      case 'rejected':
+        statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-circle-xmark me-1"></i>ไม่ผ่าน / ยุติ</span>';
+        break;
+      default:
+        statusBadge = `<span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">${r.status || 'ยื่นคำขอ'}</span>`;
+    }
+
+    const currentTag = (isTop && r.status === 'appointed') ? '<span class="badge bg-purple-subtle text-purple border rounded-pill px-2 py-0 ms-1 fw-bold" style="font-size: 0.65rem; background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">ตำแหน่งปัจจุบัน</span>' : '';
+
+    const orderInfo = r.order_number ? `<div>คำสั่ง: <strong>${r.order_number}</strong></div>` : '';
+    const dateInfo = (r.appointed_date && r.status === 'appointed') ? `<div class="text-muted" style="font-size: 0.70rem;">มีผล: ${appDateStr}</div>` : '';
+    const meetingInfo = r.council_meeting_no ? `<div class="text-secondary" style="font-size: 0.70rem;">มติ: ${r.council_meeting_no}</div>` : '';
+    const appointmentCell = (orderInfo || dateInfo || meetingInfo) ? (orderInfo + dateInfo + meetingInfo) : '<span class="text-muted small">-</span>';
+
+    const docLink = r.doc_url ? `<a href="${r.doc_url}" target="_blank" class="btn btn-sm btn-outline-primary rounded-circle" style="width: 28px; height: 28px; padding: 0; line-height: 26px;" title="เปิดเอกสารแนบ"><i class="fa-solid fa-file-pdf"></i></a>` : '<span class="text-muted small">-</span>';
+
+    let actionBtns = '-';
+    if (canEdit) {
+      actionBtns = `
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-warning btn-sm" onclick="openAcademicPositionModal(${r.id})" title="แก้ไขคำขอนี้">
+            <i class="fa-solid fa-pencil"></i>
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteAcademicPositionEntry(${r.id})" title="ลบรายการนี้">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      `;
+    }
+
+    const tr = `
+      <tr class="${isTop ? 'table-light' : ''}">
+        <td class="text-nowrap fw-medium text-dark">${subDateStr}</td>
+        <td>
+          <span class="fw-bold text-dark fs-6">${r.academic_title || '-'}</span>
+          ${currentTag}
+        </td>
+        <td class="text-secondary small">${r.academic_branch || '-'}</td>
+        <td class="text-center">${statusBadge}</td>
+        <td>${appointmentCell}</td>
+        <td class="text-center">${docLink}</td>
+        <td class="text-center">${actionBtns}</td>
+      </tr>
+    `;
+    $tbody.append(tr);
+  });
+}
+
+function onAcadPosTitleChanged(val) {
+  if (val === 'custom') {
+    $('#acadPosTitleCustom').removeClass('d-none').focus();
+  } else {
+    $('#acadPosTitleCustom').addClass('d-none').val('');
+  }
+}
+
+function onAcadPosStatusChanged(val) {
+  if (val === 'appointed') {
+    $('#acadPosAppointedCard').removeClass('d-none');
+  }
+}
+
+function openAcademicPositionModal(id) {
+  const staff = (window.allPersonnelList || []).find(p => String(p.pin || p.user_pin || p.id) === String(currentAcademicStaffPin)) || {};
+  const nameTh = (staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '') || `บุคลากร #${currentAcademicStaffPin}`;
+  const dept = staff.department || staff.main_group || '';
+
+  $('#acadPosStaffBadge').text('#' + currentAcademicStaffPin);
+  $('#acadPosStaffName').text(nameTh);
+  $('#acadPosStaffDept').text(dept);
+  $('#acadPosStaffId').val(currentAcademicStaffPin);
+
+  if (!id || id === 0) {
+    // โหมดสร้างคำขอใหม่
+    $('#acadPosId').val('0');
+    $('#acadPosTitleSelect').val('');
+    $('#acadPosTitleCustom').addClass('d-none').val('');
+    $('#acadPosBranch').val(staff.academic_branch || '');
+    $('#acadPosSubmissionDate').val(new Date().toISOString().slice(0, 10));
+    $('#acadPosStatus').val('submitted');
+    $('#acadPosAppointedDate').val('');
+    $('#acadPosOrderNumber').val('');
+    $('#acadPosCouncilMeeting').val('');
+    $('#acadPosDocUrl').val('');
+    $('#acadPosRemarks').val('');
+    $('#modalAcademicPositionLabel').text('บันทึกคำขอกำหนดตำแหน่งทางวิชาการ (ขาขึ้น)');
+  } else {
+    // โหมดแก้ไข
+    const record = (currentAcademicPositions || []).find(r => Number(r.id) === Number(id));
+    if (!record) return;
+    $('#acadPosId').val(record.id);
+    const title = record.academic_title || '';
+    if ($('#acadPosTitleSelect option[value="' + title + '"]').length > 0) {
+      $('#acadPosTitleSelect').val(title);
+      $('#acadPosTitleCustom').addClass('d-none').val('');
+    } else {
+      $('#acadPosTitleSelect').val('custom');
+      $('#acadPosTitleCustom').removeClass('d-none').val(title);
+    }
+    $('#acadPosBranch').val(record.academic_branch || '');
+    $('#acadPosSubmissionDate').val(record.submission_date ? record.submission_date.substring(0, 10) : '');
+    $('#acadPosStatus').val(record.status || 'submitted');
+    $('#acadPosAppointedDate').val(record.appointed_date ? record.appointed_date.substring(0, 10) : '');
+    $('#acadPosOrderNumber').val(record.order_number || '');
+    $('#acadPosCouncilMeeting').val(record.council_meeting_no || '');
+    $('#acadPosDocUrl').val(record.doc_url || '');
+    $('#acadPosRemarks').val(record.remarks || '');
+    $('#modalAcademicPositionLabel').text('แก้ไขข้อมูลคำขอตำแหน่งทางวิชาการ');
+  }
+
+  const myModal = new bootstrap.Modal(document.getElementById('modalAcademicPosition'));
+  myModal.show();
+}
+
+function saveAcademicPositionEntry() {
+  const staffId = $('#acadPosStaffId').val();
+  let title = $('#acadPosTitleSelect').val();
+  if (title === 'custom') {
+    title = $('#acadPosTitleCustom').val().trim();
+  }
+  if (!title) {
+    Swal.fire('ข้อมูลไม่ครบ', 'กรุณาระบุตำแหน่งทางวิชาการ', 'warning');
+    return;
+  }
+
+  const payload = {
+    id: parseInt($('#acadPosId').val()) || 0,
+    staff_id: staffId,
+    academic_title: title,
+    academic_branch: $('#acadPosBranch').val().trim(),
+    submission_date: $('#acadPosSubmissionDate').val(),
+    status: $('#acadPosStatus').val(),
+    appointed_date: $('#acadPosAppointedDate').val(),
+    order_number: $('#acadPosOrderNumber').val().trim(),
+    council_meeting_no: $('#acadPosCouncilMeeting').val().trim(),
+    doc_url: $('#acadPosDocUrl').val().trim(),
+    remarks: $('#acadPosRemarks').val().trim(),
+    operator_pin: window.currentUserPin || '',
+    operator_role: window.currentUserRole || 'staff'
+  };
+
+  showPpmsLoading('กำลังบันทึกข้อมูล...', 'กำลังบันทึกคำขอตำแหน่งทางวิชาการเข้าสู่ฐานข้อมูล');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ',
+          text: res.message || 'บันทึกคำขอตำแหน่งทางวิชาการเรียบร้อยแล้วค่ะ',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        const modalEl = document.getElementById('modalAcademicPosition');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+        loadInPaneAcademicPositions(staffId);
+      } else {
+        Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('ข้อผิดพลาด', 'การเชื่อมต่อขัดข้อง: ' + err.message, 'error');
+    })
+    .saveAcademicPosition(payload);
+}
+
+function deleteAcademicPositionEntry(id) {
+  if (!id) return;
+  Swal.fire({
+    title: 'ยืนยันการลบรายการ?',
+    text: 'ท่านต้องการลบคำขอ/ประวัติตำแหน่งทางวิชาการรายการนี้ใช่หรือไม่?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ใช่, ลบรายการ',
+    cancelButtonText: 'ยกเลิก'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังลบข้อมูล...', 'กำลังลบคำขอตำแหน่งทางวิชาการออกจากฐานข้อมูล');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire({
+              icon: 'success',
+              title: 'ลบเรียบร้อย',
+              text: 'ลบรายการคำขอตำแหน่งทางวิชาการเรียบร้อยแล้วค่ะ',
+              timer: 1500,
+              showConfirmButton: false
+            });
+            loadInPaneAcademicPositions(currentAcademicStaffPin);
+          } else {
+            Swal.fire('ลบไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาด', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('ข้อผิดพลาด', 'การเชื่อมต่อขัดข้อง: ' + err.message, 'error');
+        })
+        .deleteAcademicPosition(id, currentAcademicStaffPin, window.currentUserRole || 'staff', window.currentUserPin || '');
+    }
+  });
+}
+
+// =========================================================================
+// ศูนย์กำกับติดตามการขอตำแหน่งทางวิชาการ (Academic Title Tracking Hub for HR)
+// =========================================================================
+let allAcademicTrackingRecords = [];
+let academicTrackingDataTable = null;
+
+function loadAllAcademicTracking(forceRefresh) {
+  const $tbody = $('#academicTrackingTableBody');
+  $tbody.html('<tr><td colspan="9" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2 text-primary"></i>กำลังโหลดข้อมูลคำขอตำแหน่งทางวิชาการทั้งสถาบัน...</td></tr>');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.status === 'success' && Array.isArray(res.data)) {
+        allAcademicTrackingRecords = res.data;
+        updateAcademicTrackingStats(allAcademicTrackingRecords);
+        applyAcademicTrackingFilters();
+      } else {
+        $tbody.html('<tr><td colspan="9" class="text-center py-4 text-muted">ยังไม่มีรายการคำขอตำแหน่งทางวิชาการในระบบ</td></tr>');
+        updateAcademicTrackingStats([]);
+      }
+    })
+    .withFailureHandler(function(err) {
+      $tbody.html(`<tr><td colspan="9" class="text-center py-4 text-danger">การเชื่อมต่อขัดข้อง: ${err.message}</td></tr>`);
+    })
+    .getAcademicPositions('all');
+}
+
+function updateAcademicTrackingStats(records) {
+  const total = records.length;
+  let screening = 0;
+  let readers = 0;
+  let council = 0;
+  let appointed = 0;
+
+  records.forEach(r => {
+    if (r.status === 'submitted' || r.status === 'screening') screening++;
+    else if (r.status === 'external_review' || r.status === 'revision') readers++;
+    else if (r.status === 'council_approval') council++;
+    else if (r.status === 'appointed') appointed++;
+  });
+
+  $('#statAcadTotal').text(total);
+  $('#statAcadScreening').text(screening);
+  $('#statAcadReaders').text(readers);
+  $('#statAcadCouncil').text(council);
+  $('#statAcadAppointed').text(appointed);
+}
+
+function applyAcademicTrackingFilters() {
+  const sTerm = ($('#filterAcadSearch').val() || '').trim().toLowerCase();
+  const stFilter = $('#filterAcadStatus').val() || 'all';
+  const titleFilter = $('#filterAcadTitle').val() || 'all';
+
+  const filtered = allAcademicTrackingRecords.filter(r => {
+    if (stFilter !== 'all' && r.status !== stFilter) return false;
+    if (titleFilter !== 'all' && r.academic_title !== titleFilter) return false;
+
+    if (sTerm) {
+      const matchText = [
+        r.staff_id, r.fname, r.lname, r.academic_title, r.academic_branch,
+        r.order_number, r.council_meeting_no, r.remarks
+      ].join(' ').toLowerCase();
+      if (!matchText.includes(sTerm)) return false;
+    }
+    return true;
+  });
+
+  $('#acadTrackingCountBadge').text(`แสดง ${filtered.length} จาก ${allAcademicTrackingRecords.length} รายการ`);
+  renderAcademicTrackingTable(filtered);
+}
+
+function renderAcademicTrackingTable(records) {
+  if (academicTrackingDataTable) {
+    academicTrackingDataTable.destroy();
+    academicTrackingDataTable = null;
+  }
+
+  const $tbody = $('#academicTrackingTableBody');
+  $tbody.empty();
+
+  if (!records || records.length === 0) {
+    $tbody.html('<tr><td colspan="9" class="text-center py-4 text-muted"><i class="fa-solid fa-folder-open fs-3 d-block mb-2 opacity-50"></i>ไม่พบข้อมูลคำขอตามเงื่อนไขที่เลือก</td></tr>');
+    return;
+  }
+
+  records.forEach(r => {
+    const pin = r.staff_id || '';
+    const nameTh = (r.fname || '') + ' ' + (r.lname || '') || `บุคลากร #${pin}`;
+    const subDateStr = r.submission_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.submission_date) : r.submission_date) : '-';
+    const appDateStr = r.appointed_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.appointed_date) : r.appointed_date) : '-';
+
+    let statusBadge = '';
+    switch (r.status) {
+      case 'submitted':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;"><i class="fa-solid fa-file-signature text-primary me-1"></i>1. ยื่นคำขอแล้ว</span>';
+        break;
+      case 'screening':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;"><i class="fa-solid fa-users-viewfinder me-1"></i>2. กลั่นกรองผลงาน</span>';
+        break;
+      case 'external_review':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;"><i class="fa-solid fa-envelope-open-text me-1"></i>3. ส่ง Reader</span>';
+        break;
+      case 'revision':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fdba74;"><i class="fa-solid fa-pen-to-square me-1"></i>4. ส่งกลับแก้ไข</span>';
+        break;
+      case 'council_approval':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;"><i class="fa-solid fa-building-columns me-1"></i>5. สภาสถาบัน</span>';
+        break;
+      case 'appointed':
+        statusBadge = '<span class="badge rounded-pill px-2.5 py-1 shadow-2xs" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac;"><i class="fa-solid fa-stamp me-1"></i>6. แต่งตั้งแล้ว</span>';
+        break;
+      case 'rejected':
+        statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-circle-xmark me-1"></i>ไม่ผ่าน</span>';
+        break;
+      default:
+        statusBadge = `<span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">${r.status || 'ยื่นคำขอ'}</span>`;
+    }
+
+    const orderInfo = r.order_number ? `<div>คำสั่ง: <strong>${r.order_number}</strong></div>` : '';
+    const dateInfo = (r.appointed_date && r.status === 'appointed') ? `<div class="text-muted" style="font-size: 0.70rem;">มีผล: ${appDateStr}</div>` : '';
+    const meetingInfo = r.council_meeting_no ? `<div class="text-secondary" style="font-size: 0.70rem;">มติ: ${r.council_meeting_no}</div>` : '';
+    const appCell = (orderInfo || dateInfo || meetingInfo) ? (orderInfo + dateInfo + meetingInfo) : '<span class="text-muted small">-</span>';
+
+    const docLink = r.doc_url ? `<a href="${r.doc_url}" target="_blank" class="btn btn-sm btn-outline-primary rounded-circle" style="width: 28px; height: 28px; padding: 0; line-height: 26px;" title="เปิดเอกสาร"><i class="fa-solid fa-file-pdf"></i></a>` : '<span class="text-muted small">-</span>';
+
+    const photoUrl = r.photo_url || (window.DEFAULT_STAFF_AVATAR || 'https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop');
+
+    const tr = `
+      <tr>
+        <td class="text-center"><span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#${pin}</span></td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <img src="${photoUrl}" class="rounded-circle border" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=(window.DEFAULT_STAFF_AVATAR || 'https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop')">
+            <div class="min-w-0">
+              <a href="javascript:void(0)" class="fw-bold text-dark text-truncate d-block" onclick="openPersonnelInPaneDetail('${pin}')" style="font-size: 0.84rem;">${nameTh}</a>
+              <div class="text-muted" style="font-size: 0.70rem;">${r.position_title || 'อาจารย์'} • ${r.department || ''}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="fw-bold text-dark">${r.academic_title || '-'}</span></td>
+        <td class="text-secondary small">${r.academic_branch || '-'}</td>
+        <td class="text-nowrap">${subDateStr}</td>
+        <td class="text-center">${statusBadge}</td>
+        <td>${appCell}</td>
+        <td class="text-center">${docLink}</td>
+        <td class="text-center text-nowrap">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPersonnelInPaneDetail('${pin}', '#editpane-tab-academic-track')" title="เปิดดูประวัติและแก้ไขคำขอของท่านนี้">
+              <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>จัดการ
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+    $tbody.append(tr);
+  });
 }
 </script>

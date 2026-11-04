@@ -2412,5 +2412,163 @@ MODALS: หน้าต่างป๊อปอัพของระบบฐา
   </div>
 </div>
 
+<!-- ====================================================
+MODAL: บันทึก/แก้ไขข้อมูลตำแหน่งทางวิชาการ (Academic Position Record)
+==================================================== -->
+<div class="modal fade" id="modalAcademicPosition" tabindex="-1" aria-labelledby="modalAcademicPositionLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header border-bottom p-3 px-4" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: #ffffff;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: rgba(255, 255, 255, 0.2);">
+            <i class="fa-solid fa-award fs-5"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0" id="modalAcademicPositionLabel">บันทึกคำขอและตำแหน่งทางวิชาการ</h5>
+            <div class="small opacity-75" style="font-size: 0.76rem;">บันทึกคำขอขาขึ้น สถานะการพิจารณา และคำสั่งแต่งตั้งตำแหน่งทางวิชาการ</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-4 bg-light">
+        <form id="formAcademicPosition" onsubmit="event.preventDefault(); saveAcademicPositionEntry();">
+          <input type="hidden" id="acadPosId" value="0">
+          <input type="hidden" id="acadPosStaffId" value="">
+
+          <!-- บุคลากรผู้ยื่นคำขอ -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="badge bg-purple-subtle text-purple border rounded-pill px-2.5 py-1 fw-bold" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;" id="acadPosStaffBadge">
+                  #PIN
+                </span>
+                <span class="fw-bold text-dark ms-2" id="acadPosStaffName">-</span>
+              </div>
+              <span class="text-muted small" id="acadPosStaffDept">-</span>
+            </div>
+          </div>
+
+          <!-- รายละเอียดคำขอและตำแหน่ง -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <div class="fw-bold text-dark small mb-2 border-bottom pb-1">
+              <i class="fa-solid fa-certificate text-primary me-1"></i>ข้อมูลตำแหน่งทางวิชาการที่ขอ
+            </div>
+            <div class="row g-3">
+              <!-- ตำแหน่งทางวิชาการ -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">ตำแหน่งทางวิชาการ <span class="text-danger">*</span></label>
+                <select id="acadPosTitleSelect" class="form-select rounded-3" onchange="onAcadPosTitleChanged(this.value)" required>
+                  <option value="">-- เลือกตำแหน่งทางวิชาการ --</option>
+                  <option value="ผู้ช่วยศาสตราจารย์">ผู้ช่วยศาสตราจารย์ (ผศ.)</option>
+                  <option value="รองศาสตราจารย์">รองศาสตราจารย์ (รศ.)</option>
+                  <option value="ศาสตราจารย์">ศาสตราจารย์ (ศ.)</option>
+                  <option value="ชำนาญการ">ชำนาญการ (สายสนับสนุน)</option>
+                  <option value="ชำนาญการพิเศษ">ชำนาญการพิเศษ (สายสนับสนุน)</option>
+                  <option value="เชี่ยวชาญ">เชี่ยวชาญ (สายสนับสนุน)</option>
+                  <option value="custom">อื่นๆ (ระบุเอง)</option>
+                </select>
+                <input type="text" id="acadPosTitleCustom" class="form-control rounded-3 mt-1 d-none" placeholder="ระบุตำแหน่งทางวิชาการอื่นๆ">
+              </div>
+
+              <!-- สาขาวิชา / ความเชี่ยวชาญ -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">สาขาวิชา / ความเชี่ยวชาญ</label>
+                <input type="text" id="acadPosBranch" class="form-control rounded-3" list="acadBranchSuggestions" placeholder="เช่น การพยาบาลผู้ใหญ่และผู้สูงอายุ">
+                <datalist id="acadBranchSuggestions">
+                  <option value="การพยาบาลผู้ใหญ่และผู้สูงอายุ">
+                  <option value="การพยาบาลเด็ก">
+                  <option value="การพยาบาลมารดาและทารก หรือการผดุงครรภ์">
+                  <option value="การพยาบาลจิตเวชและสุขภาพจิต">
+                  <option value="การพยาบาลชุมชน">
+                  <option value="การบริหารการพยาบาล">
+                  <option value="การพยาบาลพื้นฐาน">
+                </datalist>
+              </div>
+
+              <!-- วันที่ยื่นคำขอ -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">วันที่ยื่นคำขอ (ขาขึ้น) <span class="text-danger">*</span></label>
+                <input type="date" id="acadPosSubmissionDate" class="form-control rounded-3" required>
+              </div>
+
+              <!-- สถานะคำขอ (Pipeline Stage) -->
+              <div class="col-md-8">
+                <label class="form-label small fw-bold text-dark mb-1">สถานะคำขอ (Pipeline Status) <span class="text-danger">*</span></label>
+                <select id="acadPosStatus" class="form-select rounded-3" onchange="onAcadPosStatusChanged(this.value)" required>
+                  <option value="submitted">📝 1. ยื่นคำขอแล้ว (อยู่ระหว่างตรวจคุณสมบัติ)</option>
+                  <option value="screening">🔍 2. คณะกรรมการกลั่นกรองผลงาน</option>
+                  <option value="external_review">📖 3. อยู่ระหว่างผู้ทรงคุณวุฒิประเมิน (Readers)</option>
+                  <option value="revision">✏️ 4. ส่งกลับแก้ไขผลงานตามข้อเสนอแนะ</option>
+                  <option value="council_approval">🏛️ 5. เสนอสภาสถาบันพิจารณาอนุมัติ</option>
+                  <option value="appointed">🟢 6. ได้รับการแต่งตั้งแล้ว (สำเร็จ / เป็นตำแหน่งปัจจุบัน)</option>
+                  <option value="rejected">🔴 ไม่ผ่านการประเมิน / ยุติคำขอ</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ข้อมูลคำสั่งแต่งตั้ง (แสดงชัดเจนเมื่อได้รับอนุมัติ/แต่งตั้ง) -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white" id="acadPosAppointedCard">
+            <div class="fw-bold text-dark small mb-2 border-bottom pb-1">
+              <i class="fa-solid fa-stamp text-success me-1"></i>ข้อมูลคำสั่งแต่งตั้งและการอนุมัติ
+            </div>
+            <div class="row g-3">
+              <!-- วันที่มีผลแต่งตั้ง -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">วันที่มีผลแต่งตั้ง</label>
+                <input type="date" id="acadPosAppointedDate" class="form-control rounded-3">
+              </div>
+
+              <!-- เลขที่คำสั่งแต่งตั้ง -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">เลขที่คำสั่งแต่งตั้ง</label>
+                <input type="text" id="acadPosOrderNumber" class="form-control rounded-3" placeholder="เช่น คำสั่ง สบช. ที่ 123/2567">
+              </div>
+
+              <!-- มติสภาสถาบัน -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">มติสภาสถาบัน (ครั้งที่/วันที่)</label>
+                <input type="text" id="acadPosCouncilMeeting" class="form-control rounded-3" placeholder="เช่น ครั้งที่ 5/2567 วันที่ 25 พ.ค. 67">
+              </div>
+            </div>
+          </div>
+
+          <!-- ไฟล์แนบ & บันทึกความคืบหน้า -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 bg-white">
+            <div class="row g-3">
+              <!-- ลิงก์ไฟล์แนบ -->
+              <div class="col-md-12">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="fa-solid fa-paperclip me-1 text-primary"></i>ลิงก์ไฟล์เอกสารคำขอ / คำสั่งแต่งตั้ง (Google Drive หรือ URL)
+                </label>
+                <input type="url" id="acadPosDocUrl" class="form-control rounded-3" placeholder="https://drive.google.com/file/d/...">
+              </div>
+
+              <!-- หมายเหตุ / ความคืบหน้า -->
+              <div class="col-md-12">
+                <label class="form-label small fw-bold text-dark mb-1">บันทึกหมายเหตุ / ความคืบหน้ารายละเอียด</label>
+                <textarea id="acadPosRemarks" class="form-control rounded-3" rows="2" placeholder="เช่น คณะกรรมการส่งข้อเสนอแนะรอบที่ 1 เมื่อวันที่..., ผู้ทรงคุณวุฒิคนที่ 2 ให้ผ่าน"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Buttons -->
+          <div class="d-flex justify-content-end gap-2 mt-4 pt-2 border-top">
+            <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+              ยกเลิก
+            </button>
+            <button type="submit" class="btn text-white rounded-pill px-4 fw-bold shadow-sm" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);" id="btnSaveAcademicPosition">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูล
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 

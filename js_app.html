@@ -204,7 +204,7 @@ function toggleSidebarMenu(submenuId, headerEl) {
 function switchMainTab(tabName, linkElem) {
   // ตรวจสอบและป้องกัน Guest เข้าถึงแท็บส่วนตัวหรือแท็บแอดมินโดยตรง
   const isGuest = (!window.currentUserPin || (window.currentUserRole || 'guest').toLowerCase() === 'guest');
-  const protectedTabs = ['budget-categories', 'disbursements', 'kpi-master', 'manage-budgets', 'kpi-monitoring', 'users', 'logs'];
+  const protectedTabs = ['budget-categories', 'disbursements', 'kpi-master', 'manage-budgets', 'kpi-monitoring', 'activity-monitoring', 'users', 'logs'];
   if (isGuest && protectedTabs.includes(tabName)) {
     Swal.fire({
       icon: 'info',
@@ -291,6 +291,22 @@ function switchMainTab(tabName, linkElem) {
     $('#view-users').removeClass('d-none');
     if (typeof loadUserRolesTable === 'function') {
       loadUserRolesTable();
+    }
+  } else if (tabName === 'activity-monitoring') {
+    const curRole = (window.currentUserRole || 'guest').toLowerCase();
+    if (curRole !== 'super_admin' && curRole !== 'hr_admin') {
+      Swal.fire({
+        icon: 'warning',
+        title: '🛡️ สงวนสิทธิ์เฉพาะฝ่ายบุคคล (HR)',
+        text: 'ศูนย์กำกับติดตามการขอตำแหน่งทางวิชาการ สงวนสิทธิ์สำหรับฝ่ายทรัพยากรบุคคลและผู้บริหารค่ะ',
+        confirmButtonColor: '#1d4ed8'
+      });
+      switchMainTab('dashboard', document.getElementById('sidebarDashboardNav'));
+      return;
+    }
+    $('#view-activity-monitoring').removeClass('d-none');
+    if (typeof loadAllAcademicTracking === 'function') {
+      loadAllAcademicTracking();
     }
   } else if (tabName === 'logs') {
     $('#view-logs').removeClass('d-none');

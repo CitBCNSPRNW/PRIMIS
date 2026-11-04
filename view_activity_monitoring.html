@@ -1,6 +1,199 @@
-<!-- View: Activity Monitoring Placeholder (Clean & Ready for HR-DB Future Views) -->
-<div id="tab-activity-monitoring" class="content-tab d-none">
-  <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center">
-    <div class="text-muted small">หน้านี้ถูกเตรียมไว้สำหรับโมดูลติดตามการพัฒนาบุคลากรในอนาคต</div>
+<!-- ====================================================
+VIEW: ศูนย์กำกับติดตามการขอตำแหน่งทางวิชาการ (Academic Title Promotion Pipeline Tracking)
+สำหรับฝ่ายทรัพยากรบุคคล (HR) และผู้ดูแลระบบ (Admin)
+==================================================== -->
+<div id="view-activity-monitoring" class="tab-pane-content d-none">
+  <!-- 1. Header Banner -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge rounded-pill px-3 py-1 fw-bold" style="background-color: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe;">
+              <i class="fa-solid fa-graduation-cap me-1"></i> HR Supervision Module
+            </span>
+            <span class="badge bg-light text-secondary border rounded-pill px-3 py-1 small">
+              <i class="fa-solid fa-lock me-1"></i> เฉพาะ HR Admin & ผู้บริหาร
+            </span>
+          </div>
+          <h4 class="fw-bold mb-1 text-dark">
+            <i class="fa-solid fa-award text-primary me-2"></i> ศูนย์กำกับติดตามการขอตำแหน่งทางวิชาการ (Academic Promotion Hub)
+          </h4>
+          <p class="text-muted small mb-0">
+            ระบบกำกับติดตามสถานะคำขอขาขึ้น (ผศ. / รศ. / ศ. / ชำนาญการพิเศษ) ติดตามระยะเวลาการประเมินของผู้ทรงคุณวุฒิ (Readers) และมติสภาสถาบัน
+          </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-2 shadow-2xs" onclick="loadAllAcademicTracking(true)">
+            <i class="fa-solid fa-rotate me-1"></i> รีเฟรชข้อมูล
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Summary Stage Metric Cards (5 Cards) -->
+  <div class="row g-3 mb-4">
+    <!-- Card 1: คำขอทั้งหมด -->
+    <div class="col-6 col-md-4 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+        <div class="card-body p-3 d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-primary" style="width: 48px; height: 48px; min-width: 48px; background: rgba(59, 130, 246, 0.12);">
+            <i class="fa-solid fa-folder-open fs-4"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">คำขอทั้งหมด</div>
+            <div class="d-flex align-items-baseline gap-1">
+              <h3 class="fw-bold mb-0 text-dark" id="statAcadTotal">0</h3>
+              <span class="text-muted small">รายการ</span>
+            </div>
+            <div class="text-muted" style="font-size: 0.70rem;">คำขอในระบบ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: ยื่นคำขอ & กลั่นกรอง -->
+    <div class="col-6 col-md-4 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+        <div class="card-body p-3 d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; min-width: 48px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+            <i class="fa-solid fa-users-viewfinder fs-4"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">อยู่ระหว่างกลั่นกรอง</div>
+            <div class="d-flex align-items-baseline gap-1">
+              <h3 class="fw-bold mb-0 text-info" id="statAcadScreening">0</h3>
+              <span class="text-muted small">ท่าน</span>
+            </div>
+            <div class="text-muted" style="font-size: 0.70rem;">คณะกรรมการกลั่นกรอง</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: ส่ง Reader ประเมิน -->
+    <div class="col-6 col-md-4 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+        <div class="card-body p-3 d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-warning" style="width: 48px; height: 48px; min-width: 48px; background: rgba(245, 158, 11, 0.12);">
+            <i class="fa-solid fa-envelope-open-text fs-4"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">ส่ง Reader ประเมิน</div>
+            <div class="d-flex align-items-baseline gap-1">
+              <h3 class="fw-bold mb-0 text-warning" id="statAcadReaders">0</h3>
+              <span class="text-muted small">ท่าน</span>
+            </div>
+            <div class="text-muted" style="font-size: 0.70rem;">ผู้ทรงคุณวุฒิประเมิน</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: รอสภาสถาบันอนุมัติ -->
+    <div class="col-6 col-md-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+        <div class="card-body p-3 d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; min-width: 48px; background: rgba(139, 92, 246, 0.12); color: #7c3aed;">
+            <i class="fa-solid fa-building-columns fs-4"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">รอสภาสถาบัน</div>
+            <div class="d-flex align-items-baseline gap-1">
+              <h3 class="fw-bold mb-0" style="color: #7c3aed;" id="statAcadCouncil">0</h3>
+              <span class="text-muted small">ท่าน</span>
+            </div>
+            <div class="text-muted" style="font-size: 0.70rem;">เสนอวาระสภา สบช.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 5: แต่งตั้งแล้ว -->
+    <div class="col-12 col-md-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+        <div class="card-body p-3 d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-success" style="width: 48px; height: 48px; min-width: 48px; background: rgba(16, 185, 129, 0.12);">
+            <i class="fa-solid fa-stamp fs-4"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">แต่งตั้งสมบูรณ์แล้ว</div>
+            <div class="d-flex align-items-baseline gap-1">
+              <h3 class="fw-bold mb-0 text-success" id="statAcadAppointed">0</h3>
+              <span class="text-muted small">ท่าน</span>
+            </div>
+            <div class="text-muted" style="font-size: 0.70rem;">ได้รับแต่งตั้งแล้ว</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Tracking Data Table -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+    <!-- Filter Toolbar -->
+    <div class="card-header bg-white border-bottom p-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md-4">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="filterAcadSearch" class="form-control border-start-0" placeholder="ค้นหาชื่ออาจารย์, PIN, ตำแหน่งที่ขอ, สาขาวิชา..." oninput="applyAcademicTrackingFilters()">
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <select id="filterAcadStatus" class="form-select form-select-sm rounded-3" onchange="applyAcademicTrackingFilters()">
+            <option value="all">-- ทุกสถานะขั้นตอน --</option>
+            <option value="submitted">📝 ยื่นคำขอแล้ว</option>
+            <option value="screening">🔍 อยู่ระหว่างกลั่นกรอง</option>
+            <option value="external_review">📖 ส่ง Reader ประเมิน</option>
+            <option value="revision">✏️ ส่งกลับแก้ไข</option>
+            <option value="council_approval">🏛️ เสนอสภาสถาบัน</option>
+            <option value="appointed">🟢 แต่งตั้งสมบูรณ์</option>
+            <option value="rejected">🔴 ไม่ผ่าน / ยุติ</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-3">
+          <select id="filterAcadTitle" class="form-select form-select-sm rounded-3" onchange="applyAcademicTrackingFilters()">
+            <option value="all">-- ทุกตำแหน่งทางวิชาการ --</option>
+            <option value="ผู้ช่วยศาสตราจารย์">ผู้ช่วยศาสตราจารย์ (ผศ.)</option>
+            <option value="รองศาสตราจารย์">รองศาสตราจารย์ (รศ.)</option>
+            <option value="ศาสตราจารย์">ศาสตราจารย์ (ศ.)</option>
+            <option value="ชำนาญการพิเศษ">ชำนาญการพิเศษ</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2 text-md-end">
+          <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill small" id="acadTrackingCountBadge">
+            แสดง 0 รายการ
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Body -->
+    <div class="table-responsive">
+      <table id="academicTrackingMasterTable" class="table table-hover align-middle mb-0" style="font-size: 0.84rem;">
+        <thead class="table-light align-middle text-nowrap">
+          <tr>
+            <th class="text-center" style="width: 60px;">PIN</th>
+            <th style="min-width: 170px;">อาจารย์ / บุคลากร</th>
+            <th style="min-width: 150px;">ตำแหน่งที่ขอ</th>
+            <th style="min-width: 160px;">สาขาวิชา / ความเชี่ยวชาญ</th>
+            <th class="text-nowrap" style="width: 110px;">วันที่ยื่นคำขอ</th>
+            <th class="text-center" style="min-width: 150px;">สถานะขั้นตอน (Pipeline)</th>
+            <th style="min-width: 160px;">คำสั่งแต่งตั้ง / มติสภาฯ</th>
+            <th class="text-center" style="width: 80px;">เอกสาร</th>
+            <th class="text-center" style="width: 100px;">การจัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="academicTrackingTableBody">
+          <tr>
+            <td colspan="9" class="text-center py-4 text-muted">
+              <i class="fa-solid fa-spinner fa-spin text-primary me-2"></i> กำลังโหลดข้อมูลคำขอตำแหน่งทางวิชาการ...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>

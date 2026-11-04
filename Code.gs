@@ -20,7 +20,7 @@ function getFiscalYearRange() {
 
 const CONFIG = {
   APP_NAME: 'PRIMIS : ระบบสารสนเทศบุคลากรกลาง (BCNSPRNW PRIMIS)',
-  APP_VERSION: 'v1.7.12',
+  APP_VERSION: 'v1.8.01',
   BUILD_DATE: '2026.11.04',
   API_URL: 'http://122.154.179.132/HR/api.php',
   API_KEY: 'HrDbKey_2026_SNC_Secure!@#',
@@ -969,6 +969,27 @@ function updateAwardApproval(id, status, reason, operatorPin) {
     approval_status: status,
     rejection_reason: reason,
     operator_role: 'hr_admin',
+    operator_pin: operatorPin
+  });
+}
+
+// -------------------------------------------------------------------------
+// ระบบประวัติและคำขอตำแหน่งทางวิชาการ (Academic Titles & Promotion Engine)
+// -------------------------------------------------------------------------
+function getAcademicPositions(staffId) {
+  const sid = staffId ? encodeURIComponent(staffId) : '';
+  return callBackendApi('get_academic_positions&staff_id=' + sid);
+}
+
+function saveAcademicPosition(payload) {
+  return callBackendApi('save_academic_position', payload);
+}
+
+function deleteAcademicPosition(id, staffId, operatorRole, operatorPin) {
+  return callBackendApi('delete_academic_position', {
+    id: id,
+    staff_id: staffId,
+    operator_role: operatorRole,
     operator_pin: operatorPin
   });
 }
