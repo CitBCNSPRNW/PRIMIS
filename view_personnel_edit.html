@@ -58,23 +58,27 @@ VIEW: ฟอร์มแก้ไขข้อมูลส่วนตัวบ�
             </button>
           </li>
           <li class="nav-item">
-            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-pos" type="button">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-pos" type="button" title="เฉพาะเจ้าหน้าที่ HR บันทึกข้อมูล (ดูได้อย่างเดียว)">
               <i class="fa-solid fa-briefcase me-1"></i> 3. ตำแหน่ง & สังกัด
+              <i class="fa-solid fa-lock text-muted ms-1 opacity-75" style="font-size: 0.68rem;" title="ดูได้อย่างเดียว (เฉพาะเจ้าหน้าที่ HR แก้ไข)"></i>
             </button>
           </li>
           <li class="nav-item">
-            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-civil" type="button">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-civil" type="button" title="เฉพาะเจ้าหน้าที่ HR บันทึกข้อมูล (ดูได้อย่างเดียว)">
               <i class="fa-solid fa-business-time me-1"></i> 4. ประวัติรับราชการ & ก.พ.7
+              <i class="fa-solid fa-lock text-muted ms-1 opacity-75" style="font-size: 0.68rem;" title="ดูได้อย่างเดียว (เฉพาะเจ้าหน้าที่ HR แก้ไข)"></i>
             </button>
           </li>
           <li class="nav-item">
-            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-academic-track" type="button">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-academic-track" type="button" title="เฉพาะเจ้าหน้าที่ HR บันทึกข้อมูล (ดูได้อย่างเดียว)">
               <i class="fa-solid fa-award me-1"></i> 5. ตำแหน่งทางวิชาการ
+              <i class="fa-solid fa-lock text-muted ms-1 opacity-75" style="font-size: 0.68rem;" title="ดูได้อย่างเดียว (เฉพาะเจ้าหน้าที่ HR แก้ไข)"></i>
             </button>
           </li>
           <li class="nav-item">
-            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-study" type="button">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-study" type="button" title="เฉพาะเจ้าหน้าที่ HR บันทึกข้อมูล (ดูได้อย่างเดียว)">
               <i class="fa-solid fa-graduation-cap me-1"></i> 6. สถานะการลาศึกษา ลาอบรม
+              <i class="fa-solid fa-lock text-muted ms-1 opacity-75" style="font-size: 0.68rem;" title="ดูได้อย่างเดียว (เฉพาะเจ้าหน้าที่ HR แก้ไข)"></i>
             </button>
           </li>
         </ul>
@@ -780,7 +784,7 @@ VIEW: ฟอร์มแก้ไขข้อมูลส่วนตัวบ�
                   </div>
                 </div>
                 <div>
-                  <button type="button" class="btn btn-sm text-white rounded-pill px-3 py-2 shadow-sm fw-semibold" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);" onclick="openAcademicPositionModal()">
+                  <button type="button" class="btn btn-sm text-white rounded-pill px-3 py-2 shadow-sm fw-semibold" id="btnOpenAcadPosModalInPane" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);" onclick="openAcademicPositionModal()">
                     <i class="fa-solid fa-plus me-1"></i>+ ยื่นคำขอ / บันทึกประวัติ
                   </button>
                 </div>

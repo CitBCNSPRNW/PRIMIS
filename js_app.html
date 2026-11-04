@@ -324,9 +324,10 @@ function enforceUiPermissions(role) {
   const isGuest = (normRole === 'guest' || !window.currentUserPin);
   window.currentUserRole = normRole;
 
-  // 1. Sidebar: หมวดการบริหารจัดการระบบ (แสดงเฉพาะ Super Admin และ HR Admin)
+  // 1. Sidebar: หมวดกำกับติดตามงานบุคคล และหมวดการจัดการระบบ (แสดงเฉพาะ Super Admin และ HR Admin)
   if (isAdmin) {
     $('#catAdminSection').removeClass('d-none');
+    $('#catSystemSection').removeClass('d-none');
     // เมนูจัดการผู้ใช้งานและสิทธิ์ สงวนสิทธิ์เฉพาะ Super Admin เท่านั้น
     if (isSuperAdmin) {
       $('#sidebarUsersNav').removeClass('d-none');
@@ -335,6 +336,7 @@ function enforceUiPermissions(role) {
     }
   } else {
     $('#catAdminSection').addClass('d-none');
+    $('#catSystemSection').addClass('d-none');
     $('#sidebarUsersNav').addClass('d-none');
   }
 

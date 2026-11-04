@@ -2438,8 +2438,18 @@ MODAL: บันทึก/แก้ไขข้อมูลตำแหน่ง
           <input type="hidden" id="acadPosId" value="0">
           <input type="hidden" id="acadPosStaffId" value="">
 
+          <!-- เลือกอาจารย์/บุคลากร (กรณี HR บันทึกแทนจากศูนย์กำกับติดตาม) -->
+          <div id="acadPosStaffSelectContainer" class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white d-none">
+            <label class="form-label small fw-bold text-dark mb-1">
+              <i class="fa-solid fa-user-plus text-primary me-1"></i>เลือกอาจารย์ / บุคลากรผู้ยื่นคำขอ <span class="text-danger">*</span>
+            </label>
+            <select id="acadPosStaffPicker" class="form-select rounded-3" onchange="onAcadPosStaffSelected(this.value)">
+              <option value="">-- ค้นหาและเลือกอาจารย์/บุคลากร (120 ท่าน) --</option>
+            </select>
+          </div>
+
           <!-- บุคลากรผู้ยื่นคำขอ -->
-          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white" id="acadPosStaffInfoCard">
             <div class="d-flex align-items-center justify-content-between">
               <div>
                 <span class="badge bg-purple-subtle text-purple border rounded-pill px-2.5 py-1 fw-bold" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;" id="acadPosStaffBadge">

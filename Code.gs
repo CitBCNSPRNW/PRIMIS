@@ -20,7 +20,7 @@ function getFiscalYearRange() {
 
 const CONFIG = {
   APP_NAME: 'PRIMIS : ระบบสารสนเทศบุคลากรกลาง (BCNSPRNW PRIMIS)',
-  APP_VERSION: 'v1.8.02',
+  APP_VERSION: 'v1.8.03',
   BUILD_DATE: '2026.11.04',
   API_URL: 'http://122.154.179.132/HR/api.php',
   API_KEY: 'HrDbKey_2026_SNC_Secure!@#',

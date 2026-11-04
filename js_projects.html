@@ -1891,6 +1891,19 @@ function openPersonnelEditInPane(pin, targetTab) {
           // โหลดตำแหน่งทางวิชาการ สำหรับ Tab 5
           loadInPaneAcademicPositions(targetPin, res.data.academic_positions);
 
+          // ควบคุมสิทธิ์การแก้ไขฟอร์ม: เจ้าของข้อมูลแก้ไขได้เฉพาะแท็บ 1 และ 2 เท่านั้น (แท็บ 3-6 HR บันทึกแทนให้)
+          const curRoleCheck = (window.currentUserRole || 'guest').toLowerCase();
+          const isHrOrAdmin = (curRoleCheck === 'super_admin' || curRoleCheck === 'hr_admin');
+          if (!isHrOrAdmin) {
+            $('#editpane-tab-pos, #editpane-tab-civil, #editpane-tab-study').find('input, select, textarea').prop('disabled', true);
+            $('#editpane-tab-pos, #editpane-tab-civil, #editpane-tab-study').find('button.btn-outline-primary, button.btn-outline-success, button.btn-outline-danger').addClass('d-none');
+            $('#btnOpenAcadPosModalInPane').addClass('d-none');
+          } else {
+            $('#editpane-tab-pos, #editpane-tab-civil, #editpane-tab-study').find('input, select, textarea').prop('disabled', false);
+            $('#editpane-tab-pos, #editpane-tab-civil, #editpane-tab-study').find('button.btn-outline-primary, button.btn-outline-success, button.btn-outline-danger').removeClass('d-none');
+            $('#btnOpenAcadPosModalInPane').removeClass('d-none');
+          }
+
           // สลับไปแท็บที่กำหนด หรือแท็บเดิมที่ค้างไว้ (Active Tab Persistence)
           const tabToActivate = targetTab || currentPersonnelEditActiveTab || '#editpane-tab-personal';
           const $targetBtn = $('#editPanePillsTab button[data-bs-target="' + tabToActivate + '"]');
@@ -5951,7 +5964,13 @@ function renderInPaneAcademicTable(records) {
   }
 
   const curRole = (window.currentUserRole || '').toLowerCase();
-  const canEdit = (curRole === 'super_admin' || curRole === 'hr_admin' || String(window.currentUserPin) === String(currentAcademicStaffPin));
+  const canEdit = (curRole === 'super_admin' || curRole === 'hr_admin');
+
+  if (canEdit) {
+    $('#btnOpenAcadPosModalInPane').removeClass('d-none');
+  } else {
+    $('#btnOpenAcadPosModalInPane').addClass('d-none');
+  }
 
   list.forEach(function(r, idx) {
     const isTop = (idx === 0);
@@ -6038,39 +6057,103 @@ function onAcadPosTitleChanged(val) {
 function onAcadPosStatusChanged(val) {
   if (val === 'appointed') {
     $('#acadPosAppointedCard').removeClass('d-none');
+  } else {
+    $('#acadPosAppointedCard').addClass('d-none');
   }
 }
 
-function openAcademicPositionModal(id) {
-  const staff = (window.allPersonnelList || []).find(p => String(p.pin || p.user_pin || p.id) === String(currentAcademicStaffPin)) || {};
+function onAcadPosStaffSelected(pin, autoFillBranch = true) {
+  if (!pin) {
+    $('#acadPosStaffInfoCard').addClass('d-none');
+    $('#acadPosStaffId').val('');
+    return;
+  }
+  currentAcademicStaffPin = String(pin).trim();
+  const staff = (window.allPersonnelList || window.masterPersonnelCache || []).find(p => String(p.pin || p.user_pin || p.id) === String(pin)) || {};
   const rawStaffName = ((staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '')).trim();
-  const nameTh = rawStaffName || ('บุคลากร #' + currentAcademicStaffPin);
-  const dept = staff.department || staff.main_group || '';
+  const nameTh = rawStaffName || ('บุคลากร #' + pin);
+  const dept = staff.department || staff.main_group || staff.position_title || '';
 
-  $('#acadPosStaffBadge').text('#' + currentAcademicStaffPin);
+  $('#acadPosStaffBadge').text('#' + pin);
   $('#acadPosStaffName').text(nameTh);
   $('#acadPosStaffDept').text(dept);
-  $('#acadPosStaffId').val(currentAcademicStaffPin);
+  $('#acadPosStaffId').val(pin);
+  $('#acadPosStaffInfoCard').removeClass('d-none');
+
+  if (autoFillBranch && !$('#acadPosBranch').val() && staff.academic_branch) {
+    $('#acadPosBranch').val(staff.academic_branch);
+  }
+}
+
+function openAcademicPositionModal(id, targetPin) {
+  if (targetPin) {
+    currentAcademicStaffPin = String(targetPin).trim();
+  }
+
+  // เตรียมรายชื่ออาจารย์/บุคลากรลงใน Dropdown Selector
+  const $picker = $('#acadPosStaffPicker');
+  $picker.empty().append('<option value="">-- ค้นหาและเลือกอาจารย์/บุคลากร (120 ท่าน) --</option>');
+  const staffList = (window.allPersonnelList || window.masterPersonnelCache || []).slice();
+  staffList.sort((a, b) => {
+    const na = (a.fname_th || a.master_fname || '').trim();
+    const nb = (b.fname_th || b.master_fname || '').trim();
+    return na.localeCompare(nb, 'th');
+  });
+  staffList.forEach(s => {
+    const sPin = String(s.pin || s.user_pin || s.id || '').trim();
+    const sName = ((s.title_th || '') + (s.fname_th || s.master_fname || '') + ' ' + (s.lname_th || s.master_lname || '')).trim();
+    const sDept = s.department || s.main_group || s.position_title || '';
+    $picker.append(`<option value="${sPin}">#${sPin} - ${sName} (${sDept})</option>`);
+  });
 
   if (!id || id === 0) {
     // โหมดสร้างคำขอใหม่
     $('#acadPosId').val('0');
     $('#acadPosTitleSelect').val('');
     $('#acadPosTitleCustom').addClass('d-none').val('');
-    $('#acadPosBranch').val(staff.academic_branch || '');
     $('#acadPosSubmissionDate').val(new Date().toISOString().slice(0, 10));
     $('#acadPosStatus').val('submitted');
+    $('#acadPosAppointedCard').addClass('d-none');
     $('#acadPosAppointedDate').val('');
     $('#acadPosOrderNumber').val('');
     $('#acadPosCouncilMeeting').val('');
     $('#acadPosDocUrl').val('');
     $('#acadPosRemarks').val('');
     $('#modalAcademicPositionLabel').text('บันทึกคำขอกำหนดตำแหน่งทางวิชาการ (ขาขึ้น)');
+
+    if (currentAcademicStaffPin) {
+      $('#acadPosStaffSelectContainer').addClass('d-none');
+      $('#acadPosStaffInfoCard').removeClass('d-none');
+      $picker.val(currentAcademicStaffPin);
+      onAcadPosStaffSelected(currentAcademicStaffPin);
+    } else {
+      // เปิดจากศูนย์ติดตาม/จัดการคำขอ: ให้ HR เลือกอาจารย์
+      $('#acadPosStaffSelectContainer').removeClass('d-none');
+      $('#acadPosStaffInfoCard').addClass('d-none');
+      $('#acadPosStaffBadge').text('#-');
+      $('#acadPosStaffName').text('กรุณาเลือกอาจารย์/บุคลากรด้านบน');
+      $('#acadPosStaffDept').text('-');
+      $('#acadPosStaffId').val('');
+      $('#acadPosBranch').val('');
+    }
   } else {
-    // โหมดแก้ไข
-    const record = (currentAcademicPositions || []).find(r => Number(r.id) === Number(id));
+    // โหมดแก้ไข/อัปเดตสถานะคำขอ
+    let record = (currentAcademicPositions || []).find(r => Number(r.id) === Number(id));
+    if (!record && Array.isArray(allAcademicTrackingRecords)) {
+      record = allAcademicTrackingRecords.find(r => Number(r.id) === Number(id));
+    }
     if (!record) return;
+
+    const rPin = String(record.staff_id || currentAcademicStaffPin || '').trim();
+    currentAcademicStaffPin = rPin;
     $('#acadPosId').val(record.id);
+
+    // ล็อคและแสดงการ์ดบุคลากรของคำขอนี้
+    $('#acadPosStaffSelectContainer').addClass('d-none');
+    $('#acadPosStaffInfoCard').removeClass('d-none');
+    $picker.val(rPin);
+    onAcadPosStaffSelected(rPin, false);
+
     const title = record.academic_title || '';
     if ($('#acadPosTitleSelect option[value="' + title + '"]').length > 0) {
       $('#acadPosTitleSelect').val(title);
@@ -6082,12 +6165,17 @@ function openAcademicPositionModal(id) {
     $('#acadPosBranch').val(record.academic_branch || '');
     $('#acadPosSubmissionDate').val(record.submission_date ? record.submission_date.substring(0, 10) : '');
     $('#acadPosStatus').val(record.status || 'submitted');
+    if (record.status === 'appointed') {
+      $('#acadPosAppointedCard').removeClass('d-none');
+    } else {
+      $('#acadPosAppointedCard').addClass('d-none');
+    }
     $('#acadPosAppointedDate').val(record.appointed_date ? record.appointed_date.substring(0, 10) : '');
     $('#acadPosOrderNumber').val(record.order_number || '');
     $('#acadPosCouncilMeeting').val(record.council_meeting_no || '');
     $('#acadPosDocUrl').val(record.doc_url || '');
     $('#acadPosRemarks').val(record.remarks || '');
-    $('#modalAcademicPositionLabel').text('แก้ไขข้อมูลคำขอตำแหน่งทางวิชาการ');
+    $('#modalAcademicPositionLabel').text('แก้ไขข้อมูล/อัปเดตสถานะคำขอตำแหน่งทางวิชาการ');
   }
 
   const myModal = new bootstrap.Modal(document.getElementById('modalAcademicPosition'));
@@ -6096,6 +6184,10 @@ function openAcademicPositionModal(id) {
 
 function saveAcademicPositionEntry() {
   const staffId = $('#acadPosStaffId').val();
+  if (!staffId) {
+    Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกอาจารย์/บุคลากรผู้ยื่นคำขอ', 'warning');
+    return;
+  }
   let title = $('#acadPosTitleSelect').val();
   if (title === 'custom') {
     title = $('#acadPosTitleCustom').val().trim();
@@ -6137,7 +6229,12 @@ function saveAcademicPositionEntry() {
         const modalEl = document.getElementById('modalAcademicPosition');
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
         if (modalInstance) modalInstance.hide();
-        loadInPaneAcademicPositions(staffId);
+        if (staffId) {
+          loadInPaneAcademicPositions(staffId);
+        }
+        if (typeof loadAllAcademicTracking === 'function') {
+          loadAllAcademicTracking(true);
+        }
       } else {
         Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึก', 'error');
       }
@@ -6336,8 +6433,11 @@ function renderAcademicTrackingTable(records) {
         <td class="text-center">${docLink}</td>
         <td class="text-center text-nowrap">
           <div class="btn-group btn-group-sm">
-            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPersonnelEditInPane('${pin}', '#editpane-tab-academic-track')" title="เปิดดูประวัติและแก้ไขคำขอของท่านนี้">
-              <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>จัดการ
+            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-2.5" onclick="openAcademicPositionModal(${r.id}, '${pin}')" title="แก้ไขหรืออัปเดตสถานะคำขอนี้">
+              <i class="fa-solid fa-pen-to-square me-1"></i>แก้ไขสถานะ
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle ms-1" style="width: 28px; height: 28px; padding: 0; line-height: 26px;" onclick="openPersonnelInPaneDetail('${pin}')" title="เปิดดูทะเบียนประวัติ ก.พ.7 บุคลากรท่านนี้">
+              <i class="fa-solid fa-id-card"></i>
             </button>
           </div>
         </td>
