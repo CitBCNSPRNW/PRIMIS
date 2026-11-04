@@ -25,6 +25,181 @@ VIEW: รายละเอียดประวัติบุคลากร�
     </div>
   </div>
 
+  <!-- 1.5 กล่องตรวจสอบและรับรองความถูกต้องของข้อมูล (Staff Verification & Attestation Hub) -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" id="inPaneVerificationHubCard" style="background: #ffffff; border-left: 6px solid #0284c7 !important;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge rounded-pill px-3 py-1 fw-bold bg-primary-subtle text-primary border">
+              <i class="fa-solid fa-clipboard-check me-1"></i> การรับรองความถูกต้องของข้อมูล (ก.พ.7)
+            </span>
+            <span id="verifOverallBadge" class="badge rounded-pill px-3 py-1 fw-bold bg-secondary text-white">
+              รอดำเนินการ
+            </span>
+          </div>
+          <h5 class="fw-bold mb-1 text-dark">
+            <i class="fa-solid fa-user-check text-primary me-2"></i>การตรวจสอบและรับรองความถูกต้องของข้อมูลส่วนบุคคล
+          </h5>
+          <p class="text-muted small mb-0">
+            ขอความร่วมมือบุคลากรตรวจสอบความถูกต้องของข้อมูลแต่ละส่วน หากถูกต้องให้กด <b>"ยืนยันข้อมูลถูกต้อง"</b> หรือหากพบจุดผิดพลาดสามารถกด <b>"แจ้งขอแก้ไข"</b> เพื่อส่งเรื่องถึงฝ่าย HR
+          </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-bold shadow-xs text-white" id="btnConfirmAllVerif" onclick="confirmAllVerificationSections()">
+            <i class="fa-solid fa-circle-check me-1.5"></i> รับรองว่าข้อมูลทุกส่วนถูกต้อง
+          </button>
+        </div>
+      </div>
+
+      <!-- Overall Progress Bar -->
+      <div class="bg-light p-3 rounded-4 mb-3 border">
+        <div class="d-flex justify-content-between align-items-center mb-1 small fw-semibold text-dark">
+          <span>ความคืบหน้าการรับรองข้อมูล: <span id="verifProgressText" class="text-primary fw-bold">0 / 5 ส่วน (0%)</span></span>
+          <span id="verifLastUpdateText" class="text-muted" style="font-size: 0.76rem;">-</span>
+        </div>
+        <div class="progress" style="height: 10px; border-radius: 6px; background-color: #e2e8f0;">
+          <div id="verifProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      </div>
+
+      <!-- 5 Verification Section Rows -->
+      <div class="row g-2" id="verifSectionsContainer">
+        <!-- 1. ข้อมูลตัวตนและการติดต่อ -->
+        <div class="col-12">
+          <div class="p-3 rounded-3 border bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="verifRow_basic_info">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 40px; height: 40px; min-width: 40px;">
+                <i class="fa-solid fa-address-card fs-5"></i>
+              </div>
+              <div>
+                <div class="fw-bold text-dark" style="font-size: 0.88rem;">1. ข้อมูลส่วนบุคคล &amp; ที่อยู่การติดต่อ</div>
+                <div class="small text-muted" style="font-size: 0.76rem;">ชื่อ-นามสกุล, วันเกิด, สัญชาติ, ศาสนา, ที่อยู่ตามทะเบียนบ้าน/ปัจจุบัน, เบอร์โทร, อีเมล</div>
+                <div class="mt-1" id="verifStatusBadge_basic_info">
+                  <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการ</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1.5 flex-wrap" id="verifActions_basic_info">
+              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="submitVerificationAction('basic_info', 'verified')">
+                <i class="fa-solid fa-check me-1"></i> ยืนยันข้อมูลถูกต้อง
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="openReportIssueModal('basic_info', '1. ข้อมูลส่วนบุคคล & ที่อยู่การติดต่อ')">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งขอแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. ตำแหน่ง สังกัด & ประวัติรับราชการ -->
+        <div class="col-12">
+          <div class="p-3 rounded-3 border bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="verifRow_career_service">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 40px; height: 40px; min-width: 40px;">
+                <i class="fa-solid fa-briefcase fs-5"></i>
+              </div>
+              <div>
+                <div class="fw-bold text-dark" style="font-size: 0.88rem;">2. ตำแหน่ง สังกัด &amp; ประวัติรับราชการ</div>
+                <div class="small text-muted" style="font-size: 0.76rem;">ประเภทบุคลากร, สายงาน, กลุ่มงาน, เลขที่ตำแหน่ง, ตำแหน่งบริหาร, วันเริ่มงาน, วันบรรจุราชการ</div>
+                <div class="mt-1" id="verifStatusBadge_career_service">
+                  <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการ</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1.5 flex-wrap" id="verifActions_career_service">
+              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="submitVerificationAction('career_service', 'verified')">
+                <i class="fa-solid fa-check me-1"></i> ยืนยันข้อมูลถูกต้อง
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="openReportIssueModal('career_service', '2. ตำแหน่ง สังกัด & ประวัติรับราชการ')">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งขอแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. ประวัติการศึกษา & คุณวุฒิ -->
+        <div class="col-12">
+          <div class="p-3 rounded-3 border bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="verifRow_education">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 40px; height: 40px; min-width: 40px;">
+                <i class="fa-solid fa-graduation-cap fs-5"></i>
+              </div>
+              <div>
+                <div class="fw-bold text-dark" style="font-size: 0.88rem;">3. ประวัติการศึกษา &amp; คุณวุฒิ</div>
+                <div class="small text-muted" style="font-size: 0.76rem;">วุฒิการศึกษาระดับปริญญาตรี, ปริญญาโท, ปริญญาเอก, สาขาวิชา, สถาบันการศึกษา, วุฒิสูงสุด</div>
+                <div class="mt-1" id="verifStatusBadge_education">
+                  <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการ</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1.5 flex-wrap" id="verifActions_education">
+              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="submitVerificationAction('education', 'verified')">
+                <i class="fa-solid fa-check me-1"></i> ยืนยันข้อมูลถูกต้อง
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="openReportIssueModal('education', '3. ประวัติการศึกษา & คุณวุฒิ')">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งขอแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. ใบอนุญาตวิชาชีพ & บัตรราชการ -->
+        <div class="col-12">
+          <div class="p-3 rounded-3 border bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="verifRow_license">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 40px; height: 40px; min-width: 40px;">
+                <i class="fa-solid fa-id-card-clip fs-5"></i>
+              </div>
+              <div>
+                <div class="fw-bold text-dark" style="font-size: 0.88rem;">4. ใบอนุญาตประกอบวิชาชีพพยาบาล &amp; บัตรราชการ</div>
+                <div class="small text-muted" style="font-size: 0.76rem;">เลขที่ใบอนุญาตประกอบวิชาชีพฯ, วันที่ได้รับ, วันหมดอายุบัตรประจำตัวข้าราชการ/พนักงาน</div>
+                <div class="mt-1" id="verifStatusBadge_license">
+                  <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการ</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1.5 flex-wrap" id="verifActions_license">
+              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="submitVerificationAction('license', 'verified')">
+                <i class="fa-solid fa-check me-1"></i> ยืนยันข้อมูลถูกต้อง
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="openReportIssueModal('license', '4. ใบอนุญาตประกอบวิชาชีพ & บัตรราชการ')">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งขอแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. เครื่องราชอิสริยาภรณ์ & เหรียญตรา -->
+        <div class="col-12">
+          <div class="p-3 rounded-3 border bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="verifRow_insignia">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 40px; height: 40px; min-width: 40px;">
+                <i class="fa-solid fa-medal fs-5"></i>
+              </div>
+              <div>
+                <div class="fw-bold text-dark" style="font-size: 0.88rem;">5. เครื่องราชอิสริยาภรณ์ &amp; เหรียญจักรพรรดิมาลา (ร.จ.พ.)</div>
+                <div class="small text-muted" style="font-size: 0.76rem;">ชั้นตราเครื่องราชฯ สูงสุดที่ได้รับ, ปี พ.ศ. ที่ได้รับ, เล่ม/ตอน/หน้า ราชกิจจานุเบกษา</div>
+                <div class="mt-1" id="verifStatusBadge_insignia">
+                  <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการ</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1.5 flex-wrap" id="verifActions_insignia">
+              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="submitVerificationAction('insignia', 'verified')">
+                <i class="fa-solid fa-check me-1"></i> ยืนยันข้อมูลถูกต้อง
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold" onclick="openReportIssueModal('insignia', '5. เครื่องราชอิสริยาภรณ์ & เหรียญตรา')">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งขอแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- 2. ส่วนที่ 1: รายละเอียดประวัติส่วนบุคคล (Profile Hero Section) -->
   <!-- 🔔 NOTICE FOR FUTURE SCHEMA UPDATES: 
        ส่วนนี้คือ 'รายละเอียดประวัติส่วนบุคคล' หากในอนาคตมีการเพิ่มคอลัมน์ใหม่ในฐานข้อมูล 

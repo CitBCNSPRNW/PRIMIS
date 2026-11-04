@@ -2580,5 +2580,90 @@ MODAL: บันทึก/แก้ไขข้อมูลตำแหน่ง
   </div>
 </div>
 
+<!-- ====================================================
+     Modal: แจ้งข้อมูลไม่ถูกต้อง / ขอแก้ไขข้อมูล (Report Verification Issue Modal)
+     สำหรับบุคลากรส่งเรื่องถึงฝ่าย HR
+==================================================== -->
+<div class="modal fade" id="modalReportVerificationIssue" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom p-3" style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 36px; height: 36px; background: #e11d48;">
+            <i class="fa-solid fa-triangle-exclamation fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0">แจ้งข้อมูลไม่ถูกต้อง / ขอแก้ไขข้อมูล</h5>
+            <div class="text-muted small" style="font-size: 0.72rem;">ระบบส่งเรื่องแจ้งเตือนตรงไปยังฝ่ายบริหารงานบุคคล (HR)</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="verifIssueSectionKey" value="">
+        <input type="hidden" id="verifIssueStaffPin" value="">
+        
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark mb-1">หมวดข้อมูลที่ต้องการแก้ไข:</label>
+          <div class="p-2.5 rounded-3 bg-light border fw-semibold text-primary" id="verifIssueSectionNameDisplay">
+            -
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark mb-1">
+            ระบุรายละเอียดจุดที่ต้องการให้แก้ไข *
+          </label>
+          <textarea id="verifIssueDetailText" class="form-control rounded-3" rows="4" placeholder="เช่น ขอแก้ไขวุฒิ ป.เอก จบปี พ.ศ. 2565 ไม่ใช่ 2564 ค่ะ, หรือ ที่อยู่ปัจจุบันย้ายไปเลขที่..."></textarea>
+          <div class="form-text text-muted small" style="font-size: 0.74rem;">
+            <i class="fa-solid fa-circle-info me-1 text-primary"></i>ฝ่ายทรัพยากรบุคคลจะได้รับข้อความนี้ และดำเนินการตรวจสอบปรับปรุงทะเบียนประวัติให้ท่านต่อไป
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+          <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm" onclick="submitReportIssueForm()">
+            <i class="fa-solid fa-paper-plane me-1"></i> ส่งเรื่องถึงฝ่ายบุคคล
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     Modal: ดูรายละเอียดรายการที่แจ้งขอแก้ไข (HR View & Resolve Issue Modal)
+     สำหรับ HR เปิดดูข้อความที่แจ้งเข้ามา และกดยืนยันการแก้ไข
+==================================================== -->
+<div class="modal fade" id="modalViewVerificationIssues" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom p-3" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 36px; height: 36px; background: #059669;">
+            <i class="fa-solid fa-clipboard-check fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0" id="viewVerifStaffNameHeader">รายละเอียดการตรวจสอบข้อมูลบุคลากร</h5>
+            <div class="text-muted small" id="viewVerifStaffPinSubheader" style="font-size: 0.72rem;">รหัส PIN: # -</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="viewVerifIssuesListContainer">
+          <!-- Dynamic rendering of issues -->
+        </div>
+      </div>
+      <div class="modal-footer bg-white border-top p-3 d-flex justify-content-between">
+        <button type="button" class="btn btn-warning rounded-pill px-3 fw-semibold text-white" id="btnGoToEditKp7FromVerif" onclick="openKp7EditFromVerifModal()">
+          <i class="fa-solid fa-pen-to-square me-1"></i> เปิดแก้ไขประวัติ ก.พ.7 บุคคลนี้
+        </button>
+        <button type="button" class="btn btn-light border px-4 rounded-pill" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 

@@ -1,0 +1,737 @@
+<script>
+/**
+ * =========================================================================
+ * CLIENT SCRIPT: ระบบตรวจสอบและยืนยันข้อมูลบุคลากร (Staff Verification Module)
+ * รองรับทั้งฝั่งบุคลากรทั่วไป (Attestation) และฝ่ายบริหารงานบุคคล HR (Monitoring)
+ * =========================================================================
+ */
+
+// โครงสร้างหมวดหมู่ข้อมูลหลัก 5 หมวดที่ต้องการให้ยืนยัน
+window.VERIFICATION_SECTIONS = [
+  { key: 'basic_info', name: '1. ข้อมูลส่วนบุคคล & ที่อยู่การติดต่อ', icon: 'fa-address-card' },
+  { key: 'career_service', name: '2. ตำแหน่ง สังกัด & ประวัติรับราชการ', icon: 'fa-briefcase' },
+  { key: 'education', name: '3. ประวัติการศึกษา & คุณวุฒิ', icon: 'fa-graduation-cap' },
+  { key: 'license', name: '4. ใบอนุญาตวิชาชีพ & บัตรราชการ', icon: 'fa-id-card-clip' },
+  { key: 'insignia', name: '5. เครื่องราชอิสริยาภรณ์ & เหรียญตรา', icon: 'fa-medal' }
+];
+
+// แคชข้อมูลในระดับเซสชัน
+window.currentViewingVerifData = null;
+window.currentViewingVerifPin = null;
+window.allVerifMonitorList = [];
+window.verifDataTable = null;
+
+// =========================================================================
+// 1. ส่วนงานฝั่งบุคลากร: การแสดงผลและกดยืนยันในหน้าโปรไฟล์ (User In-Pane Detail)
+// =========================================================================
+
+/**
+ * โหลดข้อมูลสถานะการตรวจสอบของบุคลากรรายนั้น (เรียกเมื่อเปิดดู ก.พ.7 In-Pane)
+ */
+function loadPersonnelVerificationData(pin) {
+  if (!pin) return;
+  window.currentViewingVerifPin = pin;
+
+  // ตรวจสอบว่าเป็นโปรไฟล์ของตนเองหรือไม่ หรือเป็นแอดมิน
+  const myPin = window.currentUserPin;
+  const myRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isOwner = (myPin && String(myPin) === String(pin));
+  const isAdmin = (myRole === 'super_admin' || myRole === 'hr_admin');
+
+  // แสดงการ์ดรับรองข้อมูล
+  $('#inPaneVerificationHubCard').removeClass('d-none');
+
+  // ปรับการแสดงปุ่มกดยืนยัน: เจ้าของประวัติกดได้ หรือแอดมินทดสอบได้
+  if (!isOwner && !isAdmin) {
+    $('#btnConfirmAllVerif').addClass('d-none');
+    $('#verifSectionsContainer .btn').addClass('d-none');
+  } else {
+    $('#btnConfirmAllVerif').removeClass('d-none');
+    $('#verifSectionsContainer .btn').removeClass('d-none');
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.status === 'success') {
+          window.currentViewingVerifData = res.data || {};
+          renderInPaneVerificationHub(res.data || {});
+        } else {
+          renderInPaneVerificationHub({});
+        }
+      })
+      .withFailureHandler(function(err) {
+        console.error('Failed to load verification status:', err);
+        renderInPaneVerificationHub({});
+      })
+      .getPersonnelVerificationData(pin);
+  } else {
+    renderInPaneVerificationHub({});
+  }
+}
+
+/**
+ * เรนเดอร์สถานะในกล่องรับรองข้อมูล (Progress Bar & Badges)
+ */
+function renderInPaneVerificationHub(verifData) {
+  const sections = window.VERIFICATION_SECTIONS;
+  let verifiedCount = 0;
+  let hasIssue = false;
+  let lastUpdatedAt = null;
+
+  sections.forEach(function(sec) {
+    const item = verifData[sec.key];
+    const status = item ? item.status : 'pending';
+    const badgeContainer = $('#verifStatusBadge_' + sec.key);
+    const actionContainer = $('#verifActions_' + sec.key);
+    const rowContainer = $('#verifRow_' + sec.key);
+
+    rowContainer.removeClass('border-success border-danger border-warning bg-success-subtle bg-danger-subtle');
+
+    if (status === 'verified') {
+      verifiedCount++;
+      const timeStr = item.verified_at ? formatDateThaiShort(item.verified_at) : 'ตรวจสอบแล้ว';
+      badgeContainer.html('<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-0.5 fw-bold"><i class="fa-solid fa-circle-check me-1"></i>รับรองข้อมูลถูกต้องแล้ว (' + timeStr + ')</span>');
+      rowContainer.addClass('border-success');
+      
+      // ปุ่มให้เปลี่ยนใจแจ้งแก้ไขได้
+      actionContainer.html(
+        '<button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2.5 py-0.5 text-muted" style="font-size: 0.72rem;" onclick="openReportIssueModal(\'' + sec.key + '\', \'' + sec.name + '\')">' +
+        '<i class="fa-solid fa-pen me-1"></i> แจ้งแก้ไข' +
+        '</button>'
+      );
+    } else if (status === 'issue_reported') {
+      hasIssue = true;
+      const issueText = item.issue_detail ? escapeHtml(item.issue_detail) : 'มีจุดที่ต้องการให้แก้ไข';
+      badgeContainer.html(
+        '<div class="mt-1">' +
+          '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-0.5 fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i>แจ้งขอแก้ไขแล้ว (ส่งเรื่องถึง HR)</span>' +
+          '<div class="small text-danger fw-semibold mt-1 p-2 rounded bg-danger bg-opacity-10" style="font-size: 0.74rem;">' +
+            '<i class="fa-solid fa-comment-dots me-1"></i>' + issueText +
+          '</div>' +
+        '</div>'
+      );
+      rowContainer.addClass('border-danger');
+
+      // ปุ่มแจ้งแก้ไขเพิ่มเติม หรือเปลี่ยนกลับเป็นยืนยัน
+      actionContainer.html(
+        '<button type="button" class="btn btn-outline-success btn-sm rounded-pill px-2.5 py-0.5 fw-semibold" style="font-size: 0.74rem;" onclick="submitVerificationAction(\'' + sec.key + '\', \'verified\')">' +
+        '<i class="fa-solid fa-check me-1"></i> ข้อมูลถูกต้องแล้ว' +
+        '</button>'
+      );
+    } else {
+      // pending
+      badgeContainer.html('<span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการตรวจสอบ</span>');
+      actionContainer.html(
+        '<button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold shadow-2xs" onclick="submitVerificationAction(\'' + sec.key + '\', \'verified\')">' +
+          '<i class="fa-solid fa-check me-1"></i> ยืนยันข้อมูลถูกต้อง' +
+        '</button>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold shadow-2xs" onclick="openReportIssueModal(\'' + sec.key + '\', \'' + sec.name + '\')">' +
+          '<i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งขอแก้ไข' +
+        '</button>'
+      );
+    }
+
+    if (item && item.updated_at) {
+      if (!lastUpdatedAt || new Date(item.updated_at) > new Date(lastUpdatedAt)) {
+        lastUpdatedAt = item.updated_at;
+      }
+    }
+  });
+
+  // คำนวณเปอร์เซ็นต์ความคืบหน้า
+  const total = sections.length;
+  const pct = Math.round((verifiedCount / total) * 100);
+
+  $('#verifProgressText').text(verifiedCount + ' / ' + total + ' ส่วน (' + pct + '%)');
+  $('#verifProgressBar').css('width', pct + '%').attr('aria-valuenow', pct);
+
+  if (pct === 100) {
+    $('#verifProgressBar').removeClass('bg-primary bg-warning').addClass('bg-success');
+    $('#verifOverallBadge').removeClass('bg-secondary bg-warning bg-danger').addClass('bg-success').html('<i class="fa-solid fa-check-double me-1"></i>รับรองครบ 100% แล้ว');
+    $('#btnConfirmAllVerif').addClass('d-none');
+  } else if (hasIssue) {
+    $('#verifProgressBar').removeClass('bg-primary bg-success').addClass('bg-danger');
+    $('#verifOverallBadge').removeClass('bg-secondary bg-success bg-warning').addClass('bg-danger').html('<i class="fa-solid fa-bell me-1"></i>มีรายการแจ้งแก้ไข');
+    $('#btnConfirmAllVerif').removeClass('d-none');
+  } else if (verifiedCount > 0) {
+    $('#verifProgressBar').removeClass('bg-primary bg-success bg-danger').addClass('bg-warning');
+    $('#verifOverallBadge').removeClass('bg-secondary bg-success bg-danger').addClass('bg-warning text-dark').html('<i class="fa-solid fa-hourglass-half me-1"></i>รับรองบางส่วน (' + pct + '%)');
+    $('#btnConfirmAllVerif').removeClass('d-none');
+  } else {
+    $('#verifProgressBar').removeClass('bg-warning bg-success bg-danger').addClass('bg-primary');
+    $('#verifOverallBadge').removeClass('bg-warning bg-success bg-danger').addClass('bg-secondary text-white').html('⏳ รอดำเนินการ');
+    $('#btnConfirmAllVerif').removeClass('d-none');
+  }
+
+  if (lastUpdatedAt) {
+    $('#verifLastUpdateText').text('อัปเดตล่าสุด: ' + formatDateThaiShort(lastUpdatedAt));
+  } else {
+    $('#verifLastUpdateText').text('ยังไม่มีประวัติการรับรอง');
+  }
+}
+
+/**
+ * ส่งคำขอยืนยันความถูกต้องในหมวดนั้นๆ
+ */
+function submitVerificationAction(sectionKey, status) {
+  const pin = window.currentViewingVerifPin || window.currentUserPin;
+  if (!pin) {
+    Swal.fire({ icon: 'warning', title: 'ไม่พบข้อมูลบุคลากร', text: 'กรุณาเข้าสู่ระบบก่อนดำเนินการค่ะ' });
+    return;
+  }
+
+  showSystemLoading('กำลังบันทึกการรับรองข้อมูล...', 'ระบบกำลังบันทึกสถานะลงฐานข้อมูล cit_mis_db');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        hideSystemLoading();
+        if (res && res.status === 'success') {
+          Swal.fire({
+            icon: 'success',
+            title: '✅ รับรองข้อมูลสำเร็จ',
+            text: 'ระบบได้บันทึกการรับรองความถูกต้องของหมวดนี้เรียบร้อยแล้วค่ะ',
+            timer: 1600,
+            showConfirmButton: false
+          });
+          loadPersonnelVerificationData(pin);
+        } else {
+          Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: (res ? res.message : 'ไม่สามารถบันทึกข้อมูลได้') });
+        }
+      })
+      .withFailureHandler(function(err) {
+        hideSystemLoading();
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ', text: String(err) });
+      })
+      .savePersonnelVerification(pin, sectionKey, status, '');
+  } else {
+    hideSystemLoading();
+    Swal.fire({ icon: 'success', title: 'จำลองการบันทึกสำเร็จ', timer: 1200, showConfirmButton: false });
+  }
+}
+
+/**
+ * เปิด Modal สำหรับแจ้งขอแก้ไขข้อมูล
+ */
+function openReportIssueModal(sectionKey, sectionName) {
+  const pin = window.currentViewingVerifPin || window.currentUserPin;
+  $('#verifIssueSectionKey').val(sectionKey);
+  $('#verifIssueStaffPin').val(pin);
+  $('#verifIssueSectionNameDisplay').text(sectionName);
+  $('#verifIssueDetailText').val('');
+
+  const modal = new bootstrap.Modal(document.getElementById('modalReportVerificationIssue'));
+  modal.show();
+}
+
+/**
+ * ส่งฟอร์มแจ้งขอแก้ไขข้อมูล
+ */
+function submitReportIssueForm() {
+  const pin = $('#verifIssueStaffPin').val();
+  const sectionKey = $('#verifIssueSectionKey').val();
+  const detail = $('#verifIssueDetailText').val().trim();
+
+  if (!detail) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'กรุณาระบุรายละเอียด',
+      text: 'กรุณากรอกข้อความระบุจุดที่ต้องการให้ฝ่ายบุคคลปรับปรุงแก้ไขค่ะ',
+      confirmButtonColor: '#e11d48'
+    });
+    return;
+  }
+
+  // ปิด Modal
+  const modalElem = document.getElementById('modalReportVerificationIssue');
+  const modal = bootstrap.Modal.getInstance(modalElem);
+  if (modal) modal.hide();
+
+  showSystemLoading('กำลังส่งเรื่องถึงฝ่ายบุคคล...', 'ระบบกำลังบันทึกข้อความแจ้งแก้ไขของท่าน');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        hideSystemLoading();
+        if (res && res.status === 'success') {
+          Swal.fire({
+            icon: 'success',
+            title: '📨 ส่งเรื่องเรียบร้อยแล้ว',
+            text: 'ฝ่ายทรัพยากรบุคคลได้รับเรื่องแจ้งแก้ไขของท่านแล้ว จะดำเนินการตรวจสอบและปรับปรุงให้ต่อไปค่ะ',
+            confirmButtonColor: '#1d4ed8'
+          });
+          loadPersonnelVerificationData(pin);
+        } else {
+          Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: (res ? res.message : 'ไม่สามารถส่งเรื่องได้') });
+        }
+      })
+      .withFailureHandler(function(err) {
+        hideSystemLoading();
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ', text: String(err) });
+      })
+      .savePersonnelVerification(pin, sectionKey, 'issue_reported', detail);
+  } else {
+    hideSystemLoading();
+    Swal.fire({ icon: 'success', title: 'จำลองการส่งเรื่องสำเร็จ' });
+  }
+}
+
+/**
+ * รับรองว่าข้อมูลทุกส่วนถูกต้อง (Confirm All)
+ */
+function confirmAllVerificationSections() {
+  const pin = window.currentViewingVerifPin || window.currentUserPin;
+  if (!pin) return;
+
+  Swal.fire({
+    title: '🌟 รับรองความถูกต้องครบทุกส่วน?',
+    html: 'ท่านได้ตรวจสอบข้อมูล ก.พ.7 ครบทั้ง 5 หมวด และยืนยันว่าข้อมูลถูกต้องสมบูรณ์ใช่หรือไม่คะ?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: '<i class="fa-solid fa-circle-check me-1"></i> ยืนยันข้อมูลถูกต้องทั้งหมด',
+    cancelButtonText: 'ตรวจสอบก่อน',
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#64748b'
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      showSystemLoading('กำลังบันทึกการรับรองข้อมูล...', 'ระบบกำลังบันทึกการยืนยันครบทุกส่วนลงฐานข้อมูล');
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            hideSystemLoading();
+            if (res && res.status === 'success') {
+              Swal.fire({
+                icon: 'success',
+                title: '🎉 รับรองข้อมูลครบ 100% สำเร็จ',
+                text: 'ขอบพระคุณท่านที่ให้ความร่วมมือในการตรวจสอบความถูกต้องของข้อมูลประวัติ ก.พ.7 ค่ะ',
+                confirmButtonColor: '#10b981'
+              });
+              loadPersonnelVerificationData(pin);
+            } else {
+              Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: (res ? res.message : 'ไม่สามารถบันทึกได้') });
+            }
+          })
+          .withFailureHandler(function(err) {
+            hideSystemLoading();
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: String(err) });
+          })
+          .confirmAllPersonnelVerification(pin);
+      } else {
+        hideSystemLoading();
+        Swal.fire({ icon: 'success', title: 'จำลองการรับรองครบสำเร็จ' });
+      }
+    }
+  });
+}
+
+
+// =========================================================================
+// 2. ส่วนงานฝั่ง HR: ศูนย์กำกับติดตามการยืนยันข้อมูล (HR Verification Monitor)
+// =========================================================================
+
+/**
+ * โหลดข้อมูลหน้าศูนย์กำกับติดตามการยืนยันข้อมูลบุคลากร
+ */
+function loadVerificationMonitor(forceReload) {
+  showSystemLoading('กำลังโหลดข้อมูลติดตามการยืนยัน...', 'ระบบกำลังประมวลผลสถานะความสมบูรณ์ของบุคลากรทั้งวิทยาลัย');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        hideSystemLoading();
+        if (res && res.status === 'success') {
+          window.allVerifMonitorList = res.data || [];
+          renderVerificationKPIStats(res.summary || {});
+          renderVerificationMonitorTable(window.allVerifMonitorList);
+        } else {
+          $('#verificationMonitorTbody').html('<tr><td colspan="10" class="text-center py-4 text-danger">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>');
+        }
+      })
+      .withFailureHandler(function(err) {
+        hideSystemLoading();
+        console.error('loadVerificationMonitor error:', err);
+        $('#verificationMonitorTbody').html('<tr><td colspan="10" class="text-center py-4 text-danger">การเชื่อมต่อผิดพลาด: ' + escapeHtml(String(err)) + '</td></tr>');
+      })
+      .getVerificationMonitorList();
+  } else {
+    hideSystemLoading();
+    $('#verificationMonitorTbody').html('<tr><td colspan="10" class="text-center py-4 text-muted">โหมด Offline / ไม่พบฟังก์ชันเซิร์ฟเวอร์</td></tr>');
+  }
+}
+
+/**
+ * เรนเดอร์การ์ดสถิติ 5 ใบด้านบน
+ */
+function renderVerificationKPIStats(summary) {
+  $('#statVerifTotal').text(summary.total || 0);
+  $('#statVerifComplete').text(summary.complete || 0);
+  $('#statVerifPartial').text(summary.partial || 0);
+  $('#statVerifNone').text(summary.none || 0);
+  $('#statVerifIssues').text(summary.issues || 0);
+}
+
+/**
+ * เรนเดอร์ตาราง Universal DataTable ของการยืนยันข้อมูล
+ */
+function renderVerificationMonitorTable(list) {
+  const tbody = $('#verificationMonitorTbody');
+  tbody.empty();
+
+  if (!list || list.length === 0) {
+    tbody.html('<tr><td colspan="10" class="text-center py-5 text-muted">ไม่พบข้อมูลบุคลากรตามเงื่อนไขที่เลือก</td></tr>');
+    return;
+  }
+
+  list.forEach(function(item, idx) {
+    const pin = item.pin || '-';
+    const name = item.name_th || item.name || '-';
+    const pos = item.position_name || item.position || '-';
+    const dept = item.department || item.group_name || '-';
+    const jobLine = item.job_line || '-';
+    const avatar = formatStaffPhotoUrl(item.photo_url || item.avatar);
+
+    // สถานะรายส่วน 5 หมวด
+    const badgeBasic = renderSectionStatusPill(item.basic_info);
+    const badgeCareer = renderSectionStatusPill(item.career_service);
+    const badgeEdu = renderSectionStatusPill(item.education);
+    const badgeLic = renderSectionStatusPill(item.license);
+    const badgeInsignia = renderSectionStatusPill(item.insignia);
+
+    // ความสมบูรณ์ %
+    const pct = item.completion_pct || 0;
+    let barColor = 'bg-primary';
+    if (pct === 100) barColor = 'bg-success';
+    else if (item.has_issue) barColor = 'bg-danger';
+    else if (pct > 0) barColor = 'bg-warning';
+
+    const progressHtml = 
+      '<div class="d-flex align-items-center gap-1.5">' +
+        '<div class="progress flex-grow-1" style="height: 6px; min-width: 60px;">' +
+          '<div class="progress-bar ' + barColor + '" role="progressbar" style="width: ' + pct + '%;"></div>' +
+        '</div>' +
+        '<span class="fw-bold small" style="font-size: 0.76rem; min-width: 32px;">' + pct + '%</span>' +
+      '</div>';
+
+    // วันที่ยืนยันล่าสุด
+    const lastDate = item.last_verified_at ? formatDateThaiShort(item.last_verified_at) : '<span class="text-muted">-</span>';
+
+    // การจัดการ
+    let actionBtns = '<div class="d-flex align-items-center justify-content-center gap-1">';
+    
+    // ถ้ามีแจ้งขอแก้ไข จะมีปุ่มสีแดงกะพริบเด่นชัด
+    if (item.has_issue) {
+      actionBtns += 
+        '<button type="button" class="btn btn-sm btn-danger rounded-pill px-2.5 py-1 shadow-xs fw-semibold" style="font-size: 0.74rem;" onclick="openViewVerifIssuesModal(\'' + pin + '\')">' +
+          '<i class="fa-solid fa-bell me-1"></i> ดูข้อแก้ไข' +
+        '</button>';
+    } else {
+      actionBtns += 
+        '<button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2 py-1" style="font-size: 0.74rem;" onclick="openViewVerifIssuesModal(\'' + pin + '\')" title="ดูรายละเอียดสถานะ">' +
+          '<i class="fa-solid fa-eye"></i>' +
+        '</button>';
+    }
+
+    // ปุ่มเปิดไปหน้าแก้ ก.พ.7 ของบุคคลนั้น
+    actionBtns += 
+      '<button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1 text-dark" style="font-size: 0.74rem;" onclick="openPersonnelEditInPane(\'' + pin + '\')" title="เปิดแก้ไข ก.พ.7">' +
+        '<i class="fa-solid fa-user-pen"></i>' +
+      '</button>';
+
+    actionBtns += '</div>';
+
+    const tr = $(
+      '<tr>' +
+        '<td class="ps-3 text-center text-muted small">' + (idx + 1) + '</td>' +
+        '<td>' +
+          '<div class="d-flex align-items-center gap-2">' +
+            '<img src="' + avatar + '" class="rounded-circle border" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.onerror=null;this.src=window.DEFAULT_STAFF_AVATAR;">' +
+            '<div>' +
+              '<div class="fw-bold text-dark text-nowrap">' + escapeHtml(name) + '</div>' +
+              '<div class="small text-muted" style="font-size: 0.72rem;">' +
+                '<span class="badge bg-light text-primary border rounded-pill px-2 me-1">#' + escapeHtml(pin) + '</span>' +
+                escapeHtml(pos) + ' (' + escapeHtml(jobLine) + ')' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</td>' +
+        '<td class="text-center">' + badgeBasic + '</td>' +
+        '<td class="text-center">' + badgeCareer + '</td>' +
+        '<td class="text-center">' + badgeEdu + '</td>' +
+        '<td class="text-center">' + badgeLic + '</td>' +
+        '<td class="text-center">' + badgeInsignia + '</td>' +
+        '<td class="text-center">' + progressHtml + '</td>' +
+        '<td class="text-center small text-nowrap">' + lastDate + '</td>' +
+        '<td class="text-center pe-3">' + actionBtns + '</td>' +
+      '</tr>'
+    );
+
+    tbody.append(tr);
+  });
+
+  // Init DataTables หากยังไม่ได้เริ่ม
+  if ($.fn.DataTable.isDataTable('#verificationMonitorTable')) {
+    $('#verificationMonitorTable').DataTable().destroy();
+  }
+
+  window.verifDataTable = $('#verificationMonitorTable').DataTable({
+    pageLength: 10,
+    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
+    ordering: false,
+    language: {
+      search: 'ค้นหาด่วน:',
+      lengthMenu: 'แสดง _MENU_ แถวต่อหน้า',
+      info: 'แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ คน',
+      infoEmpty: 'ไม่มีข้อมูล',
+      zeroRecords: 'ไม่พบบุคลากรที่ตรงกับคำค้นหา',
+      paginate: {
+        previous: 'ก่อนหน้า',
+        next: 'ถัดไป'
+      }
+    }
+  });
+}
+
+/**
+ * เรนเดอร์ Badge เล็กรูปแคปซูลของแต่ละส่วน
+ */
+function renderSectionStatusPill(secData) {
+  const status = secData ? secData.status : 'pending';
+  if (status === 'verified') {
+    return '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5" title="ยืนยันความถูกต้องแล้ว"><i class="fa-solid fa-check"></i></span>';
+  } else if (status === 'issue_reported') {
+    return '<span class="badge bg-danger text-white rounded-pill px-2 py-0.5 shadow-2xs" title="แจ้งขอแก้ไข: ' + escapeHtml(secData.issue_detail || '') + '"><i class="fa-solid fa-bell"></i></span>';
+  } else {
+    return '<span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" title="ยังไม่ยืนยันข้อมูล">⏳</span>';
+  }
+}
+
+/**
+ * กรองตารางเมื่อคลิกการ์ดสถิติ 5 ใบ
+ */
+function filterVerificationTable(type) {
+  if (!window.allVerifMonitorList) return;
+  $('#verifStatusFilter').val(type);
+  onVerifFilterChange();
+}
+
+/**
+ * กรองตารางเมื่อตัวเลือกใน Filter Bar เปลี่ยน
+ */
+function onVerifFilterChange() {
+  const statusFilter = $('#verifStatusFilter').val();
+  const jobLineFilter = $('#verifJobLineFilter').val();
+
+  let filtered = window.allVerifMonitorList.slice();
+
+  if (jobLineFilter !== 'all') {
+    filtered = filtered.filter(function(item) {
+      return (item.job_line || '').indexOf(jobLineFilter) !== -1;
+    });
+  }
+
+  if (statusFilter === 'complete') {
+    filtered = filtered.filter(function(item) { return item.completion_pct === 100; });
+  } else if (statusFilter === 'partial') {
+    filtered = filtered.filter(function(item) { return item.completion_pct > 0 && item.completion_pct < 100; });
+  } else if (statusFilter === 'none') {
+    filtered = filtered.filter(function(item) { return item.completion_pct === 0; });
+  } else if (statusFilter === 'issues') {
+    filtered = filtered.filter(function(item) { return item.has_issue === true; });
+  }
+
+  renderVerificationMonitorTable(filtered);
+}
+
+function onVerifSearchKeyup(input) {
+  if (window.verifDataTable) {
+    window.verifDataTable.search(input.value).draw();
+  }
+}
+
+function resetVerifFilters() {
+  $('#verifSearchInput').val('');
+  $('#verifStatusFilter').val('all');
+  $('#verifJobLineFilter').val('all');
+  if (window.verifDataTable) {
+    window.verifDataTable.search('').draw();
+  }
+  renderVerificationMonitorTable(window.allVerifMonitorList);
+}
+
+/**
+ * เปิด Modal ดูรายละเอียดข้อความที่บุคลากรแจ้งขอแก้ไข (สำหรับฝ่าย HR)
+ */
+function openViewVerifIssuesModal(pin) {
+  if (!pin) return;
+  const staff = (window.allVerifMonitorList || []).find(function(s) { return String(s.pin) === String(pin); });
+  const staffName = staff ? (staff.name_th || staff.name || '-') : ('PIN #' + pin);
+
+  $('#viewVerifStaffNameHeader').text(staffName);
+  $('#viewVerifStaffPinSubheader').text('รหัสประจำตัวบุคลากร (PIN): #' + pin);
+  $('#btnGoToEditKp7FromVerif').attr('data-pin', pin);
+
+  const container = $('#viewVerifIssuesListContainer');
+  container.html('<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังโหลดรายละเอียด...</div>');
+
+  const modal = new bootstrap.Modal(document.getElementById('modalViewVerificationIssues'));
+  modal.show();
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.status === 'success') {
+          renderVerifIssuesListInModal(pin, res.data || {});
+        } else {
+          container.html('<div class="alert alert-warning">ไม่สามารถโหลดข้อมูลได้</div>');
+        }
+      })
+      .getPersonnelVerificationData(pin);
+  }
+}
+
+/**
+ * เรนเดอร์รายการ 5 หมวดใน Modal ดูรายละเอียด
+ */
+function renderVerifIssuesListInModal(pin, verifData) {
+  const container = $('#viewVerifIssuesListContainer');
+  container.empty();
+
+  const sections = window.VERIFICATION_SECTIONS;
+  let html = '<div class="d-flex flex-column gap-3">';
+
+  sections.forEach(function(sec) {
+    const item = verifData[sec.key];
+    const status = item ? item.status : 'pending';
+
+    let cardBg = 'bg-light border';
+    let iconColor = 'text-secondary';
+    let statusLabel = '<span class="badge bg-secondary text-white rounded-pill px-2.5 py-0.5">⏳ รอดำเนินการ</span>';
+    let bodyContent = '';
+
+    if (status === 'verified') {
+      cardBg = 'bg-white border border-success';
+      iconColor = 'text-success';
+      statusLabel = '<span class="badge bg-success text-white rounded-pill px-2.5 py-0.5"><i class="fa-solid fa-check me-1"></i>รับรองข้อมูลถูกต้องแล้ว</span>';
+      if (item.verified_at) {
+        bodyContent = '<div class="small text-muted mt-1" style="font-size: 0.74rem;">รับรองเมื่อ: ' + formatDateThaiShort(item.verified_at) + '</div>';
+      }
+    } else if (status === 'issue_reported') {
+      cardBg = 'bg-white border-2 border-danger shadow-xs';
+      iconColor = 'text-danger';
+      statusLabel = '<span class="badge bg-danger text-white rounded-pill px-2.5 py-0.5"><i class="fa-solid fa-triangle-exclamation me-1"></i>แจ้งขอแก้ไขข้อมูล</span>';
+      
+      const issueText = escapeHtml(item.issue_detail || 'ไม่ได้ระบุรายละเอียด');
+      bodyContent = 
+        '<div class="mt-2 p-3 rounded-3 bg-danger bg-opacity-10 border border-danger-subtle">' +
+          '<div class="small fw-bold text-danger mb-1"><i class="fa-solid fa-comment-dots me-1"></i>ข้อความที่บุคลากรแจ้งเข้ามา:</div>' +
+          '<div class="text-dark small" style="white-space: pre-wrap;">' + issueText + '</div>' +
+          '<div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-danger-subtle">' +
+            '<span class="text-muted small" style="font-size: 0.72rem;">แจ้งเมื่อ: ' + (item.created_at ? formatDateThaiShort(item.created_at) : '-') + '</span>' +
+            '<button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-semibold shadow-xs" onclick="resolveVerificationIssue(\'' + pin + '\', \'' + sec.key + '\')">' +
+              '<i class="fa-solid fa-check-double me-1"></i> HR ปรับปรุงแก้ไขแล้ว' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    html += 
+      '<div class="card p-3 rounded-4 ' + cardBg + '">' +
+        '<div class="d-flex justify-content-between align-items-center">' +
+          '<div class="d-flex align-items-center gap-2">' +
+            '<i class="fa-solid ' + sec.icon + ' ' + iconColor + ' fs-5"></i>' +
+            '<span class="fw-bold text-dark">' + sec.name + '</span>' +
+          '</div>' +
+          '<div>' + statusLabel + '</div>' +
+        '</div>' +
+        bodyContent +
+      '</div>';
+  });
+
+  html += '</div>';
+  container.html(html);
+}
+
+/**
+ * HR กดยืนยันว่าได้แก้ไขข้อผิดพลาดตามที่แจ้งเรียบร้อยแล้ว (Resolve Issue)
+ */
+function resolveVerificationIssue(pin, sectionKey) {
+  Swal.fire({
+    title: 'ยืนยันการแก้ไขข้อมูล?',
+    text: 'ท่านได้ปรับปรุงแก้ไขข้อมูลในระบบให้บุคลากรเรียบร้อยแล้วใช่หรือไม่คะ?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'ใช่, ปรับปรุงเรียบร้อยแล้ว',
+    cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#10b981'
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      showSystemLoading('กำลังบันทึกสถานะ...', 'ระบบกำลังบันทึกการแก้ไขของฝ่ายบุคคล');
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            hideSystemLoading();
+            if (res && res.status === 'success') {
+              Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1400, showConfirmButton: false });
+              // รีโหลด Modal และหน้ารวม
+              openViewVerifIssuesModal(pin);
+              loadVerificationMonitor(true);
+            } else {
+              Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: (res ? res.message : 'ไม่สามารถบันทึกได้') });
+            }
+          })
+          .withFailureHandler(function(err) {
+            hideSystemLoading();
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: String(err) });
+          })
+          .resolveVerificationIssue(pin, sectionKey);
+      }
+    }
+  });
+}
+
+/**
+ * ปุ่มเปิดหน้าแก้ไข ก.พ.7 จาก Modal ดูรายละเอียด
+ */
+function openKp7EditFromVerifModal() {
+  const pin = $('#btnGoToEditKp7FromVerif').attr('data-pin');
+  const modalElem = document.getElementById('modalViewVerificationIssues');
+  const modal = bootstrap.Modal.getInstance(modalElem);
+  if (modal) modal.hide();
+
+  if (pin && typeof openPersonnelEditInPane === 'function') {
+    openPersonnelEditInPane(pin);
+  }
+}
+
+// Helpers
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatDateThaiShort(dStr) {
+  if (!dStr) return '-';
+  try {
+    const d = new Date(dStr);
+    if (isNaN(d.getTime())) return dStr;
+    const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear() + 543;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    return day + ' ' + month + ' ' + year + ' ' + hours + ':' + mins + ' น.';
+  } catch (e) {
+    return dStr;
+  }
+}
+</script>
+

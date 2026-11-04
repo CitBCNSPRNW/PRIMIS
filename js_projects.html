@@ -1275,6 +1275,12 @@ function renderPersonnelInPaneDetail(data) {
 
   // Reset tab to tab 1
   $('#tab-edu-btn').tab('show');
+
+  // โหลดสถานะการตรวจสอบและรับรองความถูกต้องของข้อมูลบุคลากร (Verification Hub)
+  const targetVerifPin = p.pin || viewingPin;
+  if (targetVerifPin && typeof loadPersonnelVerificationData === 'function') {
+    loadPersonnelVerificationData(targetVerifPin);
+  }
 }
 
 // -------------------------------------------------------------------------

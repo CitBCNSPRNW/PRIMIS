@@ -1,0 +1,192 @@
+<!-- ====================================================
+VIEW: ศูนย์กำกับติดตามการตรวจสอบและยืนยันข้อมูลบุคลากร
+(Staff Data Verification & Completeness Monitor)
+สำหรับฝ่ายทรัพยากรบุคคล (HR) และผู้บริหารระบบ PRIMIS
+==================================================== -->
+<div id="view-verification-monitor" class="tab-pane-content d-none">
+
+  <!-- 1. Header Banner Card (Clean Minimalist White Card) -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge rounded-pill px-3 py-1 fw-bold" style="background: rgba(14, 165, 233, 0.15); color: #0284c7;">
+              <i class="fa-solid fa-clipboard-check me-1"></i> HR Supervision Module
+            </span>
+            <span class="badge rounded-pill px-3 py-1 fw-bold bg-success-subtle text-success border">
+              <i class="fa-solid fa-shield-halved me-1"></i> ข้อมูลทะเบียนประวัติ ก.พ.7
+            </span>
+          </div>
+          <h4 class="fw-bold mb-1" style="color: #1e293b;">
+            <i class="fa-solid fa-clipboard-check text-info me-2"></i> ศูนย์กำกับติดตามการตรวจสอบและยืนยันข้อมูลบุคลากร
+          </h4>
+          <p class="text-muted small mb-0">
+            ระบบกำกับติดตามสถานะการรับรองความถูกต้องของข้อมูลตนเอง (5 หมวดหลัก) และรับเรื่องแจ้งขอแก้ไขข้อมูลจากบุคลากร
+          </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-medium shadow-xs" onclick="loadVerificationMonitor(true)">
+            <i class="fa-solid fa-rotate me-1 text-primary"></i> รีเฟรชข้อมูล
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Summary KPI Stat Cards (5 Cards) -->
+  <div class="row g-3 mb-4">
+    <!-- Card 1: บุคลากรทั้งหมด -->
+    <div class="col-6 col-md-4 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('all')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted small fw-medium">บุคลากรทั้งหมด</div>
+            <div class="fs-3 fw-bold text-dark mt-1" id="statVerifTotal">0</div>
+            <div class="small text-muted mt-1" style="font-size: 0.72rem;">120 รายการในระบบ</div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(59, 130, 246, 0.12); color: #2563eb;">
+            <i class="fa-solid fa-users fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: ยืนยันครบ 100% -->
+    <div class="col-6 col-md-4 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('complete')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted small fw-medium">ยืนยันครบ 100%</div>
+            <div class="fs-3 fw-bold text-success mt-1" id="statVerifComplete">0</div>
+            <div class="small text-success mt-1" style="font-size: 0.72rem;">
+              <i class="fa-solid fa-circle-check me-0.5"></i> ตรวจสอบครบ 5 ส่วน
+            </div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(16, 185, 129, 0.12); color: #10b981;">
+            <i class="fa-solid fa-check-double fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: ยืนยันบางส่วน -->
+    <div class="col-6 col-md-4 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('partial')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted small fw-medium">ยืนยันบางส่วน</div>
+            <div class="fs-3 fw-bold text-warning mt-1" id="statVerifPartial">0</div>
+            <div class="small text-muted mt-1" style="font-size: 0.72rem;">ยืนยันแล้ว 1-4 ส่วน</div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(245, 158, 11, 0.12); color: #f59e0b;">
+            <i class="fa-solid fa-hourglass-half fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: ยังไม่ยืนยันข้อมูลเลย -->
+    <div class="col-6 col-md-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('none')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted small fw-medium">ยังไม่ยืนยันข้อมูล</div>
+            <div class="fs-3 fw-bold text-secondary mt-1" id="statVerifNone">0</div>
+            <div class="small text-muted mt-1" style="font-size: 0.72rem;">รอดำเนินการ (0 ส่วน)</div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(148, 163, 184, 0.15); color: #64748b;">
+            <i class="fa-regular fa-clock fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 5: แจ้งขอแก้ไขข้อมูล -->
+    <div class="col-12 col-md-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card border-start border-danger border-4" style="cursor: pointer;" onclick="filterVerificationTable('issues')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted small fw-medium">แจ้งขอแก้ไขข้อมูล</div>
+            <div class="fs-3 fw-bold text-danger mt-1" id="statVerifIssues">0</div>
+            <div class="small text-danger mt-1" style="font-size: 0.72rem;">
+              <i class="fa-solid fa-triangle-exclamation me-0.5"></i> รอ HR ปรับปรุงข้อมูล
+            </div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(239, 68, 68, 0.12); color: #ef4444;">
+            <i class="fa-solid fa-bell fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Filter Bar & Quick Actions Card -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white mb-4 p-3">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-light border-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+          <input type="text" class="form-control bg-light border-0" id="verifSearchInput" placeholder="ค้นหาชื่อ, รหัส PIN, ตำแหน่ง..." onkeyup="onVerifSearchKeyup(this)">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select form-select-sm bg-light border-0" id="verifStatusFilter" onchange="onVerifFilterChange()">
+          <option value="all">-- ทุกสถานะการยืนยัน --</option>
+          <option value="complete">🟢 ยืนยันครบ 100% (5 ส่วน)</option>
+          <option value="partial">🟡 ยืนยันบางส่วน (1-4 ส่วน)</option>
+          <option value="none">⚪ ยังไม่ยืนยันข้อมูลเลย</option>
+          <option value="issues">🔴 มีรายการแจ้งขอแก้ไขข้อมูล</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select form-select-sm bg-light border-0" id="verifJobLineFilter" onchange="onVerifFilterChange()">
+          <option value="all">-- ทุกกลุ่มสายงาน --</option>
+          <option value="สายสอน">อาจารย์ (สายสอน)</option>
+          <option value="สายสนับสนุน">สายสนับสนุน</option>
+        </select>
+      </div>
+      <div class="col-md-2 text-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill w-100" onclick="resetVerifFilters()">
+          <i class="fa-solid fa-rotate-left me-1"></i> ล้างตัวกรอง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Main DataTable Card -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mb-4">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="verificationMonitorTable" style="font-size: 0.835rem; width: 100%;">
+          <thead class="table-light text-muted">
+            <tr style="height: 40px;">
+              <th class="ps-3 text-center" style="width: 45px;">ลำดับ</th>
+              <th style="min-width: 200px;">บุคลากร</th>
+              <th class="text-center" style="min-width: 90px;" title="ข้อมูลตัวตน วันเกิด สัญชาติ ศาสนา ที่อยู่ เบอร์โทร">ข้อมูลทั่วไป</th>
+              <th class="text-center" style="min-width: 90px;" title="ตำแหน่ง สังกัด เลขที่ตำแหน่ง ประวัติรับราชการ">ตำแหน่ง&amp;ราชการ</th>
+              <th class="text-center" style="min-width: 90px;" title="วุฒิการศึกษา ป.ตรี/ป.โท/ป.เอก และสาขาวิชา">ประวัติศึกษา</th>
+              <th class="text-center" style="min-width: 90px;" title="ใบประกอบวิชาชีพพยาบาล และบัตรราชการ">ใบอนุญาต&amp;บัตร</th>
+              <th class="text-center" style="min-width: 90px;" title="ประวัติการรับพระราชทานเครื่องราชฯ และเหรียญตรา">เครื่องราชฯ</th>
+              <th class="text-center" style="min-width: 120px;">ความสมบูรณ์</th>
+              <th class="text-center" style="min-width: 100px;">ยืนยันล่าสุด</th>
+              <th class="text-center pe-3" style="min-width: 130px;">การจัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="verificationMonitorTbody">
+            <tr>
+              <td colspan="10" class="text-center py-5 text-muted">
+                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                กำลังโหลดข้อมูลสถานะการยืนยันบุคลากร...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+

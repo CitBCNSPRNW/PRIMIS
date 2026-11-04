@@ -20,7 +20,7 @@ function getFiscalYearRange() {
 
 const CONFIG = {
   APP_NAME: 'PRIMIS : ระบบสารสนเทศบุคลากรกลาง (BCNSPRNW PRIMIS)',
-  APP_VERSION: 'v1.8.03',
+  APP_VERSION: 'v1.8.04',
   BUILD_DATE: '2026.11.04',
   API_URL: 'http://122.154.179.132/HR/api.php',
   API_KEY: 'HrDbKey_2026_SNC_Secure!@#',
@@ -1009,4 +1009,279 @@ function getHrLogs(filters) {
     operator_role: f.operator_role || 'hr_admin',
     operator_pin: f.operator_pin || 0
   });
+}
+
+// -------------------------------------------------------------------------
+// ระบบตรวจสอบและรับรองความถูกต้องของข้อมูลบุคลากร (Staff Verification Engine)
+// -------------------------------------------------------------------------
+
+/**
+ * ดึงสถานะการตรวจสอบข้อมูลของบุคลากรรายบุคคล (5 หมวดหลัก)
+ */
+function getPersonnelVerificationData(pin) {
+  if (!pin) return { status: 'error', message: 'กรุณาระบุรหัส PIN' };
+  const sPin = String(pin).trim();
+
+  // 1. ลองเรียกผ่าน REST API
+  try {
+    const res = callBackendApi('get_verification_data&pin=' + encodeURIComponent(sPin));
+    if (res && res.status === 'success' && res.data) {
+      return res;
+    }
+  } catch (e) {
+    console.warn('Backend API get_verification_data failed, checking local storage:', e);
+  }
+
+  // 2. Resilient ScriptProperties Fallback
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('verif_' + sPin);
+  const data = raw ? JSON.parse(raw) : {};
+
+  return {
+    status: 'success',
+    data: data,
+    source: 'local_resilient'
+  };
+}
+
+/**
+ * บันทึกการรับรองความถูกต้อง หรือแจ้งขอแก้ไขข้อมูล
+ */
+function savePersonnelVerification(pin, sectionKey, status, issueDetail) {
+  if (!pin || !sectionKey) {
+    return { status: 'error', message: 'ข้อมูลไม่ครบถ้วน' };
+  }
+  const sPin = String(pin).trim();
+  const now = new Date().toISOString();
+
+  // Payload
+  const payload = {
+    pin: sPin,
+    section_key: sectionKey,
+    status: status || 'verified',
+    issue_detail: issueDetail || '',
+    verified_at: (status === 'verified') ? now : null,
+    updated_at: now
+  };
+
+  // 1. บันทึกลง ScriptProperties ทันทีเพื่อความเร็วและรองรับ Resilient Fallback
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const raw = props.getProperty('verif_' + sPin);
+    const existing = raw ? JSON.parse(raw) : {};
+    existing[sectionKey] = payload;
+    props.setProperty('verif_' + sPin, JSON.stringify(existing));
+  } catch (eProp) {
+    console.warn('savePersonnelVerification ScriptProperties error:', eProp);
+  }
+
+  // 2. ส่งต่อไปยัง REST API บน Ubuntu
+  try {
+    callBackendApi('save_verification', payload);
+  } catch (eApi) {
+    console.warn('Backend API save_verification error (fallback handled):', eApi);
+  }
+
+  return {
+    status: 'success',
+    message: 'บันทึกการรับรองข้อมูลเรียบร้อยแล้ว',
+    data: payload
+  };
+}
+
+/**
+ * รับรองข้อมูลถูกต้องครบทั้ง 5 หมวด (Confirm All)
+ */
+function confirmAllPersonnelVerification(pin) {
+  if (!pin) return { status: 'error', message: 'กรุณาระบุ PIN' };
+  const sPin = String(pin).trim();
+  const sections = ['basic_info', 'career_service', 'education', 'license', 'insignia'];
+  const now = new Date().toISOString();
+
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('verif_' + sPin);
+  const existing = raw ? JSON.parse(raw) : {};
+
+  sections.forEach(function(sec) {
+    existing[sec] = {
+      pin: sPin,
+      section_key: sec,
+      status: 'verified',
+      issue_detail: '',
+      verified_at: now,
+      updated_at: now
+    };
+
+    try {
+      callBackendApi('save_verification', existing[sec]);
+    } catch (eApi) {}
+  });
+
+  props.setProperty('verif_' + sPin, JSON.stringify(existing));
+
+  return {
+    status: 'success',
+    message: 'รับรองความถูกต้องครบทุกหมวดเรียบร้อยแล้ว',
+    data: existing
+  };
+}
+
+/**
+ * HR กดยืนยันว่าได้แก้ไขข้อผิดพลาดตามที่แจ้งเรียบร้อยแล้ว (Resolve Issue)
+ */
+function resolveVerificationIssue(pin, sectionKey) {
+  if (!pin || !sectionKey) return { status: 'error', message: 'ข้อมูลไม่ครบถ้วน' };
+  const sPin = String(pin).trim();
+  const now = new Date().toISOString();
+
+  const payload = {
+    pin: sPin,
+    section_key: sectionKey,
+    status: 'verified',
+    resolved_at: now,
+    issue_detail: ''
+  };
+
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const raw = props.getProperty('verif_' + sPin);
+    if (raw) {
+      const existing = JSON.parse(raw);
+      if (existing[sectionKey]) {
+        existing[sectionKey].status = 'verified';
+        existing[sectionKey].resolved_at = now;
+        existing[sectionKey].verified_at = now;
+        props.setProperty('verif_' + sPin, JSON.stringify(existing));
+      }
+    }
+  } catch (eProp) {}
+
+  try {
+    callBackendApi('resolve_verification_issue', payload);
+  } catch (eApi) {}
+
+  return {
+    status: 'success',
+    message: 'บันทึกการแก้ไขของฝ่ายบุคคลเรียบร้อยแล้ว'
+  };
+}
+
+/**
+ * ดึงข้อมูลรายงานภาพรวมความสมบูรณ์และการยืนยันของบุคลากรทั้งวิทยาลัย (HR Monitor)
+ */
+function getVerificationMonitorList() {
+  // 1. ดึงรายชื่อบุคลากรทั้งหมด
+  let staffList = [];
+  try {
+    const resStaff = callBackendApi('get_personnel_list');
+    if (resStaff && resStaff.status === 'success' && Array.isArray(resStaff.data)) {
+      staffList = resStaff.data;
+    }
+  } catch (e) {
+    console.error('getVerificationMonitorList get_personnel_list error:', e);
+  }
+
+  if (staffList.length === 0) {
+    // Fallback: ดึงจาก staff_master หรือ getUserRolesList
+    try {
+      const rolesRes = getUserRolesList();
+      if (rolesRes && rolesRes.status === 'success' && Array.isArray(rolesRes.data)) {
+        staffList = rolesRes.data;
+      }
+    } catch (e2) {}
+  }
+
+  // 2. ดึงข้อมูล Verification จาก API หรือ ScriptProperties
+  let allVerifMap = {};
+  try {
+    const resVerif = callBackendApi('get_verification_monitor_list');
+    if (resVerif && resVerif.status === 'success' && resVerif.data) {
+      allVerifMap = resVerif.data;
+    }
+  } catch (e) {}
+
+  const props = PropertiesService.getScriptProperties();
+  const sections = ['basic_info', 'career_service', 'education', 'license', 'insignia'];
+
+  let totalCount = staffList.length;
+  let completeCount = 0;
+  let partialCount = 0;
+  let noneCount = 0;
+  let issueCount = 0;
+
+  const resultList = staffList.map(function(staff) {
+    const pin = String(staff.pin || staff.user_pin || staff.id || '').trim();
+    
+    // รวมข้อมูล verif ของบุคคลนี้
+    let staffVerif = allVerifMap[pin];
+    if (!staffVerif) {
+      const raw = props.getProperty('verif_' + pin);
+      staffVerif = raw ? JSON.parse(raw) : {};
+    }
+
+    let verifiedSecCount = 0;
+    let hasIssue = false;
+    let lastDate = null;
+
+    sections.forEach(function(sec) {
+      const item = staffVerif[sec];
+      if (item) {
+        if (item.status === 'verified') {
+          verifiedSecCount++;
+        } else if (item.status === 'issue_reported') {
+          hasIssue = true;
+        }
+        if (item.verified_at || item.updated_at) {
+          const d = item.verified_at || item.updated_at;
+          if (!lastDate || new Date(d) > new Date(lastDate)) {
+            lastDate = d;
+          }
+        }
+      }
+    });
+
+    const completionPct = Math.round((verifiedSecCount / sections.length) * 100);
+
+    if (completionPct === 100) {
+      completeCount++;
+    } else if (completionPct > 0) {
+      partialCount++;
+    } else {
+      noneCount++;
+    }
+
+    if (hasIssue) {
+      issueCount++;
+    }
+
+    return {
+      pin: pin,
+      name_th: ((staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '')).trim() || staff.name || ('#' + pin),
+      position_name: staff.position_name || staff.position || staff.position_title || '-',
+      department: staff.department || staff.main_group || '-',
+      job_line: staff.job_line || (pin.startsWith('371') ? 'สายสอน' : 'สายสนับสนุน'),
+      photo_url: staff.photo_url || staff.avatar || '',
+      basic_info: staffVerif['basic_info'] || null,
+      career_service: staffVerif['career_service'] || null,
+      education: staffVerif['education'] || null,
+      license: staffVerif['license'] || null,
+      insignia: staffVerif['insignia'] || null,
+      completion_pct: completionPct,
+      verified_count: verifiedSecCount,
+      has_issue: hasIssue,
+      last_verified_at: lastDate
+    };
+  });
+
+  return {
+    status: 'success',
+    data: resultList,
+    summary: {
+      total: totalCount,
+      complete: completeCount,
+      partial: partialCount,
+      none: noneCount,
+      issues: issueCount
+    }
+  };
 }

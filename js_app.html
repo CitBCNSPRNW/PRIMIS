@@ -308,6 +308,22 @@ function switchMainTab(tabName, linkElem) {
     if (typeof loadAllAcademicTracking === 'function') {
       loadAllAcademicTracking();
     }
+  } else if (tabName === 'verification-monitor') {
+    const curRole = (window.currentUserRole || 'guest').toLowerCase();
+    if (curRole !== 'super_admin' && curRole !== 'hr_admin') {
+      Swal.fire({
+        icon: 'warning',
+        title: '🛡️ สงวนสิทธิ์เฉพาะฝ่ายบุคคล (HR)',
+        text: 'ศูนย์กำกับติดตามการยืนยันข้อมูลบุคลากร สงวนสิทธิ์สำหรับฝ่ายทรัพยากรบุคคลและผู้บริหารค่ะ',
+        confirmButtonColor: '#1d4ed8'
+      });
+      switchMainTab('dashboard', document.getElementById('sidebarDashboardNav'));
+      return;
+    }
+    $('#view-verification-monitor').removeClass('d-none');
+    if (typeof loadVerificationMonitor === 'function') {
+      loadVerificationMonitor();
+    }
   } else if (tabName === 'logs') {
     $('#view-logs').removeClass('d-none');
     if (typeof loadHrLogsModule === 'function') {
@@ -358,24 +374,18 @@ function enforceUiPermissions(role) {
     $('#btnCreatePersonnel').addClass('d-none');
   }
 
-  // 4. สิทธิ์การจัดการเอกสารและพันธกิจ ก.พ.7:
-  // - ใบอนุญาตวิชาชีพและบัตรราชการ (#btnAddLicenseRecordBtn): แสดงสำหรับผู้ใช้ที่เข้าสู่ระบบแล้วทุกคน (Staff + Admin) แต่ซ่อนจาก Guest
-  if (!isGuest) {
-    $('#btnAddLicenseRecordBtn').removeClass('d-none');
-  } else {
-    $('#btnAddLicenseRecordBtn').addClass('d-none');
-  }
-
-  // - ฟังก์ชันเฉพาะ HR Admin / Super Admin (ปุ่มเพิ่มการศึกษา, ตัวกรองทั้งวิทยาลัย, ปุ่มสลับภาพรวม)
+  // 4. สิทธิ์การจัดการเอกสารและพันธกิจ ก.พ.7 (เฉพาะ HR Admin / Super Admin เท่านั้น - Staff ดูได้อย่างเดียว):
   if (isAdmin) {
     $('.btn-hr-admin-only').removeClass('d-none');
     $('#btnAddEducationRecordBtn').removeClass('d-none');
+    $('#btnAddLicenseRecordBtn').removeClass('d-none');
     $('#eduFilterControlsBar').removeClass('d-none');
     $('#licFilterControlsBar').removeClass('d-none');
     $('#btnToggleLicAdminHub').removeClass('d-none');
   } else {
     $('.btn-hr-admin-only').addClass('d-none');
     $('#btnAddEducationRecordBtn').addClass('d-none');
+    $('#btnAddLicenseRecordBtn').addClass('d-none');
     $('#eduFilterControlsBar').addClass('d-none');
     $('#licFilterControlsBar').addClass('d-none');
     $('#btnToggleLicAdminHub').addClass('d-none');
