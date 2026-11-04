@@ -1,0 +1,373 @@
+<script>
+/**
+ * =========================================================================
+ * PRIMIS : ตัวควบคุมระบบประวัติการใช้งานและตรวจสอบระบบ (System Audit Trail Logs)
+ * มาตรฐาน UI/UX และ DataTables ตามแนวปฏิบัติ BCNSPRNW
+ * (เขียนด้วย Pure String Concatenation 100% ปราศจาก Backticks เพื่อความเข้ากันได้สูงสุด)
+ * =========================================================================
+ */
+
+window.hrLogsCache = [];
+window.hrLogsDataTable = null;
+
+/**
+ * แปลงรหัสโมดูลเป็นภาษาไทยพร้อมไอคอน (แบบกระชับ Compact)
+ */
+function getHrModuleBadge(module) {
+  var m = String(module || '').toLowerCase();
+  var bStyle = 'font-size: 0.74rem; font-weight: 500;';
+  switch (m) {
+    case 'profile':
+      return '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-id-card me-1"></i>ข้อมูลส่วนตัว</span>';
+    case 'education':
+      return '<span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-graduation-cap me-1"></i>ประวัติการศึกษา</span>';
+    case 'study_bonds':
+      return '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-user-graduate me-1"></i>ศึกษาต่อ/ทุน</span>';
+    case 'insignia':
+      return '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-medal me-1"></i>เครื่องราชฯ</span>';
+    case 'licenses':
+      return '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-certificate me-1"></i>ใบอนุญาตวิชาชีพ</span>';
+    case 'training':
+      return '<span class="badge rounded-pill px-2 py-0.5" style="background:#f3e8ff;color:#7e22ce;border:1px solid #e9d5ff;' + bStyle + '"><i class="fa-solid fa-chalkboard-user me-1"></i>ประวัติการฝึกอบรม</span>';
+    case 'awards':
+      return '<span class="badge text-dark rounded-pill px-2 py-0.5" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;' + bStyle + '"><i class="fa-solid fa-trophy me-1"></i>ผลงาน/รางวัล</span>';
+    case 'user_roles':
+      return '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ผู้ใช้งาน</span>';
+    case 'auth':
+      return '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-arrow-right-to-bracket me-1"></i>การเข้าสู่ระบบ</span>';
+    default:
+      return '<span class="badge bg-light text-dark border rounded-pill px-2 py-0.5" style="' + bStyle + '">' + escapeHtml(module || '-') + '</span>';
+  }
+}
+
+/**
+ * แปลงประเภทการกระทำเป็นป้ายกำกับสีสันเด่นชัด (แบบกระชับ Compact)
+ */
+function getHrActionBadge(action) {
+  var a = String(action || '').toUpperCase();
+  var bStyle = 'font-size: 0.74rem; font-weight: 500;';
+  switch (a) {
+    case 'CREATE':
+      return '<span class="badge bg-success text-white rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-circle-plus me-1"></i>เพิ่มข้อมูล</span>';
+    case 'UPDATE':
+      return '<span class="badge bg-warning text-dark rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-pen-to-square me-1"></i>แก้ไข</span>';
+    case 'DELETE':
+      return '<span class="badge bg-danger text-white rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-trash-can me-1"></i>ลบข้อมูล</span>';
+    case 'VERIFY':
+      return '<span class="badge bg-info text-white rounded-pill px-2 py-0.5" style="' + bStyle + '"><i class="fa-solid fa-circle-check me-1"></i>รับรองข้อมูล</span>';
+    case 'LOGIN':
+      return '<span class="badge text-white rounded-pill px-2 py-0.5" style="background:#6366f1;' + bStyle + '"><i class="fa-solid fa-key me-1"></i>ล็อกอิน</span>';
+    default:
+      return '<span class="badge bg-secondary text-white rounded-pill px-2 py-0.5" style="' + bStyle + '">' + escapeHtml(action || '-') + '</span>';
+  }
+}
+
+/**
+ * ฟังก์ชันหลักโหลดข้อมูล Log จาก Backend
+ */
+function loadHrLogsModule(forceRefresh) {
+  var role = String(window.currentUserRole || (window.currentAdminUser ? window.currentAdminUser.role : 'staff')).toLowerCase();
+  var pin = window.currentUserPin || (window.currentAdminUser ? (window.currentAdminUser.pin || window.currentAdminUser.id) : 0);
+  var isAdmin = (role === 'super_admin' || role === 'hr_admin' || role === 'admin');
+
+  if (!isAdmin) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'สิทธิ์การเข้าถึงไม่เพียงพอ',
+      text: 'หน้าต่างประวัติการใช้งานระบบ (Audit Logs) สงวนสิทธิ์สำหรับเจ้าหน้าที่ HR Admin เท่านั้นค่ะ',
+      confirmButtonText: 'ตกลง',
+      confirmButtonColor: '#3b82f6'
+    });
+    return;
+  }
+
+  // เตรียมแคชรายชื่อบุคลากรไว้ล่วงหน้าเพื่อ fallback แสดงรูปภาพ
+  if (typeof ensurePersonnelListLoaded === 'function' && (!window.allPersonnelList || window.allPersonnelList.length === 0)) {
+    ensurePersonnelListLoaded(function () {});
+  }
+
+  showPpmsLoading('กำลังโหลดประวัติการใช้งานระบบ...', 'กำลังเชื่อมต่อฐานข้อมูลบันทึกความปลอดภัย (Audit Trail)');
+
+  var filters = {
+    module: $('#filterLogModule').val() || 'all',
+    action_type: $('#filterLogAction').val() || 'all',
+    start_date: $('#filterLogStartDate').val() || '',
+    end_date: $('#filterLogEndDate').val() || '',
+    search: ($('#filterLogSearch').val() || '').trim(),
+    operator_role: role,
+    operator_pin: pin,
+    limit: 500
+  };
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      hidePpmsLoading();
+      if (!res || res.status !== 'success') {
+        var errMsg = res && res.message ? res.message : 'ไม่สามารถดึงข้อมูลประวัติการใช้งานได้';
+        Swal.fire({
+          icon: 'error',
+          title: 'เกิดข้อผิดพลาด',
+          text: errMsg,
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#ef4444'
+        });
+        return;
+      }
+
+      window.hrLogsCache = res.data || [];
+      updateHrLogStats(res.summary || {});
+      renderHrLogsTable(window.hrLogsCache);
+
+      if (forceRefresh) {
+        Swal.fire({
+          icon: 'success',
+          title: 'อัปเดตข้อมูลสำเร็จ',
+          text: 'โหลดข้อมูลบันทึกการใช้งานระบบเรียบร้อย (' + window.hrLogsCache.length + ' รายการ)',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      }
+    })
+    .withFailureHandler(function (err) {
+      hidePpmsLoading();
+      console.error('getHrLogs error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'การเชื่อมต่อขัดข้อง',
+        text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + (err.message || err),
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#ef4444'
+      });
+    })
+    .getHrLogs(filters);
+}
+
+/**
+ * อัปเดตสถิติในการ์ด KPI 4 ใบ
+ */
+function updateHrLogStats(summary) {
+  var s = summary || {};
+  $('#statLogToday').text(Number(s.today_total || 0).toLocaleString());
+  $('#statLogCreate').text(Number(s.creates || 0).toLocaleString());
+  $('#statLogUpdate').text(Number(s.updates || 0).toLocaleString());
+  $('#statLogDelete').text(Number(s.deletes || 0).toLocaleString());
+  $('#hrLogsRecordCount').text(window.hrLogsCache.length + ' รายการ');
+}
+
+/**
+ * แสดงตาราง DataTables รายการ Logs
+ */
+function renderHrLogsTable(logs) {
+  if (window.hrLogsDataTable) {
+    window.hrLogsDataTable.destroy();
+    window.hrLogsDataTable = null;
+  }
+
+  var $tbody = $('#hrLogsTableBody');
+  $tbody.empty();
+
+  if (!logs || logs.length === 0) {
+    $tbody.html(
+      '<tr>' +
+        '<td colspan="7" class="text-center py-5 text-muted">' +
+          '<i class="fa-regular fa-folder-open fs-2 d-block mb-2 text-secondary opacity-50"></i>' +
+          'ยังไม่พบบันทึกกิจกรรมตามเงื่อนไขที่เลือก' +
+        '</td>' +
+      '</tr>'
+    );
+    return;
+  }
+
+  var rowsHtml = '';
+  logs.forEach(function (log, index) {
+    var createdAt = formatLogDateTime(log.created_at);
+    
+    // ผู้ทำรายการ
+    var fallbackAvatar = window.DEFAULT_STAFF_AVATAR || 'https://ui-avatars.com/api/?name=User&background=44b6df&color=fff';
+    
+    // ค้นหารูปภาพจาก log หรือ fallback ไปยังฐานข้อมูลบุคลากรในหน่วยความจำ
+    var rawPhoto = log.user_photo || '';
+    if (!rawPhoto && window.allPersonnelList && window.allPersonnelList.length > 0) {
+      var foundStaff = window.allPersonnelList.find(function (s) {
+        return String(s.user_pin) === String(log.user_pin) || String(s.id) === String(log.user_pin);
+      });
+      if (foundStaff) {
+        rawPhoto = foundStaff.photo_url || foundStaff.photo || foundStaff.picture || '';
+      }
+    }
+    
+    var userPhoto = (typeof formatStaffPhotoUrl === 'function' && rawPhoto ? formatStaffPhotoUrl(rawPhoto) : rawPhoto) || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(log.user_name || 'User') + '&background=44b6df&color=fff');
+    var userName = log.user_name || (log.user_pin ? ('PIN: #' + log.user_pin) : 'ระบบอัตโนมัติ');
+    var userRole = log.user_role ? ('<span class="badge bg-light text-muted border font-monospace" style="font-size: 0.65rem; padding: 0.1rem 0.35rem;">' + escapeHtml(log.user_role) + '</span>') : '';
+    var userPinBadge = log.user_pin ? ('<span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="font-size:0.68rem; padding: 0.1rem 0.35rem;">#' + log.user_pin + '</span>') : '';
+
+    // ประเภทการกระทำ & โมดูล
+    var actionBadge = getHrActionBadge(log.action_type);
+    var moduleBadge = getHrModuleBadge(log.module_name);
+
+    // เป้าหมายข้อมูล (ถ้ามี) - จัดชิดแนวนอนบรรทัดเดียว ไม่ตกบรรทัด
+    var targetHtml = '';
+    if (log.target_pin || log.target_name) {
+      var tName = log.target_name || ('PIN: #' + log.target_pin);
+      targetHtml = '<span class="text-secondary small d-inline-flex align-items-center gap-1 text-truncate" style="max-width: 175px;" title="เป้าหมาย: ' + escapeHtml(tName) + '">' +
+        '<i class="fa-solid fa-arrow-right-long text-muted opacity-75" style="font-size: 0.68rem;"></i>' +
+        '<span class="fw-medium text-dark">' + escapeHtml(tName) + '</span>' +
+      '</span>';
+    }
+
+    // รายละเอียดการเปลี่ยนแปลง
+    var details = log.details || '-';
+    var isLong = details.length > 70;
+    var detailsDisplay = isLong ? (escapeHtml(details.substring(0, 70)) + '...') : escapeHtml(details);
+    var detailBtn = isLong ? ('<button class="btn btn-link btn-sm p-0 ms-1 text-primary text-decoration-none" onclick="openHrLogDetailModal(' + index + ')"><i class="fa-solid fa-up-right-from-square small"></i> ดูเต็ม</button>') : '';
+
+    // IP & อุปกรณ์
+    var ip = log.ip_address || '-';
+
+    rowsHtml += '<tr>' +
+      '<td class="text-center text-muted" style="font-size: 0.78rem;">' + (index + 1) + '</td>' +
+      '<td class="text-nowrap">' +
+        '<div class="fw-semibold text-dark" style="font-size: 0.80rem; line-height: 1.2;">' + createdAt.date + '</div>' +
+        '<div class="text-muted" style="font-size: 0.72rem; line-height: 1.2;"><i class="fa-regular fa-clock me-1"></i>' + createdAt.time + ' น.</div>' +
+      '</td>' +
+      '<td class="text-nowrap">' +
+        '<div class="d-flex align-items-center gap-2">' +
+          '<img src="' + userPhoto + '" class="rounded-circle border flex-shrink-0" style="width: 26px; height: 26px; min-width: 26px; object-fit: cover; box-shadow: 0 1px 2px rgba(0,0,0,0.08);" onerror="this.onerror=null;this.src=\'' + fallbackAvatar + '\'">' +
+          '<div style="line-height: 1.2;">' +
+            '<div class="fw-bold text-dark text-nowrap" style="font-size: 0.81rem;">' + escapeHtml(userName) + '</div>' +
+            '<div class="d-flex align-items-center gap-1 mt-0.5">' +
+              userPinBadge +
+              userRole +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+      '<td class="text-center text-nowrap">' + actionBadge + '</td>' +
+      '<td class="text-nowrap">' +
+        '<div class="d-inline-flex align-items-center gap-1.5 text-nowrap">' +
+          moduleBadge +
+          (targetHtml ? ' ' + targetHtml : '') +
+        '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="text-break" style="font-size: 0.80rem; line-height: 1.25;">' +
+          detailsDisplay +
+          detailBtn +
+        '</div>' +
+      '</td>' +
+      '<td class="text-nowrap">' +
+        '<div class="font-monospace text-muted" style="font-size: 0.74rem;"><i class="fa-solid fa-network-wired me-1 opacity-75"></i>' + escapeHtml(ip) + '</div>' +
+      '</td>' +
+    '</tr>';
+  });
+
+  $tbody.html(rowsHtml);
+
+  // กำหนดค่า DataTables
+  window.hrLogsDataTable = $('#hrLogsTable').DataTable({
+    paging: true,
+    pageLength: 25,
+    lengthMenu: [10, 25, 50, 100],
+    ordering: true,
+    order: [[0, 'asc']],
+    responsive: true,
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "ค้นหาในตาราง...",
+      lengthMenu: "แสดง _MENU_ รายการ/หน้า",
+      info: "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ รายการ",
+      infoEmpty: "ไม่มีข้อมูลแสดง",
+      infoFiltered: "(กรองจากทั้งหมด _MAX_ รายการ)",
+      zeroRecords: "ไม่พบข้อมูลที่ตรงกับการค้นหา",
+      paginate: {
+        first: '<i class="fa-solid fa-angles-left"></i>',
+        last: '<i class="fa-solid fa-angles-right"></i>',
+        next: '<i class="fa-solid fa-angle-right"></i>',
+        previous: '<i class="fa-solid fa-angle-left"></i>'
+      }
+    }
+  });
+}
+
+/**
+ * เปิด Modal ดูรายละเอียดเต็มของรายการ Log
+ */
+function openHrLogDetailModal(index) {
+  var log = window.hrLogsCache[index];
+  if (!log) return;
+
+  var fallbackAvatar = window.DEFAULT_STAFF_AVATAR || 'https://ui-avatars.com/api/?name=User&background=44b6df&color=fff';
+  $('#logModalSubtitle').text('รหัสบันทึก #' + log.id + ' • บันทึกเมื่อ ' + (log.created_at || '-'));
+
+  // ผู้กระทำ
+  var uPhoto = log.user_photo || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(log.user_name || 'User') + '&background=44b6df&color=fff');
+  $('#logModalUserAvatar').attr('src', uPhoto).attr('onerror', "this.onerror=null;this.src='" + fallbackAvatar + "';");
+  $('#logModalUserName').text(log.user_name || (log.user_pin ? ('PIN: #' + log.user_pin) : 'ระบบ'));
+  $('#logModalUserSub').text('PIN: #' + (log.user_pin || '-') + ' | บทบาท: ' + (log.user_role || '-'));
+
+  // เป้าหมาย
+  var tPhoto = log.target_photo || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(log.target_name || 'Target') + '&background=e2e8f0&color=64748b');
+  $('#logModalTargetAvatar').attr('src', tPhoto).attr('onerror', "this.onerror=null;this.src='" + fallbackAvatar + "';");
+  $('#logModalTargetName').text(log.target_name || (log.target_pin ? ('PIN: #' + log.target_pin) : 'ข้อมูลส่วนรวม'));
+  $('#logModalTargetSub').text(log.target_pin ? ('PIN: #' + log.target_pin + ' | รหัสรายการ: #' + (log.record_id || '-')) : 'ไม่มีเป้าหมายเดี่ยว');
+
+  // วันเวลา & ประเภท
+  var formattedTime = formatLogDateTime(log.created_at);
+  $('#logModalCreatedAt').text(formattedTime.date + ' เวลา ' + formattedTime.time + ' น.');
+  $('#logModalActionModule').html(getHrActionBadge(log.action_type) + ' ' + getHrModuleBadge(log.module_name));
+  $('#logModalIp').text(log.ip_address || '-');
+
+  // รายละเอียด
+  $('#logModalDetailsText').text(log.details || 'ไม่มีรายละเอียดเพิ่มเติม');
+  $('#logModalUserAgent').text(log.user_agent || '-');
+
+  var modalEl = document.getElementById('hrLogDetailModal');
+  if (modalEl) {
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+}
+
+/**
+ * ล้างตัวกรองทั้งหมด
+ */
+function resetHrLogsFilters() {
+  $('#filterLogModule').val('all');
+  $('#filterLogAction').val('all');
+  $('#filterLogStartDate').val('');
+  $('#filterLogEndDate').val('');
+  $('#filterLogSearch').val('');
+  loadHrLogsModule();
+}
+
+/**
+ * Helper จัดรูปแบบวันเวลาภาษาไทย
+ */
+function formatLogDateTime(dtStr) {
+  if (!dtStr) return { date: '-', time: '-' };
+  try {
+    var parts = dtStr.split(' ');
+    var dParts = parts[0].split('-');
+    var tParts = (parts[1] || '00:00:00').split(':');
+
+    var yearBE = parseInt(dParts[0], 10) + 543;
+    var months = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    var monthTH = months[parseInt(dParts[1], 10)] || dParts[1];
+    var day = parseInt(dParts[2], 10);
+
+    return {
+      date: day + ' ' + monthTH + ' ' + yearBE,
+      time: tParts[0] + ':' + tParts[1]
+    };
+  } catch (e) {
+    return { date: dtStr, time: '' };
+  }
+}
+
+// ผูกฟังก์ชันเข้ากับ window อย่างชัดเจน
+window.loadHrLogsModule = loadHrLogsModule;
+window.updateHrLogStats = updateHrLogStats;
+window.renderHrLogsTable = renderHrLogsTable;
+window.openHrLogDetailModal = openHrLogDetailModal;
+window.resetHrLogsFilters = resetHrLogsFilters;
+</script>

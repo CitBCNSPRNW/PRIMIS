@@ -1,0 +1,231 @@
+<script>
+  // Ensure switchLandingLoginTab is instantly defined for inline onclick handlers on Landing Page
+  function switchLandingLoginTab(tabType) {
+    try {
+      var tabBtnPin = document.getElementById('tabBtnPin');
+      var tabBtnGoogle = document.getElementById('tabBtnGoogle');
+      var panePin = document.getElementById('paneLoginPin');
+      var paneGoogle = document.getElementById('paneLoginGoogle');
+
+      if (tabType === 'google') {
+        if (tabBtnPin) tabBtnPin.classList.remove('active');
+        if (tabBtnGoogle) tabBtnGoogle.classList.add('active');
+        if (panePin) panePin.classList.add('d-none');
+        if (paneGoogle) paneGoogle.classList.remove('d-none');
+      } else {
+        if (tabBtnGoogle) tabBtnGoogle.classList.remove('active');
+        if (tabBtnPin) tabBtnPin.classList.add('active');
+        if (paneGoogle) paneGoogle.classList.add('d-none');
+        if (panePin) panePin.classList.remove('d-none');
+      }
+    } catch(err) {
+      console.warn('switchLandingLoginTab inline error:', err);
+    }
+  }
+</script>
+
+<div id="landingView">
+  <div class="luxury-split-card animate__animated animate__fadeIn position-relative">
+    
+    <!-- Floating 3D HR User Icon over Top-Left Corner (มีมิติวางบนขอบ) -->
+    <div class="hero-corner-floating-badge" title="ระบบบริหารจัดการทรัพยากรบุคคล">
+      <div class="floating-badge-inner">
+        <i class="fa-solid fa-users-gear"></i>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         LEFT PANEL: THE BRAND & IDENTITY (Sky Blue)
+         ============================================== -->
+    <div class="split-left-hero">
+      <!-- Center Brand: Clean Institutional Logo & Title -->
+      <div class="hero-title-section">
+        <div class="hero-logo-box mb-3">
+          <img src="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop" alt="BCNSPRNW Logo" class="hero-logo" title="วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์">
+        </div>
+
+        <h1 class="hero-main-title">ระบบสารสนเทศบุคลากรกลาง (PRIMIS)</h1>
+        <div class="hero-eng-title">Personnel Records & Institutional Management Information System</div>
+      </div>
+
+      <!-- Action: Modern Dashboard Gateway Button -->
+      <div class="hero-dashboard-action-box">
+        <button class="hero-btn-dashboard" type="button" onclick="enterPublicDashboard()">
+          <div class="d-flex align-items-center gap-3">
+            <div class="hero-btn-icon">
+              <i class="fa-solid fa-chart-pie"></i>
+            </div>
+            <div class="hero-btn-text text-start">
+              <div class="hero-btn-main">แดชบอร์ดสถิติกำลังคน</div>
+              <div class="hero-btn-sub">ดูข้อมูลสถิติภาพรวม (สำหรับบุคคลทั่วไป)</div>
+            </div>
+          </div>
+          <div class="hero-btn-arrow">
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+        </button>
+      </div>
+
+      <!-- 4 Core Pillars: Personnel Modules (Clean & Modern) -->
+      <div class="hero-pillars-grid">
+        <div class="pillar-glass-pill">
+          <i class="fa-solid fa-address-card"></i>
+          <span>ทะเบียนประวัติ ก.พ.7</span>
+        </div>
+        <div class="pillar-glass-pill">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <span>การศึกษาต่อ & ชดใช้ทุน</span>
+        </div>
+        <div class="pillar-glass-pill">
+          <i class="fa-solid fa-medal"></i>
+          <span>เครื่องราชอิสริยาภรณ์</span>
+        </div>
+        <div class="pillar-glass-pill">
+          <i class="fa-solid fa-award"></i>
+          <span>ตำแหน่งทางวิชาการ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         RIGHT PANEL: LOGIN & AUTHENTICATION (Dual Tabs)
+         ============================================== -->
+    <div class="split-right-portal">
+      <div>
+        <!-- Dual Login Tabs Bar (2 แถบแท็บด้านบนตามคำสั่งนายท่าน) -->
+        <div class="login-tabs-nav mb-3">
+          <button type="button" class="login-tab-btn active" id="tabBtnPin" onclick="switchLandingLoginTab('pin')" title="เข้าสู่ระบบด้วยรหัสประจำตัวและรหัสผ่าน">
+            <i class="fa-solid fa-id-badge me-1"></i>
+            <span>รหัสประจำตัว (PIN)</span>
+          </button>
+          <button type="button" class="login-tab-btn" id="tabBtnGoogle" onclick="switchLandingLoginTab('google')" title="เข้าสู่ระบบด้วยบัญชี Google องค์กร">
+            <svg class="me-1" width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+              <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            <span>อีเมลวิทยาลัยฯ (Google)</span>
+          </button>
+        </div>
+
+        <!-- ==============================================
+             PANE 1: เข้าสู่ระบบด้วยรหัสประจำตัว (PIN) - ค่าเริ่มต้น
+             ============================================== -->
+        <div id="paneLoginPin" class="animate__animated animate__fadeIn">
+          <div class="portal-header">
+            <h2 class="portal-title">เข้าสู่ระบบด้วยรหัส PIN</h2>
+            <p class="portal-subtitle">สำหรับผู้บริหาร คณาจารย์ และบุคลากร</p>
+          </div>
+
+          <!-- Form Login ด้วย PIN & Password จาก staff_master -->
+          <form id="landingLoginForm" onsubmit="event.preventDefault(); doLandingStaffLogin();">
+            <div class="portal-form">
+              <label class="portal-label">
+                <i class="fa-solid fa-id-badge text-primary"></i> รหัสประจำตัว (PIN)
+              </label>
+              <div class="portal-input-wrap">
+                <i class="fa-solid fa-user-tie portal-input-icon"></i>
+                <input type="text" id="landingUsernameInput" class="portal-input" placeholder="กรอกรหัสประจำตัว (PIN)" autocomplete="username" required>
+              </div>
+
+              <label class="portal-label">
+                <i class="fa-solid fa-key text-primary"></i> รหัสผ่าน (Password)
+              </label>
+              <div class="portal-input-wrap mb-3">
+                <i class="fa-solid fa-lock portal-input-icon"></i>
+                <input type="password" id="landingPasswordInput" class="portal-input" placeholder="กรอกรหัสผ่าน" autocomplete="current-password" required>
+                <button type="button" class="portal-eye-btn" onclick="toggleLandingPasswordVisibility()" title="แสดง/ซ่อนรหัสผ่าน">
+                  <i class="fa-solid fa-eye" id="landingPasswordEyeIcon"></i>
+                </button>
+              </div>
+
+              <!-- Checkbox: จดจำการเข้าใช้งาน (เหมือนระบบสแกนนิ้ว) -->
+              <div class="d-flex align-items-center justify-content-between mb-3 px-1">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="landingRememberMeCheck" checked>
+                  <label class="form-check-label small text-secondary user-select-none" for="landingRememberMeCheck" style="font-size: 0.8rem; cursor: pointer;">
+                    จดจำการเข้าใช้งานในอุปกรณ์นี้
+                  </label>
+                </div>
+              </div>
+
+              <button type="submit" class="portal-btn-submit">
+                <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ==============================================
+             PANE 2: เข้าสู่ระบบด้วยอีเมลวิทยาลัยฯ (Google SSO)
+             ============================================== -->
+        <div id="paneLoginGoogle" class="d-none animate__animated animate__fadeIn">
+          <div class="portal-header">
+            <h2 class="portal-title">เข้าสู่ระบบด้วยอีเมลวิทยาลัยฯ</h2>
+          </div>
+
+          <div class="text-center py-2">
+            <!-- Google SSO Button เด่นชัด -->
+            <button class="portal-btn-google py-3 shadow-sm mb-3" type="button" onclick="doGoogleLogin()">
+              <svg width="22" height="22" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z" fill="#4285F4"/>
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
+              </svg>
+              <span class="fs-6 fw-bold">ลงชื่อเข้าใช้ด้วยบัญชี Google</span>
+            </button>
+
+            <!-- กล่องคำแนะนำสำหรับบุคลากร -->
+            <div class="p-3 rounded-3 bg-light border text-muted small text-start">
+              <div class="fw-bold text-dark mb-1">
+                <i class="fa-solid fa-lightbulb text-warning me-1"></i> คำแนะนำสำหรับบุคลากร:
+              </div>
+              <div style="font-size: 0.78rem; line-height: 1.45;">
+                สามารถลงชื่อเข้าใช้ด้วยบัญชีอีเมลของวิทยาลัย <strong>@bcnsprnw.ac.th</strong> หากมีข้อสงสัยติดต่องานเทคโนโลยีและสารสนเทศ
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center pt-2">
+        <span class="text-muted small" style="font-size: 0.75rem;">
+          <i class="fa-solid fa-shield-halved text-success me-1"></i> ระบบสารสนเทศบุคลากรกลาง (PRIMIS)
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Institutional Footer Under Landing Card -->
+  <div class="landing-footer text-center mt-4 pb-3">
+    <!-- Line 1: Personnel Records & Institutional Management Information System (PRIMIS) เด่นชัด -->
+    <div class="mb-1">
+      <span class="fw-bold text-dark fs-6 tracking-wide d-inline-block">
+        Personnel Records &amp; Institutional Management Information System (PRIMIS)
+      </span>
+    </div>
+
+    <!-- Line 2: หน่วยงานสถาบัน -->
+    <div class="text-secondary small fw-medium mt-1" style="font-size: 0.82rem;">
+      วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์ • คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก
+    </div>
+
+    <!-- Line 3: ผู้พัฒนา -->
+    <div class="text-muted mt-0.5" style="font-size: 0.75rem;">
+      <i class="fa-solid fa-laptop-code me-1 text-primary"></i>พัฒนาโดย งานเทคโนโลยีและสารสนเทศ (ภายใต้การกำกับโดยงานทรัพยากรบุคคล) CiteCentre &amp; HRD BCNSPRNW
+    </div>
+
+    <!-- Line 4 (บรรทัดล่างสุด): PRIMIS v1.7.04 ตามด้วย Build 2026.11.03 ต่อหลังกัน -->
+    <div class="d-flex align-items-center justify-content-center flex-wrap gap-2 mt-2">
+      <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 fw-bold" style="font-size: 0.74rem; letter-spacing: 0.5px;">
+        <i class="fa-solid fa-code-branch text-primary me-1"></i>PRIMIS <?= config.APP_VERSION ?>
+      </span>
+      <span class="badge bg-light text-muted border rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+        <i class="fa-regular fa-calendar-check me-1"></i>Build <?= config.BUILD_DATE ?>
+      </span>
+    </div>
+  </div>
+</div>
+

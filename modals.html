@@ -1,0 +1,2416 @@
+<!-- ====================================================
+MODALS: หน้าต่างป๊อปอัพของระบบฐานข้อมูลบุคลากรกลาง (HR-DB)
+==================================================== -->
+
+<!-- 1. Modal: ดูรายละเอียดประวัติบุคลากร (Personnel 33-Field Detail Modal) -->
+<div class="modal fade" id="personnelDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header (Sky Blue Gradient Banner) -->
+      <div class="modal-header border-0 text-white p-4 pb-3" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%);">
+        <div class="d-flex align-items-center gap-3">
+          <img id="detailAvatarImg" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile" class="rounded-circle bg-white p-1 border shadow-sm" style="width: 52px; height: 52px; object-fit: cover;">
+          <div>
+            <div class="d-flex align-items-center gap-2">
+              <h5 class="modal-title fw-bold text-white mb-0" id="detailFullNameTh">-</h5>
+              <span id="detailPinBadge" class="badge bg-white text-dark rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#000000</span>
+            </div>
+            <div class="small opacity-90 mt-1" id="detailFullNameEn">-</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <!-- ข้อมูลตำแหน่งและสังกัด -->
+        <div class="card border-0 shadow-xs bg-light rounded-4 p-3 mb-3">
+          <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-briefcase text-primary"></i> ข้อมูลตำแหน่งและสังกัด
+          </h6>
+          <div class="row g-2 small">
+            <div class="col-md-4">
+              <span class="text-muted">เลขที่ตำแหน่ง:</span> <strong id="detailPositionNumber" class="text-dark">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">ตำแหน่งปัจจุบัน:</span> <strong id="detailPositionTitle" class="text-dark">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">ประเภทบุคลากร:</span> <span id="detailPositionType" class="badge bg-secondary-subtle text-secondary">-</span>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">สายงาน:</span> <strong id="detailJobLine" class="text-dark">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">กลุ่มงาน/ภาควิชา:</span> <strong id="detailDepartment" class="text-dark">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">สถานะการปฏิบัติงาน:</span> <strong id="detailWorkStatus" class="text-success">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- ข้อมูลส่วนบุคคล -->
+        <div class="card border-0 shadow-xs bg-light rounded-4 p-3 mb-3">
+          <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-user text-primary"></i> ข้อมูลส่วนบุคคล
+          </h6>
+          <div class="row g-2 small">
+            <div class="col-md-4">
+              <span class="text-muted">เพศ:</span> <strong id="detailGender">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">วันเกิด:</span> <strong id="detailBirthDate">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">เชื้อชาติ/สัญชาติ:</span> <strong id="detailEthnicityNationality">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">ศาสนา:</span> <strong id="detailReligion">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">สถานภาพ:</span> <strong id="detailMaritalStatus">-</strong>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">ภูมิลำเนา (จังหวัด):</span> <strong id="detailHometown">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- ประวัติการเริ่มงาน & อายุราชการ -->
+        <div class="card border-0 shadow-xs bg-light rounded-4 p-3 mb-3">
+          <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-calendar-check text-primary"></i> ประวัติการรับราชการและอายุงาน
+          </h6>
+          <div class="row g-2 small">
+            <div class="col-md-6">
+              <span class="text-muted">วันที่เริ่มทำงานในหน่วยงาน:</span> <strong id="detailStartWorkingDate">-</strong>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">วันที่บรรจุรับราชการ (ก.พ.7):</span> <strong id="detailGovServiceDate">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- ที่อยู่และการติดต่อ -->
+        <div class="card border-0 shadow-xs bg-light rounded-4 p-3 mb-3">
+          <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-address-book text-primary"></i> ที่อยู่และการติดต่อ
+          </h6>
+          <div class="small mb-2">
+            <span class="text-muted">ที่อยู่ปัจจุบัน:</span> <span id="detailAddress">-</span>
+          </div>
+          <div class="row g-2 small">
+            <div class="col-md-6">
+              <span class="text-muted">Email สถาบัน:</span> <strong id="detailEmail">-</strong>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">เบอร์โทรศัพท์ติดต่อ:</span> <strong id="detailPhone">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- ประวัติการศึกษา & การศึกษาต่อ -->
+        <div class="card border-0 shadow-xs bg-light rounded-4 p-3 mb-3">
+          <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-graduation-cap text-primary"></i> ประวัติการศึกษา & การศึกษาต่อ
+          </h6>
+          <div class="small mb-2">
+            <span class="text-muted">สถานะศึกษาต่อปัจจุบัน:</span> <strong id="detailFurtherStudy" class="text-primary">-</strong>
+          </div>
+          <div id="detailEducationList">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- การ์ดทางลัดเปิดดูประวัติเงินเดือนและค่าตอบแทน (ก.พ.7) -->
+        <div class="card border-0 shadow-xs rounded-4 p-3" style="background: #e0f2fe; border: 1px dashed #38bdf8 !important;">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 42px; height: 42px; background: #1e88b5;">
+                <i class="fa-solid fa-money-bill-wave fs-5"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold text-dark mb-0">ประวัติการดำรงตำแหน่งและอัตราเงินเดือน (ก.พ.7)</h6>
+                <div class="text-muted small" style="font-size: 0.74rem;">ข้อมูลความมั่นคง เงินเดือน เงินประจำตำแหน่ง และค่าตอบแทนพิเศษ (ข้อมูลความลับ)</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm text-white rounded-pill px-3 shadow-xs" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%);" onclick="openSalaryModal($('#detailPinBadge').text().replace('#',''))">
+              <i class="fa-solid fa-vault me-1"></i> ดูประวัติเงินเดือน
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light border-top p-3 d-flex justify-content-between">
+        <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ปิด</button>
+        <button type="button" class="btn text-white btn-sm px-4 rounded-pill" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%);" onclick="$('#personnelDetailModal').modal('hide'); openEditPersonnelModal($('#detailPinBadge').text().replace('#',''));">
+          <i class="fa-solid fa-pen-to-square me-1"></i> แก้ไขข้อมูลนี้
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Modal: บันทึกและแก้ไขประวัติบุคลากร 33 ฟิลด์ (Edit Personnel Modal) -->
+<div class="modal fade" id="editPersonnelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom p-3" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: #1e88b5;">
+            <i class="fa-solid fa-user-pen fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0">บันทึก/แก้ไขข้อมูลบุคลากร (ก.พ.7 & HROPS)</h5>
+            <div class="text-muted small" style="font-size: 0.74rem;">ครอบคลุมรายละเอียดปลีกย่อย 33 คอลัมน์ เชื่อมโยงกับ staff_master</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <form id="editPersonnelForm" onsubmit="event.preventDefault(); savePersonnelForm();">
+          <!-- แท็บแบ่งหมวดหมู่ 5 แท็บ -->
+          <ul class="nav nav-pills nav-fill mb-4 p-1 bg-light rounded-pill border" id="pills-tab" role="tablist">
+            <li class="nav-item">
+              <button class="nav-link active rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#tab-pos" type="button">
+                1. ตำแหน่ง & สังกัด
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#tab-personal" type="button">
+                2. ข้อมูลส่วนบุคคล
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#tab-civil" type="button">
+                3. ประวัติรับราชการ
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#tab-contact" type="button">
+                4. ที่อยู่ & การติดต่อ
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#tab-study" type="button">
+                5. ศึกษาต่อ & รูปภาพ
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="pills-tabContent">
+            <!-- แท็บ 1: ตำแหน่งและสังกัด -->
+            <div class="tab-pane fade show active" id="tab-pos">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">รหัสพนักงาน / PIN *</label>
+                  <input type="number" id="editStaffId" class="form-control rounded-3" placeholder="เช่น 371006" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">เลขที่ตำแหน่ง</label>
+                  <input type="text" id="editPositionNumber" class="form-control rounded-3" placeholder="เช่น วพบ.2520/4110">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">สถานะการปฏิบัติงาน *</label>
+                  <select id="editWorkStatus" class="form-select rounded-3">
+                    <option value="กำลังปฏิบัติงาน">กำลังปฏิบัติงาน</option>
+                    <option value="ลาศึกษาต่อ">ลาศึกษาต่อ</option>
+                    <option value="ช่วยราชการ">ช่วยราชการ</option>
+                    <option value="เกษียณอายุ">เกษียณอายุ</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">ตำแหน่งปัจจุบัน *</label>
+                  <input type="text" id="editPositionTitle" class="form-control rounded-3" placeholder="เช่น ผู้ช่วยศาสตราจารย์, อาจารย์, พยาบาลวิชาชีพ" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">ประเภทบุคลากร *</label>
+                  <select id="editPositionType" class="form-select rounded-3">
+                    <option value="ข้าราชการ">ข้าราชการ</option>
+                    <option value="พนักงานสถาบัน">พนักงานสถาบัน (สบช.)</option>
+                    <option value="พนักงานราชการ">พนักงานราชการ</option>
+                    <option value="พนักงานกระทรวงสาธารณสุข">พนักงานกระทรวงสาธารณสุข (เดิม)</option>
+                    <option value="ลูกจ้างชั่วคราว">ลูกจ้างชั่วคราว</option>
+                    <option value="ลูกจ้างประจำ">ลูกจ้างประจำ</option>
+                    <option value="จ้างเหมาบริการ">จ้างเหมาบริการ</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">สายงาน *</label>
+                  <select id="editJobLine" class="form-select rounded-3">
+                    <option value="สายสอน">สายสอน (อาจารย์)</option>
+                    <option value="สายสนับสนุน">สายสนับสนุน</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">กลุ่มงาน / ภาควิชา</label>
+                  <input type="text" id="editDepartment" class="form-control rounded-3" placeholder="เช่น กลุ่มงานวิชาการ, ภาควิชาการพยาบาลครอบครัว">
+                </div>
+              </div>
+            </div>
+
+            <!-- แท็บ 2: ข้อมูลส่วนบุคคล -->
+            <div class="tab-pane fade" id="tab-personal">
+              <div class="row g-3">
+                <div class="col-md-2">
+                  <label class="form-label small fw-bold text-dark">คำนำหน้า (TH)</label>
+                  <input type="text" id="editTitleTh" class="form-control rounded-3" placeholder="เช่น นาง, นาย, ผศ.">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label small fw-bold text-dark">ชื่อ (ภาษาไทย) *</label>
+                  <input type="text" id="editFnameTh" class="form-control rounded-3" required>
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label small fw-bold text-dark">นามสกุล (ภาษาไทย) *</label>
+                  <input type="text" id="editLnameTh" class="form-control rounded-3" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small fw-bold text-dark">คำนำหน้า (ENG)</label>
+                  <input type="text" id="editTitleEn" class="form-control rounded-3" placeholder="MRS., MISS, MR.">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label small fw-bold text-dark">First Name (ENG)</label>
+                  <input type="text" id="editFnameEn" class="form-control rounded-3" placeholder="เช่น JUNTIMA">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label small fw-bold text-dark">Last Name (ENG)</label>
+                  <input type="text" id="editLnameEn" class="form-control rounded-3" placeholder="เช่น NAWAMAWAT">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small fw-bold text-dark">เพศ</label>
+                  <select id="editGender" class="form-select rounded-3">
+                    <option value="หญิง">หญิง</option>
+                    <option value="ชาย">ชาย</option>
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small fw-bold text-dark">เชื้อชาติ</label>
+                  <input type="text" id="editEthnicity" class="form-control rounded-3" value="ไทย">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small fw-bold text-dark">สัญชาติ</label>
+                  <input type="text" id="editNationality" class="form-control rounded-3" value="ไทย">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small fw-bold text-dark">ศาสนา</label>
+                  <input type="text" id="editReligion" class="form-control rounded-3" value="พุทธ">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">วันเดือนปีเกิด</label>
+                  <input type="date" id="editBirthDate" class="form-control rounded-3">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">สถานภาพ</label>
+                  <select id="editMaritalStatus" class="form-select rounded-3">
+                    <option value="โสด">โสด</option>
+                    <option value="สมรส">สมรส</option>
+                    <option value="หม้าย">หม้าย</option>
+                    <option value="หย่าร้าง">หย่าร้าง</option>
+                  </select>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label small fw-bold text-dark">ภูมิลำเนา (จังหวัด)</label>
+                  <input type="text" id="editHometown" class="form-control rounded-3" placeholder="เช่น นครสวรรค์, อุทัยธานี">
+                </div>
+              </div>
+            </div>
+
+            <!-- แท็บ 3: ประวัติรับราชการ/อายุงาน -->
+            <div class="tab-pane fade" id="tab-civil">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark">วันที่เริ่มทำงานในหน่วยงาน</label>
+                  <input type="date" id="editStartWorkingDate" class="form-control rounded-3">
+                  <div class="text-muted small mt-1">วันเริ่มปฏิบัติงานจริงในวิทยาลัย</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark">วันที่บรรจุรับราชการ (ก.พ.7)</label>
+                  <input type="date" id="editGovServiceDate" class="form-control rounded-3">
+                  <div class="text-muted small mt-1">วันเริ่มนับอายุราชการสำหรับเครื่องราชฯ / วันลาพักผ่อน</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- แท็บ 4: ที่อยู่ & การติดต่อ -->
+            <div class="tab-pane fade" id="tab-contact">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark">ที่อยู่ (บ้านเลขที่ หมู่ ซอย ถนน)</label>
+                  <input type="text" id="editAddressDetail" class="form-control rounded-3" placeholder="เช่น 1 หมู่ 3 หรือ 92/7 ถนนอัมรินทร์วิถี">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">ตำบล</label>
+                  <input type="text" id="editSubdistrict" class="form-control rounded-3" placeholder="เช่น หนองยาง, วัดไทร">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">อำเภอ</label>
+                  <input type="text" id="editDistrict" class="form-control rounded-3" placeholder="เช่น เมืองนครสวรรค์, หนองฉาง">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">จังหวัด</label>
+                  <input type="text" id="editProvince" class="form-control rounded-3" placeholder="เช่น นครสวรรค์, อุทัยธานี">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">รหัสไปรษณีย์</label>
+                  <input type="text" id="editPostalCode" class="form-control rounded-3" placeholder="เช่น 60000">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark">เบอร์โทรติดต่อ</label>
+                  <input type="text" id="editPhoneNumber" class="form-control rounded-3" placeholder="เช่น 0884590010">
+                </div>
+                <div class="col-md-12">
+                  <label class="form-label small fw-bold text-dark">Email สถาบัน (@bcnsprnw.ac.th)</label>
+                  <input type="email" id="editEmail" class="form-control rounded-3" placeholder="เช่น juntima@bcnsprnw.ac.th">
+                </div>
+              </div>
+            </div>
+
+            <!-- แท็บ 5: การศึกษาต่อ & รูปภาพ -->
+            <div class="tab-pane fade" id="tab-study">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark">สถานะการศึกษาต่อ</label>
+                  <input type="text" id="editFurtherStudy" class="form-control rounded-3" placeholder="เช่น ว่าง หรือ ศึกษาต่อ ป.เอก">
+                  <div class="text-muted small mt-1">ระบุสถานะหากกำลังศึกษาต่อ (เช่น ป.เอก คณะพยาบาลศาสตร์)</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark">URL รูปถ่ายหน้าตรง</label>
+                  <input type="url" id="editPhotoUrl" class="form-control rounded-3" placeholder="https://...">
+                  <div class="text-muted small mt-1">ลิงก์รูปภาพถ่ายประจำตัวบุคลากร</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-light border-top p-3 mt-4 -mb-3 -mx-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn text-white btn-sm px-4 rounded-pill fw-bold" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%);">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูลบุคลากร
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Modal: Login Modal (Google SSO + ID/Password staff_master) -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-0 text-white p-4 pb-3 justify-content-between position-relative" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%);">
+        <div class="d-flex align-items-center gap-3">
+          <img src="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop" alt="BCNSPRNW Logo" class="rounded-circle bg-white p-1 shadow-sm" style="width: 44px; height: 44px; object-fit: contain;">
+          <div>
+            <h5 class="modal-title fw-bold mb-0 text-white" style="font-size: 1.15rem;">เข้าสู่ระบบเจ้าหน้าที่</h5>
+            <div class="small opacity-75" style="font-size: 0.78rem;">PRIMIS • ระบบสารสนเทศบุคลากรกลาง</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4 pt-4">
+        <!-- 1. Google SSO -->
+        <button class="btn btn-outline-dark w-100 py-2 fw-semibold rounded-pill d-flex align-items-center justify-content-center gap-2 mb-3 shadow-sm" onclick="doGoogleLogin()" style="border-color: #dadce0; background: #ffffff; font-size: 0.9rem;">
+          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          <span>ลงชื่อเข้าใช้ด้วยบัญชี Google</span>
+        </button>
+
+        <!-- 2. ID / Password จาก staff_master -->
+        <button class="btn btn-outline-primary text-dark w-100 py-2 fw-semibold rounded-pill d-flex align-items-center justify-content-center gap-2 shadow-sm mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#passwordLoginCollapse" aria-expanded="false" id="btnTogglePasswordLogin" style="border-color: #44b6df;">
+          <i class="fa-solid fa-id-card-clip" style="color: #1e88b5;"></i>
+          <span>ลงชื่อเข้าใช้ด้วย ID Password</span>
+        </button>
+
+        <div class="collapse mt-3" id="passwordLoginCollapse">
+          <div class="p-3 bg-light rounded-4 border border-primary-subtle shadow-sm">
+            <form id="staffLoginForm" onsubmit="event.preventDefault(); doStaffPasswordLogin();">
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="fa-solid fa-id-badge text-primary me-1"></i> รหัสประจำตัว (PIN)
+                </label>
+                <input type="text" id="loginUsernameInput" class="form-control rounded-3 bg-white" placeholder="กรอกรหัสประจำตัว (PIN)" autocomplete="username" required>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="fa-solid fa-key text-primary me-1"></i> รหัสผ่าน (Password)
+                </label>
+                <input type="password" id="loginPasswordInput" class="form-control rounded-3 bg-white" placeholder="กรอกรหัสผ่าน" autocomplete="current-password" required>
+              </div>
+
+              <button type="submit" class="btn text-white w-100 py-2 fw-bold rounded-pill shadow-sm" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%); border: none;">
+                <i class="fa-solid fa-right-to-bracket me-1"></i> เข้าสู่ระบบ
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="text-center mt-3 pt-2">
+          <span class="text-muted small" style="font-size: 0.72rem;">วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Modal: ประวัติการดำรงตำแหน่งและอัตราเงินเดือน (ก.พ.7 Salary History Modal) -->
+<div class="modal fade" id="salaryHistoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header (Sky Blue Gradient Banner) -->
+      <div class="modal-header border-0 text-white p-4 pb-3" style="background: linear-gradient(135deg, #44b6df 0%, #1e88b5 100%);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-white text-primary p-2 shadow-sm d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+            <i class="fa-solid fa-money-check-dollar fs-4" style="color: #1e88b5;"></i>
+          </div>
+          <div>
+            <div class="d-flex align-items-center gap-2">
+              <h5 class="modal-title fw-bold text-white mb-0" id="salaryStaffNameTh">ประวัติการดำรงตำแหน่งและอัตราเงินเดือน</h5>
+              <span id="salaryStaffPinBadge" class="badge bg-white text-dark rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#000000</span>
+            </div>
+            <div class="small opacity-90 mt-1">สมุดประวัติ ก.พ.7 หมวดตำแหน่งและอัตราเงินเดือน (ข้อมูลความมั่นคงและชั้นความลับ)</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-light">
+        <!-- Dashboard สรุปอัตราเงินเดือนปัจจุบัน -->
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="card border-0 shadow-xs rounded-4 p-3 bg-white h-100">
+              <div class="text-muted small fw-semibold">เงินเดือนปัจจุบัน</div>
+              <div class="fs-4 fw-bold text-primary mt-1" id="sumCurrentSalary">฿0.00</div>
+              <div class="small text-muted mt-1" id="sumLastEffectiveDate">-</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-xs rounded-4 p-3 bg-white h-100">
+              <div class="text-muted small fw-semibold">เงินประจำตำแหน่ง</div>
+              <div class="fs-4 fw-bold text-dark mt-1" id="sumPositionAllowance">฿0.00</div>
+              <div class="small text-muted mt-1">ตามสิทธิสายงาน/ระดับ</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-xs rounded-4 p-3 bg-white h-100">
+              <div class="text-muted small fw-semibold">ค่าตอบแทนพิเศษ (พตส./อื่นๆ)</div>
+              <div class="fs-4 fw-bold text-dark mt-1" id="sumSpecialRemun">฿0.00</div>
+              <div class="small text-muted mt-1">ตามเกณฑ์ สธ./สบช.</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-xs rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+              <div class="small fw-semibold opacity-90">รวมรายได้ต่อเดือน</div>
+              <div class="fs-4 fw-bold mt-1" id="sumTotalMonthly">฿0.00</div>
+              <div class="small opacity-75 mt-1" id="sumLastMovement">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- รายการตารางประวัติเงินเดือนย้อนหลังทั้งหมด -->
+        <div class="card border-0 shadow-xs rounded-4 p-4 bg-white">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-list-ol text-primary"></i> บันทึกรายการเคลื่อนไหวเงินเดือนทั้งหมด
+              </h6>
+              <div class="text-muted small" style="font-size: 0.72rem;">เรียงลำดับจากรายการล่าสุดลงไปตามรูปแบบสมุด ก.พ.7</div>
+            </div>
+            <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-xs" onclick="openAddSalaryModal()">
+              <i class="fa-solid fa-plus me-1"></i> เพิ่มรายการเงินเดือน
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle small mb-0" id="salaryHistoryTable">
+              <thead class="table-light">
+                <tr>
+                  <th class="text-center" style="width: 50px;">ลำดับ</th>
+                  <th>ว.ด.ป. ที่มีผล</th>
+                  <th>รายการเคลื่อนไหว</th>
+                  <th>ตำแหน่ง / เลขที่</th>
+                  <th>ระดับ / ประเภท</th>
+                  <th class="text-end">เงินเดือน (บาท)</th>
+                  <th class="text-end">เงินประจำตำแหน่ง</th>
+                  <th class="text-end">ค่าตอบแทนพิเศษ</th>
+                  <th class="text-center">คำสั่งอ้างอิง</th>
+                  <th class="text-center" style="width: 80px;">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="salaryHistoryTableBody">
+                <tr><td colspan="10" class="text-center py-4 text-muted">กำลังโหลดข้อมูลประวัติเงินเดือน...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-white border-top p-3 d-flex justify-content-end">
+        <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Modal: ฟอร์มเพิ่ม/แก้ไขรายการเงินเดือน (Add/Edit Salary Form Modal) -->
+<div class="modal fade" id="editSalaryRecordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom p-3" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 36px; height: 36px; background: #1e88b5;">
+            <i class="fa-solid fa-file-invoice-dollar fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0" id="salaryFormTitle">บันทึกรายการเงินเดือน ก.พ.7</h5>
+            <div class="text-muted small" style="font-size: 0.72rem;">ข้อมูล 15 ฟิลด์ตามแบบฟอร์มเอกสารทางราชการจริง</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <form id="salaryRecordForm" onsubmit="event.preventDefault(); submitSalaryRecordForm();">
+          <input type="hidden" id="salRecordId" value="">
+          <input type="hidden" id="salStaffPin" value="">
+
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label small fw-bold text-dark">วันเดือนปีที่มีผลบังคับใช้ (พ.ศ.) *</label>
+              <div class="row g-1">
+                <div class="col-4">
+                  <select id="salEffectiveDay" class="form-select rounded-3 text-center" onchange="syncSalEffectiveDateBEtoAD()">
+                    <option value="">วัน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="salEffectiveMonth" class="form-select rounded-3 text-center" onchange="syncSalEffectiveDateBEtoAD()">
+                    <option value="">เดือน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="salEffectiveYearBE" class="form-select rounded-3 text-center" onchange="syncSalEffectiveDateBEtoAD()">
+                    <option value="">พ.ศ.</option>
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" id="salEffectiveDate" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">รายการเคลื่อนไหว *</label>
+              <select id="salMovementType" class="form-select rounded-3" onchange="onSalMovementTypeChange(this.value)">
+                <option value="เลื่อนขั้นเงินเดือน (รอบ 1 เม.ย.)">เลื่อนขั้นเงินเดือน (รอบ 1 เม.ย. - ข้าราชการ)</option>
+                <option value="เลื่อนขั้นเงินเดือน (รอบ 1 ต.ค.)">เลื่อนขั้นเงินเดือน (รอบ 1 ต.ค. - ข้าราชการ / พนักงานราชการ / สายสนับสนุน)</option>
+                <option value="เลื่อนขั้นเงินเดือน">เลื่อนขั้นเงินเดือน (ทั่วไป)</option>
+                <option value="ปรับเงินเดือน">ปรับเงินเดือน (นโยบายรัฐบาล/สถาบัน)</option>
+                <option value="บรรจุแต่งตั้ง">บรรจุแต่งตั้ง</option>
+                <option value="เลื่อนระดับ/ตำแหน่ง">เลื่อนระดับ/ตำแหน่ง</option>
+                <option value="รับโอน/ย้าย">รับโอน/ย้าย</option>
+                <option value="โอนย้ายออก">โอนย้ายออก</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">ระดับผลการประเมิน</label>
+              <input type="text" id="salEvalScoreLevel" class="form-control rounded-3" list="salEvalScoreOptions" placeholder="พิมพ์ เช่น ดีเด่น, ดีมาก">
+              <datalist id="salEvalScoreOptions">
+                <option value="ดีเด่น">
+                <option value="ดีมาก">
+                <option value="ดี">
+                <option value="พอใช้">
+                <option value="ปรับปรุง">
+              </datalist>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">ตำแหน่งตามคำสั่ง *</label>
+              <input type="text" id="salPositionTitle" class="form-control rounded-3" placeholder="เช่น อาจารย์, พยาบาลวิชาชีพ" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">เลขที่ตำแหน่ง</label>
+              <input type="text" id="salPositionNumber" class="form-control rounded-3" placeholder="เช่น 2520">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">ระดับ / ชั้น</label>
+              <input type="text" id="salPositionLevel" class="form-control rounded-3" placeholder="เช่น ชำนาญการ, ปฏิบัติการ, พิเศษ">
+            </div>
+
+            <!-- 4 ช่องตัวเลขอิสระ ไม่ผูกมัดกันเชิงตัวเลข (Decoupled Numeric Inputs) -->
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">เงินตั้งต้น / ฐานเดิม (บาท)</label>
+              <div class="input-group">
+                <input type="number" step="0.01" id="salBaseSalary" class="form-control rounded-start-3 text-secondary" placeholder="0.00">
+                <span class="input-group-text bg-light text-muted small">฿</span>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">ร้อยละที่ได้เลื่อน (%)</label>
+              <div class="input-group">
+                <input type="number" step="0.01" id="salPercentageRate" class="form-control rounded-start-3" placeholder="เช่น 4.56">
+                <span class="input-group-text bg-light text-muted small">%</span>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">จำนวนเงินที่ได้เลื่อน (บาท)</label>
+              <div class="input-group">
+                <input type="number" step="0.01" id="salRaiseAmount" class="form-control rounded-start-3 text-success fw-bold" placeholder="0.00">
+                <span class="input-group-text bg-light text-success small">฿</span>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">อัตราเงินเดือนใหม่ (บาท) *</label>
+              <div class="input-group">
+                <input type="number" step="0.01" id="salSalaryAmount" class="form-control rounded-start-3 fw-bold text-primary" placeholder="0.00" required>
+                <span class="input-group-text bg-light text-primary small">฿</span>
+              </div>
+            </div>
+
+            <!-- แถวเงินประจำตำแหน่ง, ค่าตอบแทนพิเศษ, ตัวเลือกเงินเดือนเต็มขั้น -->
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">เงินประจำตำแหน่ง (บาท)</label>
+              <input type="number" step="0.01" id="salPositionAllowance" class="form-control rounded-3" placeholder="0.00" value="0.00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">ค่าตอบแทนพิเศษ (บาท)</label>
+              <input type="number" step="0.01" id="salSpecialRemun" class="form-control rounded-3" placeholder="0.00" value="0.00">
+            </div>
+            <div class="col-md-4 d-flex align-items-end pb-1">
+              <div class="form-check form-switch mb-1">
+                <input class="form-check-input" type="checkbox" id="salIsCappedMax">
+                <label class="form-check-label small text-muted fw-semibold" for="salIsCappedMax">เงินเดือนเต็มขั้น (กรณีพิเศษ)</label>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark">คำสั่งเลขที่อ้างอิง</label>
+              <input type="text" id="salRefOrderNo" class="form-control rounded-3" placeholder="เช่น 142/2569">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark">ลงวันที่คำสั่ง (พ.ศ.)</label>
+              <div class="row g-1">
+                <div class="col-4">
+                  <select id="salRefOrderDay" class="form-select rounded-3 text-center" onchange="syncSalRefOrderDateBEtoAD()">
+                    <option value="">วัน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="salRefOrderMonth" class="form-select rounded-3 text-center" onchange="syncSalRefOrderDateBEtoAD()">
+                    <option value="">เดือน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="salRefOrderYearBE" class="form-select rounded-3 text-center" onchange="syncSalRefOrderDateBEtoAD()">
+                    <option value="">พ.ศ.</option>
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" id="salRefOrderDate">
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label small fw-bold text-dark">หมายเหตุ / ข้อมูลเพิ่มเติม</label>
+              <textarea id="salRemark" class="form-control rounded-3" rows="2" placeholder="ระบุเงื่อนไข คำชี้แจง หรือรายละเอียดเพิ่มเติม"></textarea>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-light border-top p-3 mt-4 -mb-3 -mx-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn text-white btn-sm px-4 rounded-pill fw-bold" style="background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกรายการเงินเดือน
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     4.5 Modal: ฟอร์มเพิ่ม/แก้ไขช่วงประวัติการทำงาน / รับราชการ (Add/Edit Service History Modal)
+     ==================================================== -->
+<div class="modal fade" id="editServiceHistoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom p-3" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 36px; height: 36px; background: #059669;">
+            <i class="fa-solid fa-business-time fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0" id="serviceFormTitle">บันทึกช่วงประวัติการทำงาน / รับราชการ</h5>
+            <div class="text-muted small" style="font-size: 0.72rem;">บันทึกเส้นทางการเติบโตในแต่ละช่วง (ลูกจ้างชั่วคราว, พกส., พนักงานสถาบัน, ข้าราชการ)</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <form id="serviceRecordForm" onsubmit="event.preventDefault(); submitServiceRecordForm();">
+          <input type="hidden" id="serviceRecordId" value="">
+          <input type="hidden" id="serviceStaffPin" value="">
+
+          <div class="row g-3">
+            <!-- ประเภทการจ้างงาน / บุคลากร -->
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark">ประเภทการจ้างงาน / บุคลากร *</label>
+              <select id="serviceEmploymentType" class="form-select rounded-3" required>
+                <option value="ข้าราชการ">ข้าราชการ</option>
+                <option value="พนักงานสถาบัน">พนักงานสถาบัน</option>
+                <option value="พนักงานราชการ">พนักงานราชการ</option>
+                <option value="พนักงานกระทรวงสาธารณสุข">พนักงานกระทรวงสาธารณสุข (พกส.)</option>
+                <option value="ลูกจ้างชั่วคราว">ลูกจ้างชั่วคราว</option>
+                <option value="ลูกจ้างประจำ">ลูกจ้างประจำ</option>
+                <option value="จ้างเหมาบริการ">จ้างเหมาบริการ</option>
+              </select>
+            </div>
+
+            <!-- สวิตช์ตำแหน่งปัจจุบัน -->
+            <div class="col-md-6 d-flex align-items-center">
+              <div class="form-check form-switch p-3 bg-light rounded-3 border w-100 mt-2">
+                <input class="form-check-input ms-0 me-2" type="checkbox" id="serviceIsCurrent" onchange="onServiceCurrentToggle(this.checked)">
+                <label class="form-check-label small fw-bold text-dark cursor-pointer" for="serviceIsCurrent">
+                  <i class="fa-solid fa-circle-check text-success me-1"></i> เป็นตำแหน่ง/ประเภทการจ้างงานปัจจุบัน (Current)
+                </label>
+                <div class="text-muted" style="font-size: 0.72rem;">หากเลือก ระบบจะอัปเดตสถานะและตำแหน่งปัจจุบันในโปรไฟล์ให้อัตโนมัติ</div>
+              </div>
+            </div>
+
+            <!-- ตำแหน่ง -->
+            <div class="col-md-5">
+              <label class="form-label small fw-bold text-dark">ตำแหน่ง *</label>
+              <input type="text" id="servicePositionTitle" class="form-control rounded-3" placeholder="เช่น พยาบาลวิชาชีพ, อาจารย์, เจ้าหน้าที่ธุรการ" required>
+            </div>
+
+            <!-- ระดับตำแหน่ง -->
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">ระดับตำแหน่ง</label>
+              <input type="text" id="servicePositionLevel" class="form-control rounded-3" placeholder="เช่น ปฏิบัติการ, ชำนาญการ, เชี่ยวชาญ">
+            </div>
+
+            <!-- สังกัด / กลุ่มงาน -->
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">สังกัด / กลุ่มงาน / ภาควิชา</label>
+              <input type="text" id="serviceDepartment" class="form-control rounded-3" placeholder="เช่น กลุ่มงานอำนวยการ, ภาควิชาการพยาบาล">
+            </div>
+
+            <!-- วันที่เริ่มต้นช่วงนี้ (พ.ศ.) -->
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark">วันที่เริ่มต้นช่วงนี้ (พ.ศ.) *</label>
+              <div class="row g-1">
+                <div class="col-4">
+                  <select id="serviceStartDay" class="form-select rounded-3 text-center" onchange="syncServiceStartDateBEtoAD()">
+                    <option value="">วัน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="serviceStartMonth" class="form-select rounded-3 text-center" onchange="syncServiceStartDateBEtoAD()">
+                    <option value="">เดือน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="serviceStartYearBE" class="form-select rounded-3 text-center" onchange="syncServiceStartDateBEtoAD()">
+                    <option value="">พ.ศ.</option>
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" id="serviceStartDate" required>
+              <div class="text-muted small mt-1" style="font-size: 0.72rem;">วันเริ่มต้นบรรจุหรือเริ่มสัญญาของช่วงนี้</div>
+            </div>
+
+            <!-- วันที่สิ้นสุดช่วงนี้ (พ.ศ.) -->
+            <div class="col-md-6" id="serviceEndDateWrap">
+              <label class="form-label small fw-bold text-dark">วันที่สิ้นสุดช่วงนี้ (พ.ศ.)</label>
+              <div class="row g-1">
+                <div class="col-4">
+                  <select id="serviceEndDay" class="form-select rounded-3 text-center" onchange="syncServiceEndDateBEtoAD()">
+                    <option value="">วัน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="serviceEndMonth" class="form-select rounded-3 text-center" onchange="syncServiceEndDateBEtoAD()">
+                    <option value="">เดือน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="serviceEndYearBE" class="form-select rounded-3 text-center" onchange="syncServiceEndDateBEtoAD()">
+                    <option value="">พ.ศ.</option>
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" id="serviceEndDate">
+              <div class="text-muted small mt-1" id="serviceEndDateHint" style="font-size: 0.72rem;">เว้นว่างไว้หากยังคงปฏิบัติงานอยู่ในปัจจุบัน</div>
+            </div>
+
+            <!-- เลขที่คำสั่ง -->
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark">เลขที่คำสั่งแต่งตั้ง/บรรจุ</label>
+              <input type="text" id="serviceOrderNumber" class="form-control rounded-3" placeholder="เช่น 125/2560">
+            </div>
+
+            <!-- ลงวันที่คำสั่ง (พ.ศ.) -->
+            <div class="col-md-5">
+              <label class="form-label small fw-bold text-dark">ลงวันที่คำสั่ง (พ.ศ.)</label>
+              <div class="row g-1">
+                <div class="col-4">
+                  <select id="serviceOrderDay" class="form-select rounded-3 text-center" onchange="syncServiceOrderDateBEtoAD()">
+                    <option value="">วัน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="serviceOrderMonth" class="form-select rounded-3 text-center" onchange="syncServiceOrderDateBEtoAD()">
+                    <option value="">เดือน</option>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <select id="serviceOrderYearBE" class="form-select rounded-3 text-center" onchange="syncServiceOrderDateBEtoAD()">
+                    <option value="">พ.ศ.</option>
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" id="serviceOrderDate">
+            </div>
+
+            <!-- เงินเดือนเริ่มต้นของช่วง -->
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark">เงินเดือนเริ่มต้น (บาท)</label>
+              <input type="number" step="0.01" id="serviceSalaryStart" class="form-control rounded-3" placeholder="0.00">
+            </div>
+
+            <!-- หมายเหตุ -->
+            <div class="col-12">
+              <label class="form-label small fw-bold text-dark">หมายเหตุ / เหตุผลการเปลี่ยนแปลง</label>
+              <input type="text" id="serviceRemarks" class="form-control rounded-3" placeholder="เช่น บรรจุตามมติ ครม., สอบคัดเลือกเปลี่ยนสายงาน, ปรับวุฒิการศึกษา">
+            </div>
+          </div>
+
+          <div class="modal-footer bg-light border-top p-3 mt-4 -mb-3 -mx-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn text-white btn-sm px-4 rounded-pill fw-bold" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกช่วงประวัติการทำงาน
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     5. Modal: กำหนดสิทธิ์และบทบาทผู้ใช้งาน (User Roles Modal)
+     ==================================================== -->
+<div class="modal fade" id="userRoleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header (Royal Blue Gradient Banner) -->
+      <div class="modal-header border-0 text-white p-3 px-4" style="background: linear-gradient(135deg, #091e3a 0%, #17488f 70%, #1d4ed8 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <i class="fa-solid fa-user-shield fs-5"></i>
+          <div>
+            <h6 class="modal-title fw-bold mb-0 text-white" id="userRoleModalTitle">กำหนดสิทธิ์ผู้ใช้งานในระบบ</h6>
+            <span class="small opacity-85" style="font-size: 0.72rem;">มอบหมายบทบาทการเข้าถึงข้อมูลระบบ ก.พ.7 บุคลากร</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <form id="userRoleForm" onsubmit="event.preventDefault(); submitUserRoleForm();">
+          <input type="hidden" id="userRoleStaffId">
+
+          <!-- Alert สำหรับบุคลากรที่พ้นสภาพ (ลาออก/เกษียณ) -->
+          <div id="userRoleStatusAlert" class="alert alert-danger py-2 px-3 small rounded-3 mb-3 d-none align-items-center gap-2"></div>
+
+          <!-- Staff Selector Section -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark">
+              <i class="fa-solid fa-user-tie text-primary me-1"></i>เลือกบุคลากรจากทะเบียน staff_master *
+            </label>
+            <div id="userRoleStaffPickerWrap">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" class="form-control" id="userRoleSearchStaffInput" placeholder="พิมพ์ชื่อ, สกุล หรือรหัส PIN..." oninput="filterUserRoleStaffPicker(this.value)">
+                <button class="btn btn-outline-secondary" type="button" onclick="clearUserRoleStaffSelection()"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div id="userRoleStaffDropdown" class="border rounded-3 p-1 mt-1 bg-white shadow-sm d-none" style="max-height: 200px; overflow-y: auto; font-size: 0.82rem;"></div>
+            </div>
+
+            <!-- Selected Staff Preview -->
+            <div id="userRoleSelectedStaffPreview" class="d-none mt-2 p-2 border rounded-3 bg-light d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <img id="userRolePreviewAvatar" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" class="rounded-circle border" style="width: 36px; height: 36px; object-fit: cover;">
+                <div>
+                  <div class="fw-bold text-dark" id="userRolePreviewName">-</div>
+                  <div class="text-muted" style="font-size: 0.74rem;" id="userRolePreviewMeta">-</div>
+                </div>
+              </div>
+              <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-1" id="userRolePreviewPin">#0</span>
+            </div>
+          </div>
+
+          <!-- Role Selection (4 Levels) -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark">
+              <i class="fa-solid fa-shield-halved text-primary me-1"></i>ระดับบทบาทหน้าที่ (Role) *
+            </label>
+            <select id="userRoleSelect" class="form-select rounded-3" required onchange="handleRoleSelectChange(this.value)">
+              <option value="staff">👤 Staff - บุคลากรทั่วไป (ดูข้อมูลเปิดเผย / My Profile)</option>
+              <option value="executive">👔 Executive - ผู้บริหาร (ดู Dashboard / Read-Only ก.พ.7)</option>
+              <option value="hr_admin">💼 HR Admin - เจ้าหน้าที่ฝ่ายบุคคล (จัดการทะเบียน ก.พ.7 และเงินเดือน)</option>
+              <option value="super_admin">🛡️ Super Admin - ผู้ดูแลระบบสูงสุด (จัดการทุกส่วนรวมถึงสิทธิ์)</option>
+            </select>
+          </div>
+
+          <!-- Specific Permissions (Checkboxes) -->
+          <div class="mb-3 p-3 border rounded-3 bg-light">
+            <label class="form-label small fw-bold text-dark mb-2">
+              <i class="fa-solid fa-list-check text-primary me-1"></i>สิทธิ์การปฏิบัติงานเฉพาะด้าน
+            </label>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="userRoleCanExport" checked>
+              <label class="form-check-label small" for="userRoleCanExport">
+                <strong>ส่งออกรายงานทางการ (Export):</strong> สามารถดาวน์โหลด PDF ก.พ.7 และไฟล์ทะเบียนบุคลากร
+              </label>
+            </div>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="userRoleCanManageInsignia">
+              <label class="form-check-label small" for="userRoleCanManageInsignia">
+                <strong>บริหารเครื่องราชอิสริยาภรณ์:</strong> บันทึกประวัติและตรวจสอบสิทธิ์รอบปี
+              </label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="userRoleCanManageBonds">
+              <label class="form-check-label small" for="userRoleCanManageBonds">
+                <strong>บริหารสัญญาชดใช้ทุน:</strong> ติดตามสัญญาการศึกษาต่อ 4 รูปแบบตามบริบท สบช.
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-light border-top p-3 mt-3 -mb-3 -mx-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn text-white btn-sm px-4 rounded-pill fw-bold" style="background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกการกำหนดสิทธิ์
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+5. Modal: เปลี่ยนรหัสผ่านของผู้ใช้งาน (Reset Password Modal)
+บันทึกลงใน staff_master เฉพาะของเจ้าของข้อมูล ปลอดภัย 100%
+==================================================== -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header (Navy Blue Gradient) -->
+      <div class="modal-header border-0 text-white p-4 pb-3" style="background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center shadow-sm" style="width: 44px; height: 44px; min-width: 44px; font-size: 1.25rem;">
+            <i class="fa-solid fa-key"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-white mb-0">เปลี่ยนรหัสผ่าน (Reset Password)</h5>
+            <div class="small opacity-90 mt-1">อัปเดตรหัสผ่านสำหรับเข้าสู่ระบบของท่าน</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <form id="resetPasswordForm" onsubmit="event.preventDefault(); doSubmitResetPassword();">
+          
+          <!-- User Info Banner -->
+          <div class="alert alert-primary-subtle border border-primary-subtle rounded-3 p-3 mb-3 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-user-lock text-primary fs-5"></i>
+            <div class="small">
+              <div>กำลังเปลี่ยนรหัสผ่านสำหรับ: <strong id="resetPassUserName" class="text-dark">-</strong></div>
+              <div class="text-muted">รหัส PIN: <span id="resetPassUserPin" class="badge bg-primary text-white">#-</span></div>
+            </div>
+          </div>
+
+          <!-- รหัสผ่านปัจจุบัน -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">
+              <i class="fa-solid fa-lock me-1 text-secondary"></i>รหัสผ่านปัจจุบัน (Current Password): <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <input type="password" class="form-control rounded-start-3" id="resetCurrentPassInput" placeholder="กรอกรหัสผ่านเดิม หรือรหัส PIN หากยังไม่เคยเปลี่ยน" required>
+              <button class="btn btn-outline-secondary rounded-end-3" type="button" onclick="togglePasswordInput('resetCurrentPassInput', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- รหัสผ่านใหม่ -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">
+              <i class="fa-solid fa-key me-1 text-primary"></i>รหัสผ่านใหม่ (New Password): <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <input type="password" class="form-control rounded-start-3" id="resetNewPassInput" placeholder="กำหนดรหัสผ่านใหม่อย่างน้อย 4 ตัวอักษร" minlength="4" required>
+              <button class="btn btn-outline-secondary rounded-end-3" type="button" onclick="togglePasswordInput('resetNewPassInput', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- ยืนยันรหัสผ่านใหม่ -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">
+              <i class="fa-solid fa-circle-check me-1 text-success"></i>ยืนยันรหัสผ่านใหม่ (Confirm Password): <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <input type="password" class="form-control rounded-start-3" id="resetConfirmPassInput" placeholder="กรอกรหัสผ่านใหม่อีกครั้งให้ตรงกัน" minlength="4" required>
+              <button class="btn btn-outline-secondary rounded-end-3" type="button" onclick="togglePasswordInput('resetConfirmPassInput', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- ข้อความเตือนความปลอดภัย -->
+          <div class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4;">
+            <i class="fa-solid fa-shield-halved text-success me-1"></i>
+            ระบบจะบันทึกรหัสผ่านใหม่ลงในฐานข้อมูลกลาง <code>staff_master</code> เฉพาะบัญชีของท่านโดยตรง และมีผลใช้งานทันทีในครั้งถัดไป
+          </div>
+
+          <!-- Footer Buttons -->
+          <div class="modal-footer bg-light border-top p-3 mt-4 -mb-3 -mx-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn text-white btn-sm px-4 rounded-pill fw-bold" style="background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกรหัสผ่านใหม่
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 8. Modal: ฟอร์มเพิ่ม/แก้ไขประวัติการศึกษา (Add/Edit Education Form Modal) -->
+<div class="modal fade" id="editEducationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header (Sky Blue Gradient Banner) -->
+      <div class="modal-header border-bottom p-3" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 36px; height: 36px; background: #1e88b5;">
+            <i class="fa-solid fa-graduation-cap fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0" id="educationFormTitle">บันทึกข้อมูลประวัติการศึกษา</h5>
+            <div class="text-muted small" style="font-size: 0.72rem;">ระบบฐานข้อมูล ก.พ.7 หมวดประวัติการศึกษาและพัฒนาคุณวุฒิ</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-white">
+        <form id="educationRecordForm" onsubmit="event.preventDefault(); submitEducationRecordForm();">
+          <input type="hidden" id="eduRecordId" value="">
+          <input type="hidden" id="eduStaffPin" value="">
+
+          <div class="row g-3">
+            <!-- บุคลากรผู้สำเร็จการศึกษา (กรณีเพิ่มใหม่: สามารถเลือกได้ / กรณีแก้ไข: แสดงแบบ Fixed) -->
+            <div class="col-md-12" id="eduStaffSelectBox">
+              <label class="form-label small fw-bold text-dark mb-1">
+                <i class="fa-solid fa-user me-1 text-primary"></i>เลือกบุคลากรผู้สำเร็จการศึกษา: <span class="text-danger">*</span>
+              </label>
+              <select id="eduModalStaffSelect" class="form-select rounded-3" onchange="onEduModalStaffChanged(this.value)">
+                <option value="">-- กรุณาเลือกบุคลากร --</option>
+              </select>
+            </div>
+            <div class="col-md-12 d-none" id="eduStaffFixedBox">
+              <label class="form-label small fw-bold text-dark mb-1">
+                <i class="fa-solid fa-user me-1 text-primary"></i>บุคลากรผู้สำเร็จการศึกษา:
+              </label>
+              <div class="p-2 bg-light rounded-3 border d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span id="eduStaffPinBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1">#000000</span>
+                  <span id="eduStaffNameLabel" class="fw-bold text-dark small">-</span>
+                </div>
+                <span class="text-muted small" style="font-size: 0.76rem;">ก.พ.7 Single Source of Truth</span>
+              </div>
+            </div>
+
+            <!-- ระดับการศึกษา -->
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                ระดับการศึกษา <span class="text-danger">*</span>
+              </label>
+              <select id="eduLevel" class="form-select rounded-3" required>
+                <option value="">-- เลือกระดับการศึกษา --</option>
+                <option value="ปริญญาเอก">ปริญญาเอก (Doctoral Degree / Ph.D.)</option>
+                <option value="ปริญญาโท">ปริญญาโท (Master's Degree)</option>
+                <option value="ปริญญาตรี">ปริญญาตรี (Bachelor's Degree)</option>
+                <option value="ประกาศนียบัตรเฉพาะทาง">ประกาศนียบัตรเฉพาะทาง (Specialized Certificate)</option>
+                <option value="ประกาศนียบัตรวิชาชีพชั้นสูง/อนุปริญญา">ประกาศนียบัตรวิชาชีพชั้นสูง / อนุปริญญา</option>
+                <option value="มัธยมศึกษาตอนปลาย">มัธยมศึกษาตอนปลาย / ปวช.</option>
+              </select>
+            </div>
+
+            <!-- ปี พ.ศ. ที่สำเร็จการศึกษา -->
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                ปีที่สำเร็จการศึกษา (พ.ศ.) <span class="text-danger">*</span>
+              </label>
+              <select id="eduGradYearBE" class="form-select rounded-3" required>
+                <option value="">-- เลือกปี พ.ศ. ที่สำเร็จ --</option>
+              </select>
+            </div>
+
+            <!-- วุฒิการศึกษาเต็ม -->
+            <div class="col-md-8">
+              <label class="form-label small fw-bold text-dark mb-1">
+                ชื่อวุฒิการศึกษาเต็ม (เช่น พยาบาลศาสตรมหาบัณฑิต, วิทยาศาสตรบัณฑิต) <span class="text-danger">*</span>
+              </label>
+              <input type="text" id="eduDegreeName" class="form-control rounded-3" placeholder="เช่น พยาบาลศาสตรมหาบัณฑิต" required>
+            </div>
+
+            <!-- อักษรย่อวุฒิ -->
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark mb-1">
+                อักษรย่อวุฒิ (เช่น พย.ม., วท.บ.)
+              </label>
+              <input type="text" id="eduDegreeShort" class="form-control rounded-3" placeholder="เช่น พย.ม., วท.บ.">
+            </div>
+
+            <!-- สาขาวิชา -->
+            <div class="col-md-12">
+              <label class="form-label small fw-bold text-dark mb-1">
+                สาขาวิชา / วิชาเอก (เช่น การพยาบาลเวชปฏิบัติชุมชน) <span class="text-danger">*</span>
+              </label>
+              <input type="text" id="eduMajor" class="form-control rounded-3" placeholder="เช่น การพยาบาลเวชปฏิบัติชุมชน, การพยาบาลผู้ใหญ่และผู้สูงอายุ" required>
+            </div>
+
+            <!-- สถาบันการศึกษา -->
+            <div class="col-md-8">
+              <label class="form-label small fw-bold text-dark mb-1">
+                สถาบันการศึกษา / มหาวิทยาลัย <span class="text-danger">*</span>
+              </label>
+              <input type="text" id="eduInstitution" class="form-control rounded-3" placeholder="เช่น มหาวิทยาลัยนเรศวร, จุฬาลงกรณ์มหาวิทยาลัย, สถาบันพระบรมราชชนก" required>
+            </div>
+
+            <!-- ประเทศ -->
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark mb-1">
+                ประเทศที่จบการศึกษา
+              </label>
+              <input type="text" id="eduCountry" class="form-control rounded-3" value="ไทย" placeholder="เช่น ไทย, สหรัฐอเมริกา, สหราชอาณาจักร">
+            </div>
+
+            <!-- วุฒิการศึกษาสูงสุด Checkbox -->
+            <div class="col-md-12">
+              <div class="form-check form-switch p-3 bg-light rounded-3 border">
+                <input class="form-check-input ms-0 me-2" type="checkbox" id="eduIsHighest" role="switch">
+                <label class="form-check-label fw-bold text-dark small" for="eduIsHighest">
+                  กำหนดให้เป็น "วุฒิการศึกษาสูงสุดในปัจจุบัน" (จะแสดงเป็นวุฒิหลักในทะเบียนบุคลากร)
+                </label>
+              </div>
+            </div>
+
+            <!-- เอกสารหลักฐานวุฒิการศึกษา (Transcript / ปริญญาบัตร) -->
+            <div class="col-md-12">
+              <div class="card border rounded-3 p-3 bg-light-subtle shadow-xs">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label small fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-file-pdf text-danger me-1"></i> เอกสารหลักฐานวุฒิการศึกษา (ปริญญาบัตร / Transcript / รับรองคุณวุฒิ)
+                  </label>
+                  <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">รองรับ PDF, JPG, PNG (สูงสุด 10MB)</span>
+                </div>
+
+                <!-- ช่องเลือกไฟล์อัปโหลดจากเครื่อง -->
+                <div class="input-group input-group-sm mb-2">
+                  <input type="file" id="eduFileInput" class="form-control rounded-start-3" accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="onEduFileSelected(this)">
+                  <button type="button" class="btn btn-outline-secondary" onclick="clearEduFileInput()" title="ล้างไฟล์">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                <!-- แสดงไฟล์เดิมที่มีอยู่แล้ว หรือไฟล์ที่เลือกใหม่ -->
+                <div id="eduFilePreviewBox" class="p-2 bg-white rounded-3 border d-flex align-items-center justify-content-between small d-none">
+                  <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 75%;">
+                    <i class="fa-solid fa-paperclip text-primary fs-6"></i>
+                    <span id="eduFileNameText" class="fw-medium text-dark text-truncate">-</span>
+                  </div>
+                  <div class="d-flex align-items-center gap-1">
+                    <a href="javascript:void(0)" id="btnViewEduDocLink" target="_blank" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 text-decoration-none d-none" style="font-size: 0.75rem;">
+                      <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> เปิดดูเอกสาร
+                    </a>
+                  </div>
+                </div>
+
+                <!-- ช่อง Direct URL / Google Drive สำรอง -->
+                <div class="mt-2">
+                  <a href="javascript:void(0)" class="text-decoration-none small text-muted" onclick="$('#eduDocUrlManualBox').toggleClass('d-none');">
+                    <i class="fa-solid fa-link me-1"></i> หรือระบุลิงก์ Google Drive / คลังเอกสารโดยตรง
+                  </a>
+                  <div id="eduDocUrlManualBox" class="mt-2 d-none">
+                    <input type="url" id="eduDocUrl" class="form-control form-control-sm rounded-3" placeholder="https://drive.google.com/... หรือ ลิงก์ไฟล์ตรง">
+                    <div class="form-text small" style="font-size: 0.72rem;">วางลิงก์ไฟล์ Google Drive หรือคลังเอกสารของสถาบัน</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Buttons -->
+          <div class="modal-footer bg-light border-top p-3 mt-4 -mb-3 -mx-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-light border btn-sm px-4 rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn btn-success text-white btn-sm px-4 rounded-pill fw-bold shadow-xs">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูลการศึกษา
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: พิมพ์รายงาน ก.พ.7 ย่อ (KP7 Printable Summary Sheet A4)             -->
+<!-- อ้างอิงตามเอกสารทางการ: หน้าพิมพ์รายงาน.jpg (วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์) -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="printKp7Modal" tabindex="-1" aria-labelledby="printKp7ModalLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-white border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white shadow-sm" style="width: 38px; height: 38px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            <i class="fa-solid fa-file-invoice"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0" id="printKp7ModalLabel">
+              แบบสรุปประวัติบุคคล (ก.พ. 7 ย่อ)
+            </h5>
+            <small class="text-muted">เอกสารสรุปประวัติราชการและการปฏิบัติงานส่วนบุคคล</small>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-success text-white px-3 py-1 rounded-pill fw-semibold shadow-sm" onclick="executePrintKp7Sheet()" style="background-color: #10b981; border-color: #10b981; font-size: 0.88rem;">
+            <i class="fa-solid fa-print me-1"></i> สั่งพิมพ์เอกสาร (Print / PDF)
+          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Preview Canvas Container) -->
+      <div class="modal-body p-3 p-md-4" style="background-color: #525659; overflow-x: auto;">
+        <!-- A4 Paper Container -->
+        <div id="kp7PrintSheet" class="kp7-sheet-paper shadow mx-auto">
+          <!-- วันที่พิมพ์รายงาน (มุมบนขวา) -->
+          <div class="kp7-print-date-header">
+            วันที่พิมพ์รายงาน <span id="kp7PrintDate">-</span>
+          </div>
+
+          <!-- ตราสัญลักษณ์ทางการ (Top Center) & หัวเรื่องเอกสาร -->
+          <div class="kp7-header-block text-center mb-3">
+            <img src="https://lh5.googleusercontent.com/d/1fsZkrCDHOrfERVDD9Edeca7uMhtG765s" 
+                 alt="ตราสัญลักษณ์สถาบันพระบรมราชชนก" 
+                 class="kp7-emblem-logo mb-2">
+            <div id="kp7DocTitle" class="kp7-doc-title">แบบสรุปประวัติบุคคล (ก.พ. 7 ย่อ) การปฏิบัติราชการ</div>
+            <div class="kp7-doc-subtitle">วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์</div>
+            <div class="kp7-doc-faculty" style="font-size: 11.5px; font-weight: 500; color: #475569; margin-top: 1px;">คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</div>
+          </div>
+
+          <!-- กล่องข้อมูลตัวตนพร้อมรูปถ่ายทางการ (Profile Card with Photo on Top-Left) -->
+          <div class="kp7-profile-card d-flex align-items-stretch mb-3">
+            <!-- กรอบรูปถ่ายทางการ 3x4 cm (มุมบนซ้าย) -->
+            <div class="kp7-photo-col me-3">
+              <div class="kp7-photo-frame">
+                <img id="kp7PersonnelPhoto" 
+                     src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" 
+                     alt="รูปถ่ายบุคลากร" 
+                     class="kp7-profile-img"
+                     onerror="this.onerror=null;this.src=(window.DEFAULT_STAFF_AVATAR || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png');">
+              </div>
+            </div>
+            <!-- ข้อมูลตัวตนหลัก 4 บรรทัด (วันเกิด, อายุตัว, วันเกษียณ ขยับขึ้นมาเคียงคู่รูป) -->
+            <div class="kp7-profile-info flex-grow-1">
+              <div class="kp7-info-row d-flex justify-content-between align-items-baseline mb-1">
+                <div class="kp7-info-item">
+                  <span class="kp7-label">ชื่อ - สกุล :</span>
+                  <span id="kp7FullName" class="kp7-value fw-bold text-dark">-</span>
+                </div>
+                <div class="kp7-info-item text-end kp7-nowrap">
+                  <span class="kp7-label">เลขที่ตำแหน่ง :</span>
+                  <span id="kp7PosNo" class="kp7-value fw-semibold text-dark">-</span>
+                </div>
+              </div>
+
+              <div class="kp7-info-row mb-1">
+                <span class="kp7-label">ตำแหน่ง :</span>
+                <span id="kp7PosTitleWithLevel" class="kp7-value text-dark">-</span>
+              </div>
+
+              <div class="kp7-info-row d-flex justify-content-between align-items-baseline mb-1">
+                <div class="kp7-info-item kp7-nowrap">
+                  <span class="kp7-label">วันเดือนปีเกิด :</span>
+                  <span id="kp7BirthDate" class="kp7-value text-dark">-</span>
+                </div>
+                <div class="kp7-info-item text-end kp7-nowrap">
+                  <span class="kp7-label">อายุตัว :</span>
+                  <span id="kp7AgeDetailed" class="kp7-value text-dark">-</span>
+                </div>
+              </div>
+
+              <div class="kp7-info-row kp7-nowrap">
+                <span id="kp7RetireLabel" class="kp7-label">วันเกษียณอายุราชการ :</span>
+                <span id="kp7RetireDate" class="kp7-value text-dark">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= หมวด 1: ข้อมูลการปฏิบัติราชการและการดำรงตำแหน่ง ================= -->
+          <div class="kp7-section mb-3">
+            <div id="kp7Sec1Title" class="kp7-section-title">
+              📌 1. ข้อมูลการปฏิบัติราชการและการดำรงตำแหน่ง
+            </div>
+            
+            <table class="kp7-table-bordered">
+              <tbody>
+                <!-- แถว 1: วันบรรจุ & อายุงานสะสม -->
+                <tr>
+                  <td class="kp7-td-label" style="width: 25%;"><span id="kp7AppointLabel">วันที่บรรจุรับราชการ</span></td>
+                  <td class="kp7-td-val kp7-nowrap" style="width: 28%;"><span id="kp7AppointDate">-</span></td>
+                  <td class="kp7-td-label" style="width: 22%;">อายุการทำงานสะสม</td>
+                  <td class="kp7-td-val kp7-nowrap" style="width: 25%;"><span id="kp7TenureDetailed">-</span></td>
+                </tr>
+
+                <!-- แถว 2: วันเข้าหน่วยงาน & ระยะเวลาปฏิบัติงาน -->
+                <tr>
+                  <td class="kp7-td-label">วันเข้าสู่หน่วยงานปัจจุบัน</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7StartWorkDate">-</span></td>
+                  <td class="kp7-td-label">ระยะเวลาปฏิบัติงาน</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7WorkTenureDetailed">-</span></td>
+                </tr>
+
+
+                <!-- แถว 3 (เฉพาะข้าราชการ): วันเข้าสู่ระดับเดิม & ปัจจุบัน -->
+                <tr id="kp7RowLevelDate">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">วันเข้าสู่ระดับเดิม (พ.ร.บ.เดิม)</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7OldLevelDate">-</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">วันเข้าสู่ระดับปัจจุบัน</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7CurrentLevelDate">-</span></td>
+                </tr>
+
+                <!-- แถวพิเศษ: การปรับตำแหน่งเข้าสู่ข้าราชการ ก.ค.ศ. (เพื่อขอผลงานวิชาการ) -->
+                <tr id="kp7RowKksInfo" style="display: none; background-color: #faf5ff;">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px; color: #6d28d9; font-weight: 600;">วันปรับเข้าสู่ตำแหน่งอาจารย์ (ก.ค.ศ.)</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7KksDate" class="fw-bold text-dark">-</span> <span id="kp7KksTenure" class="badge rounded-pill ms-1" style="font-size: 10px; color: #6d28d9; background-color: #ede9fe; border: 1px solid #c4b5fd;">-</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px; color: #6d28d9; font-weight: 600;">คำสั่งแต่งตั้ง (ก.ค.ศ.)</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7KksOrderNo">-</span></td>
+                </tr>
+
+                <!-- แถว 3 (เฉพาะสายสนับสนุน/พนักงาน): รอบสัญญาจ้างปัจจุบัน -->
+                <tr id="kp7RowContract" style="display: none;">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">รอบสัญญาจ้างปัจจุบัน</td>
+                  <td colspan="3" class="kp7-td-val"><span id="kp7ContractInfo">-</span></td>
+                </tr>
+
+                <!-- แถว 4 (เฉพาะข้าราชการ): เงินเดือน/ค่าตอบแทน & สถานะ กบข. -->
+                <tr id="kp7RowCivilSalary">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">เงินเดือน / ค่าตอบแทน</td>
+                  <td class="kp7-td-val kp7-nowrap fw-semibold"><span id="kp7SalaryDetailedCivil">- บาท</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">สถานะ กบข.</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7WelfareStatusCivil">สมัครสมาชิก</span></td>
+                </tr>
+
+                <!-- แถว 5 (เฉพาะข้าราชการ): เงินประจำตำแหน่ง งบประมาณ & เงินรายได้ -->
+                <tr id="kp7RowAllowance">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">เงินประจำตำแหน่ง (งบประมาณ)</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7PosAllowanceBudget">-</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">เงินประจำตำแหน่ง (เงินรายได้)</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7PosAllowanceIncome">-</span></td>
+                </tr>
+
+                <!-- แถว 4 (เฉพาะสายสนับสนุน): เงินเดือน/ค่าตอบแทน & ค่าครองชีพชั่วคราว/เงินเพิ่ม -->
+                <tr id="kp7RowSupportSalary" style="display: none;">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">เงินเดือน / ค่าตอบแทน</td>
+                  <td class="kp7-td-val kp7-nowrap fw-semibold"><span id="kp7SalaryDetailedSupport">- บาท</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">ค่าครองชีพชั่วคราว / เงินเพิ่ม</td>
+                  <td class="kp7-td-val kp7-nowrap"><span id="kp7SpecialAllowanceBudget">-</span></td>
+                </tr>
+
+                <!-- แถว 5 (เฉพาะสายสนับสนุน): ระบบสวัสดิการ & กองทุนประกันสังคม -->
+                <tr id="kp7RowSupportWelfare" style="display: none;">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">ระบบสวัสดิการ</td>
+                  <td colspan="3" class="kp7-td-val"><span id="kp7WelfareStatusSupport">กองทุนประกันสังคม</span></td>
+                </tr>
+
+                <!-- แถว 6 (เฉพาะสายสนับสนุน): ปฏิบัติงานจริง ณ วิทยาลัย... -->
+                <tr id="kp7RowSupportDept" style="display: none;">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">ปฏิบัติงานจริง ณ</td>
+                  <td colspan="3" class="kp7-td-val" style="white-space: nowrap;"><span id="kp7ActualDept">วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์</span></td>
+                </tr>
+
+                <!-- แถว 7 (ใช้ร่วมกันทั้ง 2 สาย): วุฒิการศึกษาในตำแหน่ง & สาขาวิชาเอก -->
+                <tr>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">วุฒิการศึกษาในตำแหน่ง</td>
+                  <td class="kp7-td-val"><span id="kp7DegreeTitle">-</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">สาขาวิชาเอก</td>
+                  <td class="kp7-td-val"><span id="kp7MajorField">-</span></td>
+                </tr>
+
+                <!-- แถว 8 (เฉพาะข้าราชการ): เครื่องราชฯ & ใบประกอบวิชาชีพ (ถ้าเป็นพยาบาล) -->
+                <tr id="kp7RowInsigniaLic">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">เครื่องราชอิสริยาภรณ์ชั้นสูงสุด</td>
+                  <td class="kp7-td-val kp7-nowrap" id="kp7InsigniaValCell"><span id="kp7InsigniaClass">-</span></td>
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;" id="kp7LicenseLabelCell">เลขที่ใบอนุญาตประกอบวิชาชีพ</td>
+                  <td class="kp7-td-val kp7-nowrap" id="kp7LicenseValCell"><span id="kp7LicenseNo">-</span></td>
+                </tr>
+
+                <!-- แถว 9 (เฉพาะอาจารย์สายสอน): ความเชี่ยวชาญ Faculty Practice, วิจัย และบทบาทหลักสูตร -->
+                <tr id="kp7RowTeachingExpertise" style="display: none;">
+                  <td class="kp7-td-label" style="white-space: nowrap; font-size: 11.5px;">ความเชี่ยวชาญ / บทบาทหลักสูตร</td>
+                  <td colspan="3" class="kp7-td-val" style="font-size: 11.5px;">
+                    <div><strong>การสอน / Faculty Practice:</strong> <span id="kp7ExpertiseTeaching">-</span> &nbsp;|&nbsp; <strong>วิจัย:</strong> <span id="kp7ExpertiseResearch">-</span></div>
+                    <div class="mt-1" id="kp7ProgramRolesLine"><strong>บทบาทหลักสูตร:</strong> <span id="kp7ProgramRolesText">-</span></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ================= หมวด 2: ข้อมูลส่วนตัวและครอบครัว ================= -->
+          <div class="kp7-section mb-3">
+            <div class="kp7-section-title">📌 2. ข้อมูลส่วนตัวและครอบครัว</div>
+            
+            <table class="kp7-table-bordered">
+              <tbody>
+                <tr>
+                  <td class="kp7-td-label" style="width: 16%;">สถานภาพ</td>
+                  <td class="kp7-td-val" style="width: 18%;"><span id="kp7MaritalStatus">-</span></td>
+                  <td class="kp7-td-label" style="width: 14%;">ศาสนา</td>
+                  <td class="kp7-td-val" style="width: 18%;"><span id="kp7Religion">-</span></td>
+                  <td class="kp7-td-label" style="width: 16%;">ภูมิลำเนา</td>
+                  <td class="kp7-td-val" style="width: 18%;"><span id="kp7Hometown">-</span></td>
+                </tr>
+                <tr>
+                  <td class="kp7-td-label">ที่อยู่ติดต่อ</td>
+                  <td colspan="5" class="kp7-td-val"><span id="kp7ContactAddress">-</span></td>
+                </tr>
+                <tr>
+                  <td class="kp7-td-label">เบอร์โทรศัพท์</td>
+                  <td colspan="2" class="kp7-td-val"><span id="kp7ContactPhone">-</span></td>
+                  <td class="kp7-td-label">อีเมลติดต่อ</td>
+                  <td colspan="2" class="kp7-td-val"><span id="kp7ContactEmail">-</span></td>
+                </tr>
+                <tr>
+                  <td class="kp7-td-label">บิดา</td>
+                  <td colspan="5" class="kp7-td-val"><span id="kp7FatherName">-</span></td>
+                </tr>
+                <tr>
+                  <td class="kp7-td-label">มารดา</td>
+                  <td colspan="2" class="kp7-td-val"><span id="kp7MotherName">-</span></td>
+                  <td class="kp7-td-label">สกุลเดิม</td>
+                  <td colspan="2" class="kp7-td-val"><span id="kp7MotherPrevSurname">-</span></td>
+                </tr>
+                <tr>
+                  <td class="kp7-td-label">คู่สมรส</td>
+                  <td colspan="2" class="kp7-td-val"><span id="kp7SpouseName">-</span></td>
+                  <td class="kp7-td-label">สกุลเดิม</td>
+                  <td colspan="2" class="kp7-td-val"><span id="kp7SpousePrevSurname">-</span></td>
+                </tr>
+                <tr>
+                  <td class="kp7-td-label">จำนวนบุตร</td>
+                  <td colspan="5" class="kp7-td-val"><span id="kp7ChildrenCount">- คน</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ================= ส่วนลงนามตรวจสอบ (ล่างขวา) ================= -->
+          <div class="kp7-signature-section">
+            <div class="kp7-sign-box">
+              <div class="kp7-sign-title fw-semibold">ตรวจสอบแล้วถูกต้อง</div>
+              <div class="kp7-sign-line">( . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . )</div>
+              <div class="kp7-sign-role text-muted small mb-1">เจ้าหน้าที่งานการเจ้าหน้าที่ / ผู้มีอำนาจตรวจสอบ</div>
+              <div class="kp7-sign-date">วันที่ . . . . . / . . . . . / พ.ศ. . . . . .</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer bg-light border-top px-4 py-2 d-flex justify-content-between">
+        <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">
+          ปิดหน้าต่าง
+        </button>
+        <button type="button" class="btn btn-success text-white px-4 rounded-pill fw-bold shadow-sm" onclick="executePrintKp7Sheet()" style="background-color: #10b981; border-color: #10b981;">
+          <i class="fa-solid fa-print me-1"></i> สั่งพิมพ์รายงาน ก.พ.7 (A4)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     MODAL: เพิ่ม/แก้ไข ข้อมูลใบอนุญาตประกอบวิชาชีพ & บัตรราชการ (Form 7)
+     ==================================================== -->
+<div class="modal fade" id="editLicenseModal" tabindex="-1" aria-labelledby="editLicenseModalLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header border-bottom p-3 px-4" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-primary" style="width: 38px; height: 38px;">
+            <i class="fa-solid fa-certificate fs-5 text-primary"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0 text-white" id="editLicenseModalLabel">จัดการเอกสารประจำตัวราชการ และใบประกอบวิชาชีพพยาบาล</h5>
+            <div class="small text-white-50" style="font-size: 0.78rem;">บันทึกข้อมูลเอกสารสิทธิ์ทางการและใบอนุญาตวิชาชีพ</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-4 bg-light bg-opacity-50">
+        <form id="licenseRecordForm" onsubmit="event.preventDefault(); submitLicenseRecordForm();">
+          <input type="hidden" id="licenseRecordId" value="">
+          <input type="hidden" id="licenseStaffPin" value="">
+
+          <!-- 1. เลือกบุคลากร (Staff Selector) -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <label class="form-label small fw-bold text-dark d-flex align-items-center gap-1 mb-2">
+              <i class="fa-solid fa-user-tie text-primary"></i> บุคลากรผู้ถือเอกสาร / ใบอนุญาต <span class="text-danger">*</span>
+            </label>
+            <div id="licenseStaffSelectContainer">
+              <select id="licenseStaffSelect" class="form-select rounded-3" onchange="onLicenseStaffSelectChanged(this.value)">
+                <option value="">-- กำลังโหลดรายชื่อบุคลากร... --</option>
+              </select>
+            </div>
+            <div id="licenseStaffFixedBadge" class="d-none align-items-center justify-content-between p-2 px-3 rounded-3 border" style="background-color: #f8fafc;">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge rounded-pill px-2.5 py-1 fw-bold text-primary" style="background-color: #e0f2fe; font-size: 0.82rem;" id="licenseStaffPinBadge">PIN</span>
+                <span class="fw-bold text-dark" style="font-size: 0.92rem;" id="licenseStaffName">-</span>
+                <span class="text-muted small border-start ps-2" id="licenseStaffPosition">-</span>
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 small">
+                <i class="fa-solid fa-user-check me-1"></i>ข้อมูลของฉัน
+              </span>
+            </div>
+          </div>
+
+          <!-- 2. ข้อมูลเอกสารและใบอนุญาต -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <div class="row g-3">
+              <!-- ประเภทเอกสาร -->
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  ประเภทเอกสารสิทธิ์ <span class="text-danger">*</span>
+                </label>
+                <select id="licenseDocCategory" class="form-select rounded-3" onchange="onLicenseDocCategoryChanged(this.value)">
+                  <option value="license">🩺 ใบอนุญาตประกอบวิชาชีพ</option>
+                  <option value="civil_card">🪪 บัตรข้าราชการ/บัตรพนักงานราชการ</option>
+                </select>
+              </div>
+
+              <!-- ต่ออายุครั้งที่ -->
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">รอบเอกสาร / ต่ออายุ</label>
+                <select id="licenseRenewalRound" class="form-select rounded-3">
+                  <option value="0">ครั้งแรก (ออกบัตรใหม่)</option>
+                  <option value="1">ต่ออายุ ครั้งที่ 1</option>
+                  <option value="2">ต่ออายุ ครั้งที่ 2</option>
+                  <option value="3">ต่ออายุ ครั้งที่ 3</option>
+                  <option value="4">ต่ออายุ ครั้งที่ 4</option>
+                  <option value="5">ต่ออายุ ครั้งที่ 5</option>
+                  <option value="6">ต่ออายุ ครั้งที่ 6</option>
+                  <option value="7">ต่ออายุ ครั้งที่ 7</option>
+                  <option value="8">ต่ออายุ ครั้งที่ 8</option>
+                  <option value="9">ต่ออายุ ครั้งที่ 9</option>
+                  <option value="10">ต่ออายุ ครั้งที่ 10</option>
+                </select>
+              </div>
+
+              <!-- หน่วยงาน / สภาผู้ออกบัตร -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">สภา / หน่วยงานผู้ออกบัตร</label>
+                <input type="text" id="licenseIssuingCouncil" class="form-control rounded-3" list="issuingCouncilSuggestions" placeholder="เช่น สภาการพยาบาล">
+                <datalist id="issuingCouncilSuggestions">
+                  <option value="สภาการพยาบาล">
+                  <option value="สถาบันพระบรมราชชนก">
+                  <option value="กระทรวงสาธารณสุข">
+                  <option value="วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์">
+                  <option value="สำนักนายกรัฐมนตรี">
+                </datalist>
+              </div>
+
+              <!-- ชื่อใบอนุญาต / บัตร -->
+              <div class="col-md-7">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  ชื่อใบอนุญาต / ชื่อบัตร <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="licenseTitle" class="form-control rounded-3" list="licenseTitleSuggestions" placeholder="เช่น ใบอนุญาตเป็นผู้ประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นหนึ่ง">
+                <datalist id="licenseTitleSuggestions">
+                  <option value="ใบอนุญาตเป็นผู้ประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นหนึ่ง">
+                  <option value="ใบอนุญาตเป็นผู้ประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นสอง">
+                  <option value="ใบอนุญาตเป็นผู้ประกอบโรคศิลปะ">
+                  <option value="บัตรประจำตัวข้าราชการ">
+                  <option value="บัตรประจำตัวพนักงานราชการ">
+                  <option value="บัตรประจำตัวพนักงานสถาบันพระบรมราชชนก">
+                  <option value="บัตรประจำตัวผู้รับเบี้ยหวัด/บำนาญ (ข้าราชการบำนาญ)">
+                </datalist>
+              </div>
+
+              <!-- เลขที่ใบอนุญาต / เลขบัตร -->
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  เลขที่ใบอนุญาต / เลขบัตร <span class="text-danger">*</span>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-hashtag"></i></span>
+                  <input type="text" id="licenseNumber" class="form-control" placeholder="เช่น พย.1/14964 หรือ 4511002603">
+                </div>
+              </div>
+
+              <!-- วันที่ออกบัตร / ใบอนุญาต -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">วันที่ออกบัตร / ใบอนุญาต</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted"><i class="fa-regular fa-calendar-check"></i></span>
+                  <input type="date" id="licenseIssueDate" class="form-control" onchange="calcLicenseDaysCountdown()">
+                </div>
+                <div class="text-muted small mt-1" id="licenseIssueDateTh">-</div>
+              </div>
+
+              <!-- วันที่หมดอายุ -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  วันที่หมดอายุ (รอบ 5 ปี หรือรอบสัญญา) <span class="text-danger">*</span>
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted"><i class="fa-regular fa-calendar-xmark text-danger"></i></span>
+                  <input type="date" id="licenseExpiryDate" class="form-control" required onchange="calcLicenseDaysCountdown()">
+                </div>
+                <div class="d-flex align-items-center justify-content-between mt-1">
+                  <span class="text-muted small" id="licenseExpiryDateTh">-</span>
+                  <span class="badge bg-secondary-subtle text-secondary" id="licenseDaysCountdownBadge">คำนวณวันคงเหลือ</span>
+                </div>
+              </div>
+
+              <!-- ลิงก์ไฟล์แนบสำเนา -->
+              <div class="col-md-7">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="fa-solid fa-paperclip text-secondary me-1"></i> ลิงก์ไฟล์แนบสำเนาใบอนุญาต / ภาพถ่ายบัตร
+                </label>
+                <input type="url" id="licenseDocUrl" class="form-control rounded-3" placeholder="https://drive.google.com/... หรือ ลิงก์ไฟล์ PDF">
+              </div>
+
+              <!-- หมายเหตุ -->
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-dark mb-1">หมายเหตุเพิ่มเติม</label>
+                <input type="text" id="licenseRemarks" class="form-control rounded-3" placeholder="เช่น อาจารย์เกษียณจ้างสอนต่อ / เก็บหน่วยกิต CNEU ครบแล้ว">
+              </div>
+            </div>
+          </div>
+
+          <!-- Alert Guardrail Info -->
+          <div class="alert alert-info border-0 rounded-3 p-2 px-3 small d-flex align-items-center gap-2 mb-0" style="background-color: #f0fdf4; color: #166534;">
+            <i class="fa-solid fa-circle-check fs-5 text-success"></i>
+            <div>
+              ระบบจะทำการคำนวณ <strong>Early Warning แจ้งเตือนล่วงหน้า 90 วัน และ 30 วัน</strong> สำหรับอาจารย์พยาบาลและข้าราชการโดยอัตโนมัติค่ะ
+            </div>
+          </div>
+
+          <!-- Modal Action Buttons -->
+          <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+              ยกเลิก
+            </button>
+            <button type="submit" class="btn btn-success text-white rounded-pill px-4 fw-bold shadow-sm" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+              <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูล
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     MODAL: แสดงรายละเอียดข้อมูลใบอนุญาตวิชาชีพ / บัตรราชการ (View Detail)
+     ==================================================== -->
+<div class="modal fade" id="viewLicenseDetailModal" tabindex="-1" aria-labelledby="viewLicenseDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header border-bottom p-3 px-4" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-primary" style="width: 38px; height: 38px;">
+            <i class="fa-solid fa-id-card-clip fs-5 text-primary"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0 text-white" id="viewLicenseDetailModalLabel">รายละเอียดเอกสารประจำตัวราชการ / ใบประกอบวิชาชีพ</h5>
+            <div class="small text-white-50" style="font-size: 0.78rem;">จัดการเอกสารประจำตัวราชการ และใบประกอบวิชาชีพพยาบาล</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-4 bg-light bg-opacity-50">
+        <!-- 1. ข้อมูลผู้ถือเอกสาร -->
+        <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white" id="licDetailStaffCard">
+          <div class="d-flex align-items-center gap-3">
+            <img src="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop" id="licDetailAvatar" class="rounded-circle border" style="width: 52px; height: 52px; object-fit: cover;" onerror="this.src='https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop'">
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h6 class="fw-bold text-dark mb-0 fs-6" id="licDetailFullName">-</h6>
+                <span class="badge rounded-pill px-2.5 py-1 fw-bold text-primary" style="background-color: #e0f2fe;" id="licDetailPinBadge">#PIN</span>
+              </div>
+              <div class="text-muted small mt-1" id="licDetailPositionDept">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. ตารางรายละเอียดเอกสาร (Grid Information) -->
+        <div class="card border-0 shadow-xs rounded-3 p-3 bg-white">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="text-muted small">ประเภทเอกสารสิทธิ์</div>
+              <div class="fw-bold text-dark mt-0.5" id="licDetailDocCategory">-</div>
+            </div>
+            <div class="col-md-6">
+              <div class="text-muted small">รอบเอกสาร / การต่ออายุ</div>
+              <div class="fw-bold text-dark mt-0.5" id="licDetailRenewalRound">-</div>
+            </div>
+
+            <div class="col-md-12">
+              <div class="text-muted small">ชื่อใบอนุญาต / บัตรประจำตัว</div>
+              <div class="fw-bold text-dark mt-0.5 fs-6" id="licDetailLicenseTitle">-</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">เลขที่ใบอนุญาต / เลขที่บัตร</div>
+              <div class="mt-0.5"><code class="fw-bold fs-6 text-dark" id="licDetailLicenseNumber">-</code></div>
+            </div>
+            <div class="col-md-6">
+              <div class="text-muted small">สภาวิชาชีพ / หน่วยงานผู้ออกบัตร</div>
+              <div class="fw-bold text-dark mt-0.5" id="licDetailIssuingCouncil">-</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">วันที่ออกบัตร / ใบอนุญาต</div>
+              <div class="fw-bold text-dark mt-0.5" id="licDetailIssueDate">-</div>
+            </div>
+            <div class="col-md-4">
+              <div class="text-muted small">วันที่หมดอายุ</div>
+              <div class="fw-bold text-dark mt-0.5" id="licDetailExpiryDate">-</div>
+            </div>
+            <div class="col-md-4">
+              <div class="text-muted small">สถานะวันคงเหลือ</div>
+              <div class="mt-0.5" id="licDetailStatusBadge">-</div>
+            </div>
+
+            <div class="col-md-12" id="licDetailRemarksContainer">
+              <div class="text-muted small">หมายเหตุเพิ่มเติม</div>
+              <div class="text-dark mt-0.5 p-2 rounded-2 border bg-light" id="licDetailRemarks">-</div>
+            </div>
+
+            <div class="col-md-12">
+              <div class="text-muted small mb-1">ไฟล์แนบสำเนาใบอนุญาต / ภาพถ่ายบัตร</div>
+              <div id="licDetailDocLinkContainer">
+                <span class="text-muted small">ไม่มีการแนบไฟล์เอกสาร</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer border-top p-3 px-4 bg-white d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+          ปิดหน้าต่าง
+        </button>
+        <button type="button" class="btn btn-warning rounded-pill px-4 fw-bold shadow-xs text-dark" id="btnEditFromDetailModal" onclick="editLicenseFromDetailModal()">
+          <i class="fa-solid fa-pencil me-1"></i> แก้ไขข้อมูลนี้
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     MODAL: เพิ่ม/แก้ไข ข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน (สบช.)
+     ==================================================== -->
+<div class="modal fade" id="editStudyBondModal" tabindex="-1" aria-labelledby="editStudyBondModalLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header border-bottom p-3 px-4" style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); color: #ffffff;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-orange" style="width: 40px; height: 40px;">
+            <i class="fa-solid fa-graduation-cap fs-5" style="color: #ea580c;"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0 text-white" id="editStudyBondModalLabel">จัดการข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน</h5>
+            <div class="small text-white-50" style="font-size: 0.78rem;">บันทึกการลาศึกษาต่อ 4 รูปแบบ (สบช./ก.พ.) ทุนส่วนตัว ทุนสถาบัน และเงื่อนไขสัญญา</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-4 bg-light bg-opacity-50">
+        <form id="studyBondRecordForm" onsubmit="event.preventDefault(); submitStudyBondForm();">
+          <input type="hidden" id="studyRecordId" value="">
+          <input type="hidden" id="studyBondId" value="">
+          <input type="hidden" id="studyStaffPin" value="">
+          <input type="hidden" id="studyDocUrlExisting" value="">
+          <input type="hidden" id="bondDocUrlExisting" value="">
+
+          <!-- 1. เลือกบุคลากร (Staff Selector) -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <label class="form-label small fw-bold text-dark d-flex align-items-center gap-1 mb-2">
+              <i class="fa-solid fa-user-tie text-primary"></i> บุคลากรผู้ศึกษาต่อ <span class="text-danger">*</span>
+            </label>
+            <div id="studyStaffSelectContainer">
+              <select id="studyModalStaffSelect" class="form-select rounded-3" onchange="onStudyModalStaffSelectChanged(this.value)">
+                <option value="">-- กำลังโหลดรายชื่อบุคลากร... --</option>
+              </select>
+            </div>
+            <div id="studyStaffFixedBadge" class="d-none align-items-center justify-content-between p-2 px-3 rounded-3 border" style="background-color: #f8fafc;">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge rounded-pill px-2.5 py-1 fw-bold text-primary" style="background-color: #e0f2fe; font-size: 0.82rem;" id="studyStaffPinBadge">PIN</span>
+                <span class="fw-bold text-dark" style="font-size: 0.92rem;" id="studyStaffName">-</span>
+                <span class="text-muted small border-start ps-2" id="studyStaffPosition">-</span>
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 small">
+                <i class="fa-solid fa-user-check me-1"></i>ข้อมูลของฉัน
+              </span>
+            </div>
+          </div>
+
+          <!-- 2. ข้อมูลการศึกษาต่อ (Study Details) -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <div class="d-flex align-items-center gap-1 mb-2.5 pb-2 border-bottom">
+              <i class="fa-solid fa-book-bookmark text-orange me-1" style="color: #ea580c;"></i>
+              <span class="fw-bold small text-dark">หมวดที่ 1: ข้อมูลหลักสูตรและการศึกษาต่อ</span>
+            </div>
+
+            <div class="row g-3">
+              <!-- ระดับการศึกษา -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  ระดับการศึกษา <span class="text-danger">*</span>
+                </label>
+                <select id="studyDegreeLevel" class="form-select rounded-3" required onchange="onStudyDegreeLevelChanged(this.value)">
+                  <option value="ปริญญาโท">ปริญญาโท</option>
+                  <option value="ปริญญาเอก">ปริญญาเอก</option>
+                  <option value="หลังปริญญาเอก">หลังปริญญาเอก (Postdoctoral)</option>
+                  <option value="ฝึกอบรมเฉพาะทาง/เทียบเท่าวุฒิบัตร">ฝึกอบรมเฉพาะทาง/เทียบเท่าวุฒิบัตร</option>
+                  <option value="อื่นๆ">อื่นๆ</option>
+                </select>
+              </div>
+
+              <!-- ชื่อหลักสูตร / สาขาวิชา -->
+              <div class="col-md-8">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  ชื่อหลักสูตร / สาขาวิชา <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="studyProgramName" class="form-control rounded-3" placeholder="เช่น พยาบาลศาสตรดุษฎีบัณฑิต (ปร.ด.) สาขาวิชาการพยาบาล" required>
+              </div>
+
+              <!-- สถาบันการศึกษา -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  สถาบันการศึกษา / มหาวิทยาลัย <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="studyInstitution" class="form-control rounded-3" placeholder="เช่น มหาวิทยาลัยมหิดล, จุฬาลงกรณ์มหาวิทยาลัย" required>
+              </div>
+
+              <!-- ประเทศที่ศึกษา -->
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  ประเทศที่ศึกษา <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="studyCountry" class="form-control rounded-3" value="ไทย" required onchange="onStudyModalityOrFundingChanged()">
+              </div>
+
+              <!-- สถานะการศึกษา -->
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  สถานะการศึกษา <span class="text-danger">*</span>
+                </label>
+                <select id="studyStatus" class="form-select rounded-3" onchange="onStudyStatusChanged(this.value)">
+                  <option value="studying">กำลังศึกษาต่อ</option>
+                  <option value="extended">ขยายเวลาการศึกษา</option>
+                  <option value="graduated">สำเร็จการศึกษาแล้ว</option>
+                  <option value="withdrawn">ยุติ / พ้นสภาพ / สละสิทธิ์</option>
+                </select>
+              </div>
+
+              <!-- รูปแบบการศึกษา (4 รูปแบบ สบช.) -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  รูปแบบการศึกษา (4 รูปแบบ สบช.) <span class="text-danger">*</span>
+                </label>
+                <select id="studyModality" class="form-select rounded-3" required onchange="onStudyModalityOrFundingChanged()">
+                  <option value="full_time_leave">1. ลาศึกษาต่อเต็มเวลาราชการ</option>
+                  <option value="part_time_off_hours">2. ศึกษานอกเวลาราชการ</option>
+                  <option value="informal_study">3. ลาทำวิทยานิพนธ์ / ค้นคว้าอิสระ</option>
+                  <option value="partial_leave">4. ลาศึกษาบางเวลาในเวลาราชการ</option>
+                </select>
+              </div>
+
+              <!-- แหล่งทุนการศึกษา -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  แหล่งทุนการศึกษา <span class="text-danger">*</span>
+                </label>
+                <select id="studyFundingType" class="form-select rounded-3" required onchange="onStudyModalityOrFundingChanged()">
+                  <option value="self">ทุนส่วนตัว (Self-Funding)</option>
+                  <option value="institute">ทุนสถาบันพระบรมราชชนก (สบช.)</option>
+                  <option value="government">ทุนรัฐบาล / ก.พ. / กระทรวงสาธารณสุข</option>
+                  <option value="external">ทุนภายนอก / ต่างประเทศ</option>
+                  <option value="none">ไม่มีทุนสนับสนุน</option>
+                </select>
+              </div>
+
+              <!-- สถานะการรับเงินเดือนระหว่างศึกษา -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  สถานะเงินเดือนระหว่างศึกษา <span class="text-danger">*</span>
+                </label>
+                <select id="studySalaryStatus" class="form-select rounded-3" required onchange="onStudyModalityOrFundingChanged()">
+                  <option value="with_salary">ได้รับเงินเดือนตามปกติ (มีผลผูกพัน)</option>
+                  <option value="without_salary">ไม่ได้รับเงินเดือน (ไม่มีภาระชดใช้)</option>
+                  <option value="off_hours">ศึกษานอกเวลา (ปฏิบัติงานปกติ รับเงินเดือนปกติ)</option>
+                </select>
+              </div>
+
+              <!-- ชื่อทุน / โครงการสนับสนุน -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">ชื่อทุน / โครงการสนับสนุน</label>
+                <input type="text" id="studyFundingName" class="form-control rounded-3" placeholder="เช่น ทุนส่วนตัว, ทุนพัฒนาศักยภาพอาจารย์ สบช.">
+              </div>
+
+              <!-- ผลกระทบต่อการปฏิบัติราชการ -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">ผลกระทบต่อภาระงานราชการ</label>
+                <select id="studyWorkImpact" class="form-select rounded-3">
+                  <option value="on_leave">งดเว้นการปฏิบัติราชการ (On Leave เต็มเวลา)</option>
+                  <option value="normal_duty">ปฏิบัติหน้าที่ราชการตามปกติ (Normal Duty)</option>
+                  <option value="partial_duty">ปฏิบัติหน้าที่บางส่วน (Partial Duty)</option>
+                </select>
+              </div>
+
+              <!-- วันที่เริ่มศึกษาตามอนุมัติ -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  วันที่เริ่มศึกษาตามอนุมัติ <span class="text-danger">*</span>
+                </label>
+                <input type="date" id="studyApprovedStartDate" class="form-control rounded-3" required onchange="recalcBondCalculation()">
+              </div>
+
+              <!-- วันที่สิ้นสุดตามอนุมัติ -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  วันที่สิ้นสุดตามอนุมัติ <span class="text-danger">*</span>
+                </label>
+                <input type="date" id="studyApprovedEndDate" class="form-control rounded-3" required onchange="recalcBondCalculation()">
+              </div>
+
+              <!-- วันที่สำเร็จจริง / ยุติการศึกษา -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">วันที่สำเร็จการศึกษาจริง / ยุติ</label>
+                <input type="date" id="studyActualEndDate" class="form-control rounded-3" onchange="recalcBondCalculation()">
+              </div>
+
+              <!-- เลขที่หนังสืออนุมัติ/คำสั่ง -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">เลขที่คำสั่ง/หนังสืออนุมัติ</label>
+                <input type="text" id="studyApprovalDocNo" class="form-control rounded-3" placeholder="เช่น สธ 0212/ว1234">
+              </div>
+
+              <!-- วันที่หนังสืออนุมัติ -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">ลงวันที่หนังสืออนุมัติ</label>
+                <input type="date" id="studyApprovalDocDate" class="form-control rounded-3">
+              </div>
+
+              <!-- หัวข้อวิทยานิพนธ์ / ดุษฎีนิพนธ์ -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">หัวข้อวิทยานิพนธ์ (ถ้ามี)</label>
+                <input type="text" id="studyThesisTitle" class="form-control rounded-3" placeholder="ระบุหัวข้อวิจัย/วิทยานิพนธ์">
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. ข้อมูลสัญญาและการชดใช้ทุน (Service Bond Section) -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-2.5 pb-2 border-bottom">
+              <div class="d-flex align-items-center gap-1">
+                <i class="fa-solid fa-file-contract text-primary me-1"></i>
+                <span class="fw-bold small text-dark">หมวดที่ 2: สัญญาและการชดใช้ทุน (ก.พ. &amp; สบช.)</span>
+              </div>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="studyHasBondSwitch" checked onchange="toggleBondSection(this.checked)">
+                <label class="form-check-label small fw-bold text-dark" for="studyHasBondSwitch">มีสัญญาผูกพันชดใช้ทุน</label>
+              </div>
+            </div>
+
+            <!-- ข้อความแนะนำอัตโนมัติตามรูปแบบทุน -->
+            <div id="bondRuleNotice" class="alert alert-light border small py-2 px-3 mb-3 rounded-3 d-flex align-items-center gap-2" style="background: #f8fafc;">
+              <i class="fa-solid fa-circle-info text-primary fs-6"></i>
+              <span id="bondRuleNoticeText">ลาเต็มเวลารับเงินเดือน: คิดอัตราชดใช้ทุน 1.0 เท่าตามระยะเวลาศึกษาจริง (ตามระเบียบ ก.พ.)</span>
+            </div>
+
+            <div id="bondFieldsContainer">
+              <div class="row g-3">
+                <!-- เลขที่สัญญา -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">เลขที่สัญญาชดใช้ทุน</label>
+                  <input type="text" id="bondContractNo" class="form-control rounded-3" placeholder="เช่น สัญญาเลขที่ 12/2567">
+                </div>
+
+                <!-- วันที่ทำสัญญา -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">วันที่ทำสัญญา</label>
+                  <input type="date" id="bondContractDate" class="form-control rounded-3">
+                </div>
+
+                <!-- อัตราตัวคูณการชดใช้ทุน -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">
+                    อัตราตัวคูณชดใช้ทุน (เท่า) <span class="text-danger">*</span>
+                  </label>
+                  <select id="bondMultiplierSelect" class="form-select rounded-3" onchange="onBondMultiplierChanged(this.value)">
+                    <option value="1.0">1.0 เท่า (ทุนส่วนตัวรับเงินเดือน / ศึกษาในประเทศ)</option>
+                    <option value="2.0">2.0 เท่า (ทุน สบช. / ทุนรัฐบาล ในประเทศ)</option>
+                    <option value="3.0">3.0 เท่า (ทุนต่างประเทศ)</option>
+                    <option value="0.0">0.0 เท่า (ไม่มีภาระสัญญา / ศึกษานอกเวลา / ไม่รับเงินเดือน)</option>
+                    <option value="custom">กำหนดตัวคูณเอง...</option>
+                  </select>
+                  <input type="number" step="0.1" min="0" max="10" id="bondMultiplierCustom" class="form-control rounded-3 mt-1 d-none" placeholder="ระบุตัวคูณ เช่น 1.5" onchange="recalcBondCalculation()">
+                </div>
+
+                <!-- จำนวนวันที่ต้องชดใช้ทุนคำนวณ -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">
+                    จำนวนวันที่ต้องชดใช้ทุน (วัน)
+                  </label>
+                  <div class="input-group">
+                    <input type="number" id="bondTotalServiceDays" class="form-control rounded-start-3" placeholder="0" min="0" onchange="recalcBondDatesFromDays()">
+                    <span class="input-group-text bg-light rounded-end-3 small text-muted">วัน</span>
+                  </div>
+                  <div class="small text-muted mt-0.5" id="bondDaysCalcHint" style="font-size: 0.72rem;">คำนวณจากระยะเวลาศึกษา &times; ตัวคูณ</div>
+                </div>
+
+                <!-- วงเงินเบี้ยปรับ / ค่าเสียหายหากผิดสัญญา -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">วงเงินเบี้ยปรับหากผิดสัญญา (บาท)</label>
+                  <div class="input-group">
+                    <input type="number" step="0.01" min="0" id="bondPenaltyAmount" class="form-control rounded-start-3" placeholder="0.00">
+                    <span class="input-group-text bg-light rounded-end-3 small text-muted">บาท</span>
+                  </div>
+                </div>
+
+                <!-- สถานะสัญญาชดใช้ทุน -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">
+                    สถานะสัญญาชดใช้ทุน <span class="text-danger">*</span>
+                  </label>
+                  <select id="bondStatusSelect" class="form-select rounded-3" onchange="onBondStatusSelectChanged(this.value)">
+                    <option value="waiting">รอชดใช้ทุน (กำลังศึกษาต่อ)</option>
+                    <option value="in_service">อยู่ระหว่างชดใช้ทุน (ปฏิบัติงานคืนทุน)</option>
+                    <option value="discharged">ปลอดหนี้ผูกพันแล้ว (ครบสัญญา/ปลดเปลื้อง)</option>
+                    <option value="breached">ผิดสัญญา / เรียกชดใช้เงินคืน</option>
+                  </select>
+                </div>
+
+                <!-- ผู้ค้ำประกันคนที่ 1 & ตำแหน่ง -->
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark mb-1">ชื่อ-สกุล ผู้ค้ำประกันคนที่ 1</label>
+                  <input type="text" id="bondGuarantor1Name" class="form-control rounded-3" placeholder="ชื่อ-สกุล ผู้ค้ำประกัน 1">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark mb-1">ตำแหน่ง ผู้ค้ำประกันคนที่ 1</label>
+                  <input type="text" id="bondGuarantor1Pos" class="form-control rounded-3" placeholder="เช่น พยาบาลวิชาชีพชำนาญการพิเศษ">
+                </div>
+
+                <!-- ผู้ค้ำประกันคนที่ 2 & ตำแหน่ง -->
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark mb-1">ชื่อ-สกุล ผู้ค้ำประกันคนที่ 2</label>
+                  <input type="text" id="bondGuarantor2Name" class="form-control rounded-3" placeholder="ชื่อ-สกุล ผู้ค้ำประกัน 2 (ถ้ามี)">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark mb-1">ตำแหน่ง ผู้ค้ำประกันคนที่ 2</label>
+                  <input type="text" id="bondGuarantor2Pos" class="form-control rounded-3" placeholder="ตำแหน่ง ผู้ค้ำประกัน 2">
+                </div>
+
+                <!-- วันที่กลับเข้าปฏิบัติหน้าที่ -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">วันที่กลับเข้าปฏิบัติหน้าที่</label>
+                  <input type="date" id="bondReturnDutyDate" class="form-control rounded-3" onchange="onBondReturnDutyDateChanged(this.value)">
+                </div>
+
+                <!-- วันที่เริ่มชดใช้ทุน -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">วันเริ่มต้นชดใช้ทุน</label>
+                  <input type="date" id="bondStartDate" class="form-control rounded-3" onchange="recalcBondEndDate()">
+                </div>
+
+                <!-- วันที่สิ้นสุดชดใช้ทุน -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-dark mb-1">วันสิ้นสุดสัญญาชดใช้ทุน</label>
+                  <input type="date" id="bondEndDate" class="form-control rounded-3">
+                </div>
+
+                <!-- เลขที่คำสั่งปลดเปลื้องหนี้ & วันที่ -->
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark mb-1">เลขที่หนังสือ/คำสั่งปลดเปลื้องหนี้</label>
+                  <input type="text" id="bondDischargeDocNo" class="form-control rounded-3" placeholder="เช่น สธ 0212/ปลด.123">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark mb-1">วันที่ปลดเปลื้องหนี้</label>
+                  <input type="date" id="bondDischargeDate" class="form-control rounded-3">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. ไฟล์แนบหลักฐาน & หมายเหตุ (Evidence & Remarks) -->
+          <div class="card border-0 shadow-xs rounded-3 p-3 mb-2 bg-white">
+            <div class="d-flex align-items-center gap-1 mb-2.5 pb-2 border-bottom">
+              <i class="fa-solid fa-paperclip text-secondary me-1"></i>
+              <span class="fw-bold small text-dark">หมวดที่ 3: ไฟล์แนบเอกสารคำสั่ง/สัญญา &amp; หมายเหตุ</span>
+            </div>
+
+            <div class="row g-3">
+              <!-- แนบไฟล์คำสั่งอนุมัติ / สัญญา -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  แนบไฟล์คำสั่งอนุมัติ / สัญญาชดใช้ทุน (PDF / รูปภาพ ไม่เกิน 15MB)
+                </label>
+                <input type="file" id="studyFileInput" class="form-control rounded-3" accept=".pdf,image/jpeg,image/png">
+                <div id="studyExistingFileContainer" class="d-none mt-2 p-2 rounded-2 border bg-light d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2 text-truncate">
+                    <i class="fa-solid fa-file-lines text-primary"></i>
+                    <a href="javascript:void(0)" id="studyExistingFileLink" target="_blank" class="small fw-medium text-truncate">ดูไฟล์หลักฐานเดิม</a>
+                  </div>
+                  <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 rounded-pill" onclick="removeStudyExistingFile()" style="font-size: 0.72rem;">
+                    ลบไฟล์
+                  </button>
+                </div>
+              </div>
+
+              <!-- หมายเหตุเพิ่มเติม -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">หมายเหตุเพิ่มเติม</label>
+                <textarea id="studyRemarks" class="form-control rounded-3" rows="3" placeholder="ระบุเงื่อนไขสัญญาเพิ่มเติม, ประวัติการขยายเวลา หรือข้อความบันทึกอื่นๆ"></textarea>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer border-top p-3 px-4 bg-white d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+          ยกเลิก
+        </button>
+        <button type="button" class="btn rounded-pill px-4 fw-bold shadow-xs text-white" style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);" id="btnSaveStudyBond" onclick="submitStudyBondForm()">
+          <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูล
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     MODAL: แสดงรายละเอียดการศึกษาต่อและสัญญาชดใช้ทุน (View Detail)
+     ==================================================== -->
+<div class="modal fade" id="viewStudyBondDetailModal" tabindex="-1" aria-labelledby="viewStudyBondDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header border-bottom p-3 px-4" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark" style="width: 38px; height: 38px;">
+            <i class="fa-solid fa-graduation-cap fs-5" style="color: #ea580c;"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0 text-white" id="viewStudyBondDetailModalLabel">รายละเอียดการศึกษาต่อและสัญญาชดใช้ทุน</h5>
+            <div class="small text-white-50" style="font-size: 0.78rem;">ข้อมูลประวัติและสถานะความคืบหน้าการชดใช้ทุน</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-4 bg-light bg-opacity-50">
+        <!-- บุคลากร Profile Card -->
+        <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+          <div class="d-flex align-items-center gap-3">
+            <div id="vStudyAvatarContainer">
+              <div class="rounded-circle bg-light d-flex align-items-center justify-content-center border" style="width: 50px; height: 50px;">
+                <i class="fa-solid fa-user text-muted fs-4"></i>
+              </div>
+            </div>
+            <div>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge rounded-pill px-2.5 py-1 fw-bold text-primary" style="background-color: #e0f2fe; font-size: 0.8rem;" id="vStudyPinBadge">PIN</span>
+                <span class="fw-bold fs-6 text-dark" id="vStudyStaffName">-</span>
+              </div>
+              <div class="small text-muted mt-0.5" id="vStudyStaffPosition">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- รายละเอียดการศึกษาต่อ -->
+        <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+          <div class="fw-bold small text-orange mb-2 pb-1 border-bottom d-flex align-items-center gap-1" style="color: #ea580c;">
+            <i class="fa-solid fa-book-open"></i> ข้อมูลการศึกษาต่อ
+          </div>
+          <div class="row g-2.5 small">
+            <div class="col-md-6">
+              <span class="text-muted">ระดับการศึกษา:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vStudyDegreeLevel">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">ชื่อหลักสูตร / สาขาวิชา:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vStudyProgramName">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">สถาบันการศึกษา / ประเทศ:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vStudyInstitution">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">รูปแบบการศึกษา:</span>
+              <div class="mt-0.5" id="vStudyModalityBadge">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">แหล่งทุน &amp; เงินเดือน:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vStudyFunding">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">สถานะการศึกษา:</span>
+              <div class="mt-0.5" id="vStudyStatusBadge">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">ช่วงเวลาตามอนุมัติ:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vStudyApprovedDates">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">คำสั่งอนุมัติ:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vStudyApprovalDoc">-</div>
+            </div>
+            <div class="col-12" id="vStudyThesisContainer">
+              <span class="text-muted">หัวข้อวิทยานิพนธ์:</span>
+              <div class="text-dark mt-0.5 p-2 rounded-2 border bg-light" id="vStudyThesisTitle">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- รายละเอียดสัญญาและการชดใช้ทุน -->
+        <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+          <div class="fw-bold small text-primary mb-2 pb-1 border-bottom d-flex align-items-center gap-1">
+            <i class="fa-solid fa-file-contract"></i> สัญญาและการชดใช้ทุน
+          </div>
+
+          <!-- Progress Burndown Bar -->
+          <div class="mb-3 p-3 rounded-3 border bg-light" id="vBondProgressBox">
+            <div class="d-flex justify-content-between align-items-center mb-1.5">
+              <span class="fw-bold small text-dark">
+                <i class="fa-solid fa-chart-line text-primary me-1"></i>ความคืบหน้าการชดใช้ทุน:
+              </span>
+              <span class="badge rounded-pill fw-bold" id="vBondProgressPercentBadge">0%</span>
+            </div>
+            <div class="progress" style="height: 12px; border-radius: 6px;">
+              <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" id="vBondProgressBar" style="width: 0%"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center small text-muted mt-2">
+              <span id="vBondDaysServed">ชดใช้แล้ว: 0 วัน</span>
+              <span id="vBondDaysRemaining" class="fw-bold text-primary">คงเหลือ: 0 วัน</span>
+              <span id="vBondTotalDays">รวม: 0 วัน</span>
+            </div>
+          </div>
+
+          <div class="row g-2.5 small">
+            <div class="col-md-4">
+              <span class="text-muted">เลขที่สัญญา:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondContractNo">-</div>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">วันที่ทำสัญญา:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondContractDate">-</div>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">อัตราตัวคูณ:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondMultiplier">-</div>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">วันเริ่มต้นชดใช้ทุน:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondStartDate">-</div>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">วันสิ้นสุดสัญญา:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondEndDate">-</div>
+            </div>
+            <div class="col-md-4">
+              <span class="text-muted">สถานะสัญญา:</span>
+              <div class="mt-0.5" id="vBondStatusBadge">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">ผู้ค้ำประกันคนที่ 1:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondGuarantor1">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">ผู้ค้ำประกันคนที่ 2:</span>
+              <div class="fw-bold text-dark mt-0.5" id="vBondGuarantor2">-</div>
+            </div>
+            <div class="col-md-6">
+              <span class="text-muted">วงเงินเบี้ยปรับ:</span>
+              <div class="fw-bold text-danger mt-0.5" id="vBondPenaltyAmount">-</div>
+            </div>
+            <div class="col-md-6" id="vBondDischargeContainer">
+              <span class="text-muted">คำสั่งปลดเปลื้องหนี้:</span>
+              <div class="fw-bold text-success mt-0.5" id="vBondDischargeDoc">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ไฟล์แนบ & หมายเหตุ -->
+        <div class="card border-0 shadow-xs rounded-3 p-3 bg-white">
+          <div class="row g-2.5 small">
+            <div class="col-12" id="vStudyRemarksContainer">
+              <span class="text-muted">หมายเหตุเพิ่มเติม:</span>
+              <div class="text-dark mt-0.5 p-2 rounded-2 border bg-light" id="vStudyRemarks">-</div>
+            </div>
+            <div class="col-12">
+              <span class="text-muted mb-1 d-block">ไฟล์แนบคำสั่ง / สัญญา:</span>
+              <div id="vStudyDocLinkContainer">
+                <span class="text-muted">ไม่มีการแนบไฟล์เอกสาร</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer border-top p-3 px-4 bg-white d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+          ปิดหน้าต่าง
+        </button>
+        <button type="button" class="btn rounded-pill px-4 fw-bold shadow-xs text-white" style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);" id="btnEditFromStudyDetailModal" onclick="editStudyBondFromDetailModal()">
+          <i class="fa-solid fa-pencil me-1"></i> แก้ไขข้อมูลนี้
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+

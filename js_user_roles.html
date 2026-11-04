@@ -1,0 +1,1041 @@
+<script>
+/**
+ * =========================================================================
+ * Client-Side JavaScript: ระบบจัดการและกำหนดสิทธิ์ผู้ใช้งานแบบกลุ่ม (Batch RBAC Matrix)
+ * ระบบฐานข้อมูลบุคลากรกลาง (BCNSPRNW Central HR-DB)
+ * =========================================================================
+ */
+
+let userRolesDataTable = null;
+let cachedUserRolesList = [];
+let selectedRolePins = new Set();
+
+/**
+ * ตรวจสอบสถานะการปฏิบัติงานของบุคลากร (Fallback helper)
+ */
+if (typeof isStaffActiveOrStudying !== 'function') {
+  window.isStaffActiveOrStudying = function(staff) {
+    if (!staff) return false;
+    const status = String(staff.work_status || 'ปกติ/ปฏิบัติงาน/ข้าราชการ/รับโอน').trim().toLowerCase();
+    if (
+      status.includes('เกษียณ') ||
+      status.includes('ลาออก') ||
+      status.includes('เสียชีวิต') ||
+      status.includes('ตาย') ||
+      status.includes('พ้นสภาพ') ||
+      status.includes('โอนย้ายไปนอก') ||
+      status.includes('โอนย้ายไปใน') ||
+      status.includes('ย้ายไปคณะแพทย์') ||
+      status.includes('ย้ายข้าราชการออก') ||
+      status.includes('โอนข้าราชการไปนอก')
+    ) {
+      return false;
+    }
+    return true;
+  };
+}
+
+/**
+ * โหลดข้อมูลตารางกำหนดสิทธิ์ผู้ใช้งานทั้งหมด
+ */
+function loadUserRolesTable() {
+  const $tbody = $('#userRolesTableBody');
+  if ($tbody.length === 0) return;
+
+  // รีเซ็ตการเลือกก่อนหน้า
+  selectedRolePins.clear();
+  updateBatchToolbarState();
+
+  // ทำลาย DataTable เก่าถ้ามีอยู่
+  if (userRolesDataTable) {
+    userRolesDataTable.destroy();
+    userRolesDataTable = null;
+  }
+
+  $tbody.html(`
+    <tr>
+      <td colspan="8" class="text-center py-4 text-muted">
+        <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
+        กำลังโหลดข้อมูลสิทธิ์บุคลากรทั้งหมดจากระบบ...
+      </td>
+    </tr>
+  `);
+
+  showPpmsLoading('กำลังโหลดข้อมูลบุคลากร...', 'กำลังดึงข้อมูลสิทธิ์และรายชื่อบุคลากรทั้งหมดจากฐานข้อมูล');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        const rawRoles = res.data || [];
+        const seen = {};
+        const roles = rawRoles.filter(function(u) {
+          const pin = String(u.user_pin || u.pin || u.staff_id || u.id || '').trim();
+          if (pin === '1' || pin === '999999' || u.id === 1 || u.id === 121 || u.id === '1' || u.id === '121') return false;
+          const name = ((u.fname || '') + (u.lname || '')).toLowerCase();
+          if (name.indexOf('ทดสอบ') !== -1 || name.indexOf('สแกนนิ้ว') !== -1 || name.indexOf('cit1') !== -1) return false;
+          const key = String(u.user_pin || u.pin || u.id);
+          if (seen[key]) return false;
+          seen[key] = true;
+          return true;
+        });
+        cachedUserRolesList = roles;
+        $('#userRolesTotalCountBadge').text(roles.length + ' คน');
+        populateUserRolesPosFilter(roles);
+        updatePositionStats(roles);
+        renderUserRolesTable(roles);
+      } else {
+        $tbody.html(`
+          <tr>
+            <td colspan="8" class="text-center py-4 text-danger">
+              <i class="fa-solid fa-triangle-exclamation me-1"></i>
+              ${res ? res.message : 'ไม่สามารถโหลดข้อมูลผู้ใช้งานได้'}
+            </td>
+          </tr>
+        `);
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      $tbody.html(`
+        <tr>
+          <td colspan="8" class="text-center py-4 text-danger">
+            <i class="fa-solid fa-circle-xmark me-1"></i>
+            การเชื่อมต่อขัดข้อง: ${err.message}
+          </td>
+        </tr>
+      `);
+    })
+    .getUserRolesList();
+}
+
+/**
+ * ฟังก์ชันจำแนกสถานะและกลุ่มบุคลากร 5 กลุ่ม (ทั้งหมด, อาจารย์, สายสนับสนุน, จ้างเหมา, ลาออก/เกษียณ)
+ */
+function isStaffInactive(u) {
+  if (!u) return false;
+  const status = String(u.work_status || '').toLowerCase();
+  return status.includes('เกษียณ') || status.includes('ลาออก') || status.includes('เสียชีวิต') ||
+         status.includes('ตาย') || status.includes('พ้นสภาพ') || status.includes('โอนย้ายไปนอก') ||
+         status.includes('ย้ายข้าราชการออก') || status.includes('คณะแพทย์');
+}
+
+function isStaffContract(u) {
+  if (!u || isStaffInactive(u)) return false;
+  // ตรวจสอบจากประเภทบุคลากร (position_type) ในฐานข้อมูลเป็นหลัก (ครอบคลุมทั้งสายสอนและสายสนับสนุน)
+  const posType = String(u.position_type || '').trim().toLowerCase();
+  if (posType.includes('จ้างเหมา') || posType.includes('เหมาบริการ')) {
+    return true;
+  }
+  // Fallback กรณีมีการระบุจ้างเหมาบริการในชื่อตำแหน่งหรือหน่วยงานโดยตรง (ไม่เดาจากตำแหน่งแม่บ้าน/รปภ.)
+  const pos = String(u.position || u.position_title || '').toLowerCase();
+  const dept = String(u.department || '').toLowerCase();
+  return pos.includes('จ้างเหมา') || pos.includes('เหมาบริการ') ||
+         dept.includes('จ้างเหมา') || dept.includes('เหมาบริการ');
+}
+
+function isStaffTeaching(u) {
+  if (!u || isStaffInactive(u) || isStaffContract(u)) return false;
+  const pin = String(u.pin || u.user_pin || u.staff_id || u.id || '').trim();
+  const pos = String(u.position || u.position_title || '');
+  if (['ห้องสมุด', 'เจ้าหน้าที่', 'แม่บ้าน', 'รปภ.'].some(kw => pos.includes(kw))) return false;
+  if (u.job_line === 'สายสอน') return true;
+  if (u.job_line === 'สายสนับสนุน') return false;
+  if (pin.startsWith('371')) return true;
+  if (pos.includes('อาจารย์') || pos.includes('ผู้อำนวยการ') || pos.includes('ศาสตราจารย์')) return true;
+  return false;
+}
+
+function isStaffSupport(u) {
+  if (!u || isStaffInactive(u) || isStaffContract(u) || isStaffTeaching(u)) return false;
+  return true;
+}
+
+function getStaffCategory(u) {
+  if (isStaffInactive(u)) return 'inactive';
+  if (isStaffContract(u)) return 'contract';
+  if (isStaffTeaching(u)) return 'teaching';
+  return 'support';
+}
+
+let currentStaffGroupFilter = 'all';
+
+/**
+ * อัปเดตข้อมูลและจำนวนบุคลากรบน 5 การ์ดสถิติ (ทั้งหมด, อาจารย์, สายสนับสนุน, จ้างเหมา, ลาออก/เกษียณ)
+ */
+function updatePositionStats(roles) {
+  if (!Array.isArray(roles)) return;
+  const totalCount = roles.length;
+  let teachingCount = 0;
+  let supportCount = 0;
+  let contractCount = 0;
+  let inactiveCount = 0;
+
+  roles.forEach(u => {
+    const cat = getStaffCategory(u);
+    if (cat === 'inactive') inactiveCount++;
+    else if (cat === 'contract') contractCount++;
+    else if (cat === 'teaching') teachingCount++;
+    else supportCount++;
+  });
+
+  $('#staffGroupCountAll').text(totalCount);
+  $('#staffGroupCountTeaching').text(teachingCount);
+  $('#staffGroupCountSupport').text(supportCount);
+  $('#staffGroupCountContract').text(contractCount);
+  $('#staffGroupCountInactive').text(inactiveCount);
+
+  $('#staffGroupDescAll').text(`ทั้งหมดในระบบ (${totalCount} คน)`);
+  $('#staffGroupDescTeaching').text(`คณาจารย์ปฏิบัติงานจริง (${teachingCount} ท่าน)`);
+  $('#staffGroupDescSupport').text(`บุคลากรประจำ (${supportCount} ท่าน)`);
+  $('#staffGroupDescContract').text(`ตามประเภทการจ้างงาน (${contractCount} ท่าน)`);
+  $('#staffGroupDescInactive').text(`พ้นสภาพ (${inactiveCount} ท่าน)`);
+}
+
+/**
+ * กรองตารางผ่านการคลิกการ์ดสถิติ 5 ใบ (ทั้งหมด, อาจารย์, สายสนับสนุน, จ้างเหมา, ลาออก/เกษียณ)
+ */
+function filterByStaffGroupCard(group) {
+  const targetGroup = (!group || (group === currentStaffGroupFilter && group !== 'all')) ? 'all' : group;
+  currentStaffGroupFilter = targetGroup;
+
+  // รีเซ็ตตัวกรองตำแหน่ง
+  $('#userRolesPosFilter').val('all');
+
+  // ปรับการไฮไลต์การ์ดที่ถูกเลือก
+  $('.role-filter-card').removeClass('shadow-lg border-3 border-dark').css('transform', 'none');
+  if (targetGroup === 'all') {
+    $('#staffGroupCardAll').addClass('shadow-lg border-3 border-dark').css('transform', 'translateY(-2px)');
+  } else if (targetGroup === 'teaching') {
+    $('#staffGroupCardTeaching').addClass('shadow-lg border-3 border-dark').css('transform', 'translateY(-2px)');
+  } else if (targetGroup === 'support') {
+    $('#staffGroupCardSupport').addClass('shadow-lg border-3 border-dark').css('transform', 'translateY(-2px)');
+  } else if (targetGroup === 'contract') {
+    $('#staffGroupCardContract').addClass('shadow-lg border-3 border-dark').css('transform', 'translateY(-2px)');
+  } else if (targetGroup === 'inactive') {
+    $('#staffGroupCardInactive').addClass('shadow-lg border-3 border-dark').css('transform', 'translateY(-2px)');
+  }
+
+  applyUserRolesFilters();
+
+  if (targetGroup !== 'all' && $('#userRolesTable').length) {
+    $('html, body').animate({
+      scrollTop: $("#userRolesTable").offset().top - 120
+    }, 300);
+  }
+}
+
+/**
+ * สร้างตัวเลือกตำแหน่ง (จากคอลัมน์ position ใน staff_master) ใน Dropdown อัตโนมัติ
+ */
+function populateUserRolesPosFilter(roles) {
+  const $select = $('#userRolesPosFilter');
+  const currentVal = $select.val() || 'all';
+  const posSet = new Set();
+
+  roles.forEach(u => {
+    const p = (u.position || u.position_title || '').trim();
+    if (p) {
+      posSet.add(p);
+    }
+  });
+
+  const sortedPositions = Array.from(posSet).sort((a, b) => a.localeCompare(b, 'th'));
+  let html = '<option value="all">💼 ทุกตำแหน่งใน staff_master (ทั้งหมด)</option>';
+  sortedPositions.forEach(p => {
+    html += `<option value="${p}">${p}</option>`;
+  });
+
+  $select.html(html);
+  if (posSet.has(currentVal)) {
+    $select.val(currentVal);
+  }
+}
+
+/**
+ * เรนเดอร์ข้อมูลลงตาราง DataTable
+ */
+function renderUserRolesTable(roles) {
+  const $tbody = $('#userRolesTableBody');
+  $tbody.empty();
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isSuperAdmin = (curRole === 'super_admin');
+
+  // ควบคุมการแสดงผลเครื่องมือกำหนดสิทธิ์เฉพาะ Super Admin เท่านั้น
+  if (isSuperAdmin) {
+    $('#btnAddUserRoleBtn').removeClass('d-none');
+    $('#userRoleSelectAllBox').prop('disabled', false).show();
+  } else {
+    $('#btnAddUserRoleBtn').addClass('d-none');
+    $('#userRoleSelectAllBox').prop('disabled', true).hide();
+    $('#batchRoleToolbar').addClass('d-none');
+  }
+
+  if (!roles || roles.length === 0) {
+    $tbody.html(`
+      <tr>
+        <td colspan="8" class="text-center py-4 text-muted">
+          ไม่พบข้อมูลบุคลากรในระบบ
+        </td>
+      </tr>
+    `);
+    return;
+  }
+
+  roles.forEach((u, idx) => {
+    const pin = String(u.user_pin || u.pin || u.staff_id || u.id || '-');
+    const name = u.name || `${u.fname || ''} ${u.lname || ''}`.trim() || 'ไม่ระบุชื่อ';
+    const dept = (u.department && u.department !== 'ไม่ระบุสังกัด' && u.department !== '-') ? u.department : '';
+    const pos = (u.position || u.position_title || 'บุคลากร').trim();
+    const photo = formatStaffPhotoUrl(u.photo_url) || DEFAULT_STAFF_AVATAR;
+    const roleKey = (u.role || 'staff').toLowerCase();
+    const isCustom = parseInt(u.is_custom) === 1;
+    const isChecked = selectedRolePins.has(pin);
+    const catGroup = getStaffCategory(u);
+
+    // Role Badges
+    let roleBadge = '';
+    if (roleKey === 'super_admin') {
+      roleBadge = '<span class="badge bg-danger text-white rounded-pill px-2 py-1"><i class="fa-solid fa-user-shield me-1"></i>Super Admin</span>';
+    } else if (roleKey === 'hr_admin') {
+      roleBadge = '<span class="badge bg-primary text-white rounded-pill px-2 py-1"><i class="fa-solid fa-user-tie me-1"></i>HR Admin</span>';
+    } else if (roleKey === 'executive') {
+      roleBadge = '<span class="badge bg-info text-dark rounded-pill px-2 py-1"><i class="fa-solid fa-briefcase me-1"></i>Executive</span>';
+    } else {
+      roleBadge = '<span class="badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-1"><i class="fa-solid fa-user me-1"></i>Staff</span>';
+    }
+
+    // Work Status Badge (แสดงสถานะชัดเจน เช่น ลาออก, เกษียณ, ลาศึกษาต่อ, โอนย้าย)
+    let workStatusBadge = '';
+    const wStatus = String(u.work_status || '').trim();
+    if (wStatus.includes('ลาออก')) {
+      workStatusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0 ms-1" style="font-size: 0.65rem;" title="พ้นสภาพ (ลาออก)"><i class="fa-solid fa-person-walking-arrow-right me-1"></i>ลาออก</span>';
+    } else if (wStatus.includes('เกษียณ')) {
+      workStatusBadge = '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-0 ms-1" style="font-size: 0.65rem;" title="พ้นสภาพ (เกษียณอายุ)"><i class="fa-solid fa-user-clock me-1"></i>เกษียณอายุ</span>';
+    } else if (wStatus.includes('ลาศึกษาต่อ')) {
+      workStatusBadge = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0 ms-1" style="font-size: 0.65rem;" title="อยู่ระหว่างลาศึกษาต่อ"><i class="fa-solid fa-graduation-cap me-1"></i>ลาศึกษาต่อ</span>';
+    } else if (wStatus.includes('โอนย้ายไปใน สบช') || wStatus.includes('ย้ายภายใน สบช')) {
+      workStatusBadge = '<span class="badge rounded-pill px-2 py-0 ms-1" style="background-color: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 0.65rem;" title="โอนย้ายภายใน สบช."><i class="fa-solid fa-arrow-right-arrow-left me-1"></i>โอนย้ายใน สบช.</span>';
+    } else if (wStatus.includes('โอนย้าย') || wStatus.includes('ให้โอนข้าราชการ') || wStatus.includes('ย้ายข้าราชการออก') || wStatus.includes('คณะแพทย์')) {
+      workStatusBadge = '<span class="badge rounded-pill px-2 py-0 ms-1" style="background-color: #ede9fe; color: #4338ca; border: 1px solid #c4b5fd; font-size: 0.65rem;" title="โอนย้ายออกนอก สบช."><i class="fa-solid fa-right-from-bracket me-1"></i>โอนย้ายนอก สบช.</span>';
+    } else if (wStatus.includes('เสียชีวิต') || wStatus.includes('ตาย')) {
+      workStatusBadge = '<span class="badge bg-dark text-white rounded-pill px-2 py-0 ms-1" style="font-size: 0.65rem;" title="เสียชีวิต"><i class="fa-solid fa-ribbon me-1"></i>เสียชีวิต</span>';
+    }
+
+    // Custom vs Default Badge
+    let typeBadge = '';
+    if (isCustom) {
+      typeBadge = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0 ms-1" style="font-size: 0.65rem;" title="สิทธิ์พิเศษที่กำหนดขึ้น"><i class="fa-solid fa-star text-warning me-1"></i>พิเศษ</span>';
+    } else {
+      typeBadge = '<span class="badge bg-light text-muted border rounded-pill px-2 py-0 ms-1" style="font-size: 0.65rem;" title="สิทธิ์เริ่มต้น"><i class="fa-solid fa-circle-dot text-secondary me-1"></i>เริ่มต้น</span>';
+    }
+
+    // Specific permissions badges
+    let permBadges = [];
+    if (parseInt(u.can_export) === 1) {
+      permBadges.push('<span class="badge bg-light text-dark border me-1 mb-1" style="font-size: 0.7rem;"><i class="fa-solid fa-file-export text-primary me-1"></i>Export</span>');
+    }
+    if (parseInt(u.can_manage_insignia) === 1) {
+      permBadges.push('<span class="badge bg-light text-dark border me-1 mb-1" style="font-size: 0.7rem;"><i class="fa-solid fa-medal text-warning me-1"></i>เครื่องราชฯ</span>');
+    }
+    if (parseInt(u.can_manage_bonds) === 1) {
+      permBadges.push('<span class="badge bg-light text-dark border me-1 mb-1" style="font-size: 0.7rem;"><i class="fa-solid fa-file-contract text-success me-1"></i>ชดใช้ทุน</span>');
+    }
+    const permsHtml = permBadges.length > 0 ? permBadges.join('') : '<span class="text-muted small">-</span>';
+    const contractBadge = isStaffContract(u) ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size: 0.68rem;"><i class="fa-solid fa-file-contract me-1"></i>จ้างเหมาบริการ</span>' : '';
+
+    const assignedDate = u.updated_at ? u.updated_at.substring(0, 10) : (u.created_at ? u.created_at.substring(0, 10) : '-');
+
+    const tr = `
+      <tr data-pin="${pin}" data-role="${roleKey}" data-pos="${pos}" data-dept="${dept}" data-custom="${isCustom ? 'custom' : 'default'}" data-group="${catGroup}">
+        <td class="text-center">
+          ${isSuperAdmin ? `
+            <input type="checkbox" class="form-check-input role-row-checkbox" value="${pin}" ${isChecked ? 'checked' : ''} onchange="toggleRoleSelectPin('${pin}', this.checked)">
+          ` : '<span class="text-muted small">-</span>'}
+        </td>
+        <td>
+          <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-1 fw-bold" style="font-size: 0.78rem;">
+            #${pin}
+          </span>
+        </td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <img src="${photo}" class="rounded-circle border" style="width: 36px; height: 36px; min-width: 36px; object-fit: cover;" onerror="this.onerror=null;this.src=(window.DEFAULT_STAFF_AVATAR || 'https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop')">
+            <div>
+              <div class="fw-bold text-dark d-flex align-items-center flex-wrap gap-1">${name} ${workStatusBadge}</div>
+              <div class="text-muted small" style="font-size: 0.72rem;">${u.email || ''}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="fw-medium text-dark small">${pos} ${contractBadge}</div>
+          ${dept ? `<div class="text-secondary small" style="font-size: 0.72rem;">${dept}</div>` : ''}
+        </td>
+        <td class="text-center">
+          ${roleBadge}
+          <div class="mt-1">${typeBadge}</div>
+        </td>
+        <td>${permsHtml}</td>
+        <td><span class="text-muted small">${assignedDate}</span></td>
+        <td class="text-center">
+          ${isSuperAdmin ? `
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-warning" onclick="openEditUserRoleModal('${pin}')" title="ปรับปรุงสิทธิ์บุคคลนี้">
+                <i class="fa-solid fa-user-pen"></i>
+              </button>
+              ${isCustom ? `
+                <button class="btn btn-outline-danger" onclick="deleteUserRolePrompt('${u.role_id || u.id || ''}', '${pin}', '${name.replace(/'/g, "\\'")}')" title="คืนค่าสิทธิ์เริ่มต้น">
+                  <i class="fa-solid fa-rotate-left"></i>
+                </button>
+              ` : ''}
+            </div>
+          ` : '<span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.7rem;"><i class="fa-solid fa-lock me-1"></i>ดูอย่างเดียว</span>'}
+        </td>
+      </tr>
+    `;
+    $tbody.append(tr);
+  });
+
+  // กำหนด DataTables
+  userRolesDataTable = $('#userRolesTable').DataTable({
+    pageLength: 25,
+    lengthMenu: [10, 25, 50, 100],
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "ค้นหาชื่อ, สกุล, PIN, ตำแหน่ง...",
+      lengthMenu: "แสดง _MENU_ แถวต่อหน้า",
+      info: "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ คน",
+      infoEmpty: "ไม่พบรายการ",
+      zeroRecords: "ไม่พบบุคลากรที่ตรงกับเงื่อนไข",
+      paginate: {
+        previous: "ก่อนหน้า",
+        next: "ถัดไป"
+      }
+    },
+    columnDefs: [
+      { orderable: false, targets: [0, 7] }
+    ],
+    order: [[4, 'asc']],
+    responsive: true,
+    destroy: true,
+    drawCallback: function() {
+      // ซิงค์ checkbox ทุกครั้งที่เปลี่ยนหน้า pagination
+      syncRowCheckboxesWithSet();
+    }
+  });
+
+  // เรียกใช้ตัวกรองทันที
+  applyUserRolesFilters();
+}
+
+/**
+ * จัดการเลือก/ยกเลิก Checkbox ประจำแถว
+ */
+function toggleRoleSelectPin(pin, isChecked) {
+  if (isChecked) {
+    selectedRolePins.add(String(pin));
+  } else {
+    selectedRolePins.delete(String(pin));
+  }
+  updateBatchToolbarState();
+}
+
+/**
+ * เลือก/ยกเลิก Checkbox ทั้งหมดในหน้าที่แสดงอยู่
+ */
+function toggleSelectAllRoleBoxes(isChecked) {
+  $('.role-row-checkbox').each(function() {
+    const pin = String($(this).val());
+    $(this).prop('checked', isChecked);
+    if (isChecked) {
+      selectedRolePins.add(pin);
+    } else {
+      selectedRolePins.delete(pin);
+    }
+  });
+  updateBatchToolbarState();
+}
+
+/**
+ * ซิงค์สถานะ Checkbox กับ Set เมื่อเปลี่ยนหน้า
+ */
+function syncRowCheckboxesWithSet() {
+  let allChecked = true;
+  let countInPage = 0;
+
+  $('.role-row-checkbox').each(function() {
+    countInPage++;
+    const pin = String($(this).val());
+    const checked = selectedRolePins.has(pin);
+    $(this).prop('checked', checked);
+    if (!checked) allChecked = false;
+  });
+
+  $('#userRoleSelectAllBox').prop('checked', countInPage > 0 && allChecked);
+}
+
+/**
+ * อัปเดตแถบ Batch Action Toolbar ตามจำนวนที่ถูกเลือก
+ */
+function updateBatchToolbarState() {
+  const count = selectedRolePins.size;
+  $('#batchSelectedCountText').text(count);
+
+  if (count > 0) {
+    $('#batchRoleToolbar').removeClass('d-none');
+  } else {
+    $('#batchRoleToolbar').addClass('d-none');
+    $('#userRoleSelectAllBox').prop('checked', false);
+  }
+}
+
+/**
+ * ล้างการเลือกทั้งหมด
+ */
+function clearBatchRoleSelection() {
+  selectedRolePins.clear();
+  $('.role-row-checkbox').prop('checked', false);
+  $('#userRoleSelectAllBox').prop('checked', false);
+  updateBatchToolbarState();
+}
+
+/**
+ * เลือกบุคลากรทั้งหมดตามตัวกรองที่แสดงอยู่ในขณะนี้
+ */
+function selectAllFilteredRoles() {
+  if (!userRolesDataTable) return;
+
+  // ดึงแถวที่ผ่านการกรองทั้งหมด (ข้ามหน้า pagination ได้)
+  const rows = userRolesDataTable.rows({ search: 'applied' }).nodes();
+  $(rows).find('.role-row-checkbox').each(function() {
+    const pin = String($(this).val());
+    selectedRolePins.add(pin);
+    $(this).prop('checked', true);
+  });
+
+  updateBatchToolbarState();
+  syncRowCheckboxesWithSet();
+
+  Swal.fire({
+    title: 'เลือกเรียบร้อย',
+    text: `เลือกบุคลากรตามตัวกรองแล้วทั้งหมด ${selectedRolePins.size} ท่าน`,
+    icon: 'info',
+    timer: 1200,
+    showConfirmButton: false
+  });
+}
+
+/**
+ * กรองตารางตามตัวกรอง Smart Filters
+ */
+function applyUserRolesFilters() {
+  if (!userRolesDataTable) return;
+
+  const pos = $('#userRolesPosFilter').val();
+  const role = $('#userRolesRoleFilter').val();
+  const status = $('#userRolesStatusFilter').val();
+
+  // กำหนดฟังก์ชัน Custom Filter ให้ DataTables
+  $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+    if (settings.nTable.id !== 'userRolesTable') return true;
+
+    const row = userRolesDataTable.row(dataIndex).node();
+    if (!row) return true;
+
+    const rGroup = $(row).attr('data-group') || '';
+    const rPos = $(row).attr('data-pos') || '';
+    const rRole = $(row).attr('data-role') || '';
+    const rCustom = $(row).attr('data-custom') || '';
+
+    // เช็คเงื่อนไขกลุ่มจากการ์ดสถิติ 5 ใบ
+    if (currentStaffGroupFilter && currentStaffGroupFilter !== 'all' && rGroup !== currentStaffGroupFilter) {
+      return false;
+    }
+
+    // เช็คเงื่อนไขตำแหน่ง (จาก staff_master)
+    if (pos && pos !== 'all' && rPos !== pos) {
+      return false;
+    }
+
+    // เช็คเงื่อนไข Role
+    if (role && role !== 'all' && rRole !== role) {
+      return false;
+    }
+
+    // เช็คเงื่อนไข Status
+    if (status && status !== 'all' && rCustom !== status) {
+      return false;
+    }
+
+    return true;
+  });
+
+  userRolesDataTable.draw();
+
+  // ลบ filter function หลัง draw เพื่อไม่ให้ซ้อนทับ
+  $.fn.dataTable.ext.search.pop();
+}
+
+/**
+ * กรองตารางผ่านการคลิกการ์ดสถิติตำแหน่ง (ฟังก์ชันดั้งเดิมเพื่อความเข้ากันได้)
+ */
+function filterByPositionCard(pos) {
+  if (!pos) return;
+  filterByStaffGroupCard(pos);
+}
+
+/**
+ * ล้างตัวกรองทั้งหมด
+ */
+function resetUserRolesFilters() {
+  currentStaffGroupFilter = 'all';
+  $('#userRolesPosFilter').val('all');
+  $('#userRolesRoleFilter').val('all');
+  $('#userRolesStatusFilter').val('all');
+  $('.role-filter-card').removeClass('shadow-lg border-3 border-dark').css('transform', 'none');
+  $('#staffGroupCardAll').addClass('shadow-lg border-3 border-dark').css('transform', 'translateY(-2px)');
+  if (userRolesDataTable) {
+    userRolesDataTable.search('').draw();
+  }
+  applyUserRolesFilters();
+}
+
+/**
+ * บันทึกสิทธิ์แบบกลุ่ม (Batch Role Assignment) - สงวนสิทธิ์เฉพาะ Super Admin
+ */
+function applyBatchRoleAssignment() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  if (curRole !== 'super_admin') {
+    Swal.fire('🛡️ สิทธิ์ไม่เพียงพอ', 'การกำหนดสิทธิ์ผู้ใช้งานสงวนสิทธิ์เฉพาะ Super Admin เท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  const staffIds = Array.from(selectedRolePins);
+  if (staffIds.length === 0) {
+    Swal.fire('ยังไม่ได้เลือกบุคลากร', 'กรุณาติ๊กเลือกบุคลากรอย่างน้อย 1 ท่าน', 'warning');
+    return;
+  }
+
+  const role = $('#batchAssignRoleSelect').val();
+  const canExport = $('#batchPermExport').is(':checked') ? 1 : 0;
+  const canInsignia = $('#batchPermInsignia').is(':checked') ? 1 : 0;
+  const canBonds = $('#batchPermBonds').is(':checked') ? 1 : 0;
+
+  let roleLabel = '';
+  if (role === 'super_admin') roleLabel = 'Super Admin (ผู้ดูแลระบบสูงสุด)';
+  else if (role === 'hr_admin') roleLabel = 'HR Admin (เจ้าหน้าที่ฝ่ายบุคคล)';
+  else if (role === 'executive') roleLabel = 'Executive (ผู้บริหาร)';
+  else roleLabel = 'Staff (บุคลากรทั่วไป)';
+
+  Swal.fire({
+    title: 'ยืนยันกำหนดสิทธิ์แบบกลุ่ม?',
+    html: `
+      ต้องการกำหนดระดับสิทธิ์เป็น <strong>${roleLabel}</strong><br>
+      ให้กับบุคลากรที่เลือกจำนวน <strong class="text-primary fs-5">${staffIds.length}</strong> ท่าน ใช่หรือไม่?
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#1d4ed8',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ใช่, บันทึกสิทธิ์กลุ่ม',
+    cancelButtonText: 'ยกเลิก'
+  }).then(result => {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังบันทึกสิทธิ์กลุ่ม...', `กำลังอัปเดตสิทธิ์บุคลากร ${staffIds.length} ท่าน`);
+
+      const payload = {
+        staff_ids: staffIds,
+        role: role,
+        can_export: canExport,
+        can_manage_insignia: canInsignia,
+        can_manage_bonds: canBonds,
+        assigned_by: window.currentUserPin || 0
+      };
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire({
+              title: 'บันทึกสำเร็จ!',
+              text: res.message || `อัปเดตสิทธิ์บุคลากร ${staffIds.length} ท่านเรียบร้อยแล้ว`,
+              icon: 'success',
+              timer: 1800,
+              showConfirmButton: false
+            });
+            clearBatchRoleSelection();
+            loadUserRolesTable();
+          } else {
+            Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึกสิทธิ์กลุ่ม', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+        })
+        .saveBatchUserRoles(payload);
+    }
+  });
+}
+
+/**
+ * คืนค่าสิทธิ์เริ่มต้นแบบกลุ่ม (Batch Reset to Default) - สงวนสิทธิ์เฉพาะ Super Admin
+ */
+function applyBatchRoleReset() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  if (curRole !== 'super_admin') {
+    Swal.fire('🛡️ สิทธิ์ไม่เพียงพอ', 'การคืนค่าสิทธิ์ผู้ใช้งานสงวนสิทธิ์เฉพาะ Super Admin เท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  const staffIds = Array.from(selectedRolePins);
+  if (staffIds.length === 0) {
+    Swal.fire('ยังไม่ได้เลือกบุคลากร', 'กรุณาติ๊กเลือกบุคลากรอย่างน้อย 1 ท่าน', 'warning');
+    return;
+  }
+
+  Swal.fire({
+    title: 'ยืนยันคืนค่าสิทธิ์เริ่มต้น?',
+    html: `
+      ต้องการยกเลิกสิทธิ์พิเศษและคืนค่าเริ่มต้นให้กับบุคลากรจำนวน <strong class="text-danger fs-5">${staffIds.length}</strong> ท่าน ใช่หรือไม่?<br>
+      <span class="text-muted small">บุคลากรจะกลับไปใช้สิทธิ์เริ่มต้นตามที่ระบุใน staff_master</span>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ใช่, คืนค่าเริ่มต้น',
+    cancelButtonText: 'ยกเลิก'
+  }).then(result => {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังคืนค่าสิทธิ์...', `กำลังคืนค่าเริ่มต้นให้กับบุคลากร ${staffIds.length} ท่าน`);
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire({
+              title: 'คืนค่าสำเร็จ!',
+              text: res.message || `คืนค่าสิทธิ์เริ่มต้นเรียบร้อยแล้ว`,
+              icon: 'success',
+              timer: 1800,
+              showConfirmButton: false
+            });
+            clearBatchRoleSelection();
+            loadUserRolesTable();
+          } else {
+            Swal.fire('ดำเนินการไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการคืนค่าสิทธิ์', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+        })
+        .resetBatchUserRoles(staffIds, window.currentUserPin || 0);
+    }
+  });
+}
+
+/**
+ * เปิด Modal เพื่อกำหนดสิทธิ์รายคน (+ กำหนดสิทธิ์ใหม่) - สงวนสิทธิ์เฉพาะ Super Admin
+ */
+function openAddUserRoleModal() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  if (curRole !== 'super_admin') {
+    Swal.fire('🛡️ สิทธิ์ไม่เพียงพอ', 'การกำหนดสิทธิ์ผู้ใช้งานสงวนสิทธิ์เฉพาะ Super Admin เท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  $('#userRoleModalTitle').html('<i class="fa-solid fa-user-plus me-1"></i> กำหนดสิทธิ์ผู้ใช้งานใหม่');
+  $('#userRoleForm')[0].reset();
+  $('#userRoleStaffId').val('');
+  $('#userRoleStatusAlert').addClass('d-none').empty();
+  $('#userRoleStaffPickerWrap').removeClass('d-none');
+  $('#userRoleSelectedStaffPreview').addClass('d-none');
+  $('#userRoleStaffDropdown').addClass('d-none').empty();
+  $('#userRoleSearchStaffInput').val('');
+  $('#userRoleSelect').val('staff');
+  $('#userRoleCanExport').prop('checked', true);
+  $('#userRoleCanManageInsignia').prop('checked', false);
+  $('#userRoleCanManageBonds').prop('checked', false);
+
+  ensureStaffListLoaded();
+  const modal = new bootstrap.Modal(document.getElementById('userRoleModal'));
+  modal.show();
+}
+
+/**
+ * เปิด Modal แก้ไขสิทธิ์เฉพาะบุคคล - สงวนสิทธิ์เฉพาะ Super Admin
+ */
+function openEditUserRoleModal(staffId) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  if (curRole !== 'super_admin') {
+    Swal.fire('🛡️ สิทธิ์ไม่เพียงพอ', 'การแก้ไขสิทธิ์ผู้ใช้งานสงวนสิทธิ์เฉพาะ Super Admin เท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  const item = cachedUserRolesList.find(x => String(x.user_pin || x.pin || x.staff_id || x.id) === String(staffId));
+  if (!item) return;
+
+  const realPin = item.user_pin || item.pin || item.staff_id || item.id;
+  $('#userRoleModalTitle').html('<i class="fa-solid fa-user-gear me-1"></i> แก้ไขสิทธิ์ผู้ใช้งาน');
+  $('#userRoleStaffId').val(realPin);
+  $('#userRoleStaffPickerWrap').addClass('d-none'); // ล็อกไม่ให้เปลี่ยนบุคคล
+  
+  // ตรวจสอบสถานะการปฏิบัติงาน ถ้าพ้นสภาพ (ลาออก/เกษียณ) ให้แจ้งเตือนชัดเจน
+  const wStatus = String(item.work_status || '').trim();
+  const isActive = typeof isStaffActiveOrStudying === 'function' ? isStaffActiveOrStudying(item) : true;
+  if (!isActive) {
+    $('#userRoleStatusAlert').removeClass('d-none').html(`
+      <i class="fa-solid fa-triangle-exclamation fs-5 text-danger"></i>
+      <div>
+        <strong>บุคคลนี้พ้นสภาพการปฏิบัติงาน (${wStatus || 'ลาออก/เกษียณ'})</strong><br>
+        <span class="text-muted" style="font-size: 0.75rem;">ระบบได้ระงับการเข้าสู่ระบบและไม่แสดงในรายการบันทึกข้อมูลแล้ว</span>
+      </div>
+    `);
+  } else {
+    $('#userRoleStatusAlert').addClass('d-none').empty();
+  }
+
+  const photo = formatStaffPhotoUrl(item.photo_url) || DEFAULT_STAFF_AVATAR;
+  $('#userRolePreviewAvatar').attr('src', photo);
+  $('#userRolePreviewName').text(item.name || `${item.fname || ''} ${item.lname || ''}`.trim());
+  $('#userRolePreviewMeta').text(item.position || item.position_title || item.department || '-');
+  $('#userRolePreviewPin').text('#' + realPin);
+  $('#userRoleSelectedStaffPreview').removeClass('d-none');
+
+  $('#userRoleSelect').val(item.role || 'staff');
+  $('#userRoleCanExport').prop('checked', parseInt(item.can_export) === 1);
+  $('#userRoleCanManageInsignia').prop('checked', parseInt(item.can_manage_insignia) === 1);
+  $('#userRoleCanManageBonds').prop('checked', parseInt(item.can_manage_bonds) === 1);
+
+  const modal = new bootstrap.Modal(document.getElementById('userRoleModal'));
+  modal.show();
+}
+
+/**
+ * ดึงรายชื่อ staff 119 ท่านจาก API ถ้ายังไม่ได้โหลด
+ */
+function ensureStaffListLoaded(callback) {
+  if (window.allStaffList && window.allStaffList.length > 0) {
+    if (typeof callback === 'function') callback();
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.status === 'success') {
+        window.allStaffList = res.data || [];
+        if (typeof callback === 'function') callback();
+      }
+    })
+    .getAvailableStaff();
+}
+
+/**
+ * ตัวกรอง Searchable Staff Picker ใน Modal
+ */
+function filterUserRoleStaffPicker(query) {
+  const $dropdown = $('#userRoleStaffDropdown');
+  const q = (query || '').trim().toLowerCase();
+
+  if (!q) {
+    $dropdown.addClass('d-none').empty();
+    return;
+  }
+
+  const list = window.allStaffList || cachedUserRolesList || [];
+  const matches = list.filter(s => {
+    // กรองไม่แสดงบุคลากรที่พ้นสภาพ (เกษียณ, ลาออก, เสียชีวิต, พ้นสภาพ)
+    if (typeof isStaffActiveOrStudying === 'function' && !isStaffActiveOrStudying(s)) return false;
+
+    const pin = String(s.user_pin || s.pin || s.staff_id || s.id || '');
+    const name = (s.name || `${s.fname || ''} ${s.lname || ''}`).toLowerCase();
+    const pos = (s.position || s.position_title || '').toLowerCase();
+    const dept = (s.department || '').toLowerCase();
+    return pin.includes(q) || name.includes(q) || pos.includes(q) || dept.includes(q);
+  }).slice(0, 15);
+
+  if (matches.length === 0) {
+    $dropdown.html('<div class="p-2 text-muted small text-center">ไม่พบบุคลากรที่ตรงกับคำค้นหา</div>').removeClass('d-none');
+    return;
+  }
+
+  let html = '';
+  matches.forEach(s => {
+    const pin = s.user_pin || s.pin || s.staff_id || s.id;
+    const name = s.name || `${s.fname || ''} ${s.lname || ''}`.trim();
+    const pos = s.position || s.position_title || s.department || '';
+    const photo = formatStaffPhotoUrl(s.photo_url) || DEFAULT_STAFF_AVATAR;
+
+    html += `
+      <div class="d-flex align-items-center justify-content-between p-2 border-bottom cursor-pointer hover-bg-light" 
+           onclick="selectUserRoleStaffItem('${pin}', '${name.replace(/'/g, "\\'")}', '${pos.replace(/'/g, "\\'")}', '${photo}')"
+           style="cursor: pointer;">
+        <div class="d-flex align-items-center gap-2">
+          <img src="${photo}" class="rounded-circle border" style="width: 30px; height: 30px; object-fit: cover;">
+          <div>
+            <div class="fw-bold text-dark">${name}</div>
+            <div class="text-muted" style="font-size: 0.7rem;">${pos}</div>
+          </div>
+        </div>
+        <span class="badge bg-primary-subtle text-primary border rounded-pill">#${pin}</span>
+      </div>
+    `;
+  });
+
+  $dropdown.html(html).removeClass('d-none');
+}
+
+/**
+ * เมื่อคลิกเลือกบุคลากรจากรายการค้นหา
+ */
+function selectUserRoleStaffItem(pin, name, dept, photo) {
+  $('#userRoleStaffId').val(pin);
+  $('#userRoleSearchStaffInput').val(name);
+  $('#userRoleStaffDropdown').addClass('d-none').empty();
+
+  $('#userRolePreviewAvatar').attr('src', photo || DEFAULT_STAFF_AVATAR);
+  $('#userRolePreviewName').text(name);
+  $('#userRolePreviewMeta').text(dept || '-');
+  $('#userRolePreviewPin').text('#' + pin);
+  $('#userRoleSelectedStaffPreview').removeClass('d-none');
+}
+
+/**
+ * ล้างการเลือกบุคลากรใน Modal
+ */
+function clearUserRoleStaffSelection() {
+  $('#userRoleStaffId').val('');
+  $('#userRoleSearchStaffInput').val('');
+  $('#userRoleStaffDropdown').addClass('d-none').empty();
+  $('#userRoleSelectedStaffPreview').addClass('d-none');
+}
+
+/**
+ * สลับค่าเริ่มต้นของสิทธิ์ย่อยเมื่อเปลี่ยนประเภท Role ใน Modal
+ */
+function handleRoleSelectChange(role) {
+  if (role === 'super_admin') {
+    $('#userRoleCanExport').prop('checked', true);
+    $('#userRoleCanManageInsignia').prop('checked', true);
+    $('#userRoleCanManageBonds').prop('checked', true);
+  } else if (role === 'hr_admin') {
+    $('#userRoleCanExport').prop('checked', true);
+    $('#userRoleCanManageInsignia').prop('checked', true);
+    $('#userRoleCanManageBonds').prop('checked', true);
+  } else if (role === 'executive') {
+    $('#userRoleCanExport').prop('checked', true);
+    $('#userRoleCanManageInsignia').prop('checked', false);
+    $('#userRoleCanManageBonds').prop('checked', false);
+  } else {
+    $('#userRoleCanExport').prop('checked', false);
+    $('#userRoleCanManageInsignia').prop('checked', false);
+    $('#userRoleCanManageBonds').prop('checked', false);
+  }
+}
+
+/**
+ * ส่งฟอร์มบันทึกสิทธิ์ผู้ใช้งานเดี่ยว - สงวนสิทธิ์เฉพาะ Super Admin
+ */
+function submitUserRoleForm() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  if (curRole !== 'super_admin') {
+    Swal.fire('🛡️ สิทธิ์ไม่เพียงพอ', 'การบันทึกสิทธิ์ผู้ใช้งานสงวนสิทธิ์เฉพาะ Super Admin เท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  const staffId = $('#userRoleStaffId').val();
+  if (!staffId) {
+    Swal.fire('กรุณาเลือกบุคลากร', 'กรุณาระบุบุคลากรที่ต้องการมอบหมายสิทธิ์', 'warning');
+    return;
+  }
+
+  const role = $('#userRoleSelect').val();
+  const canExport = $('#userRoleCanExport').is(':checked') ? 1 : 0;
+  const canManageInsignia = $('#userRoleCanManageInsignia').is(':checked') ? 1 : 0;
+  const canManageBonds = $('#userRoleCanManageBonds').is(':checked') ? 1 : 0;
+
+  const payload = {
+    staff_id: parseInt(staffId),
+    role: role,
+    can_export: canExport,
+    can_manage_insignia: canManageInsignia,
+    can_manage_bonds: canManageBonds,
+    assigned_by: window.currentUserPin || 0
+  };
+
+  showPpmsLoading('กำลังบันทึกสิทธิ์...', 'กรุณารอสักครู่ ระบบกำลังอัปเดตสิทธิ์ในฐานข้อมูล');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        Swal.fire({
+          title: 'บันทึกสิทธิ์สำเร็จ',
+          text: res.message || 'บันทึกการกำหนดสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว',
+          icon: 'success',
+          timer: 1600,
+          showConfirmButton: false
+        });
+        bootstrap.Modal.getInstance(document.getElementById('userRoleModal'))?.hide();
+        loadUserRolesTable();
+      } else {
+        Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+    })
+    .saveUserRole(payload);
+}
+
+/**
+ * ถามยืนยันการลบสิทธิ์พิเศษเดี่ยว - สงวนสิทธิ์เฉพาะ Super Admin
+ */
+function deleteUserRolePrompt(id, pin, name) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  if (curRole !== 'super_admin') {
+    Swal.fire('🛡️ สิทธิ์ไม่เพียงพอ', 'การยกเลิกสิทธิ์สงวนสิทธิ์เฉพาะ Super Admin เท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  Swal.fire({
+    title: 'ยืนยันการคืนค่าสิทธิ์?',
+    html: `ท่านต้องการยกเลิกสิทธิ์พิเศษของ <strong>${name}</strong> (#${pin}) ใช่หรือไม่?<br><span class="text-muted small">บุคลากรนี้จะกลับไปใช้สิทธิ์เริ่มต้นตามปกติ</span>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ใช่, คืนค่าเริ่มต้น',
+    cancelButtonText: 'ยกเลิก'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังคืนค่าสิทธิ์...', 'กรุณารอสักครู่');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire({
+              title: 'คืนค่าสิทธิ์สำเร็จ',
+              text: res.message || 'คืนค่าสิทธิ์เริ่มต้นเรียบร้อยแล้ว',
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false
+            });
+            loadUserRolesTable();
+          } else {
+            Swal.fire('คืนค่าไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการคืนค่าสิทธิ์', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+        })
+        .deleteUserRole(id, pin);
+    }
+  });
+}
+</script>

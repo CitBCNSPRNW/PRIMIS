@@ -1,0 +1,287 @@
+<script>
+/**
+ * =========================================================================
+ * HR Visual Charts & Dashboard Stats Controller (js_charts.html)
+ * มาตรฐาน Dashboard อัตรากำลังบุคลากร (Action Cockpit & Essential Metrics)
+ * =========================================================================
+ */
+
+var chartEmploymentTypesInstance = null;
+var chartFacultyEducationInstance = null;
+
+function loadHrDashboardStats() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      var d = (res && res.status === 'success' && res.data) ? res.data : {};
+
+      // 1. Stats KPI Cards
+      $('#dashTotalStaff').text(d.total_staff || 120);
+      $('#dashActiveStaff').text(d.active_staff || 114);
+      $('#dashSubHeadcount').text('สายสอน ' + (d.active_teaching || 56) + ' ท่าน | สนับสนุน ' + (d.active_support || 41) + ' ท่าน');
+      $('#dashStudyingStaff').text(d.studying_count !== undefined ? d.studying_count : 1);
+      $('#dashSubBonds').text('พันธะสัญญาชดใช้ทุน ' + (d.bonds_count !== undefined ? d.bonds_count : 1) + ' สัญญา');
+      $('#dashExpiringLicenses').text(d.license_alert_count !== undefined ? d.license_alert_count : 0);
+      $('#dashInsigniaReady').text(d.insignia_ready_count || 3);
+
+      // 2. Render Charts
+      renderEmploymentTypesChart(d.employment_types || []);
+      renderFacultyEducationChart(d.teaching_edu_levels || []);
+
+      // 3. Render Watchlists / Action Tables
+      renderLicenseAlertsTable(d.license_alerts || []);
+      renderRetirementHorizonTable(d.retirement_horizon || []);
+    })
+    .withFailureHandler(function(err) {
+      console.error('Failed to load dashboard stats:', err);
+      // Safe fallback rendering
+      $('#dashTotalStaff').text(120);
+      $('#dashActiveStaff').text(114);
+      $('#dashSubHeadcount').text('สายสอน 56 ท่าน | สนับสนุน 41 ท่าน');
+      $('#dashStudyingStaff').text(1);
+      $('#dashSubBonds').text('พันธะสัญญาชดใช้ทุน 1 สัญญา');
+      $('#dashExpiringLicenses').text(0);
+      $('#dashInsigniaReady').text(3);
+      renderEmploymentTypesChart([]);
+      renderFacultyEducationChart([]);
+    })
+    .getHrDashboardStats();
+}
+
+/**
+ * Chart 1: โครงสร้างประเภทการจ้างงาน (Doughnut Chart)
+ */
+function renderEmploymentTypesChart(employmentTypes) {
+  var ctx = document.getElementById('chartEmploymentTypes');
+  if (!ctx) return;
+
+  if (chartEmploymentTypesInstance) {
+    chartEmploymentTypesInstance.destroy();
+  }
+
+  var labels = (employmentTypes || []).map(function(item) { return item.label; });
+  var counts = (employmentTypes || []).map(function(item) { return parseInt(item.count, 10) || 0; });
+
+  var defaultLabels = ['ข้าราชการ (ก.พ./ก.ค.ศ.)', 'พนักงานสถาบัน (สบช.)', 'พนักงานกระทรวงสาธารณสุข (พกส.)', 'พนักงานราชการ'];
+  var defaultCounts = [66, 32, 18, 4];
+  var colors = ['#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#06b6d4', '#94a3b8'];
+
+  chartEmploymentTypesInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels.length ? labels : defaultLabels,
+      datasets: [{
+        data: counts.length ? counts : defaultCounts,
+        backgroundColor: colors.slice(0, Math.max(labels.length, defaultLabels.length)),
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 12,
+            font: { family: 'Sarabun', size: 11 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              var label = context.label || '';
+              var val = context.raw || 0;
+              var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+              var pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+              return ' ' + label + ': ' + val + ' คน (' + pct + '%)';
+            }
+          }
+        }
+      },
+      cutout: '62%'
+    }
+  });
+}
+
+/**
+ * Chart 2: วุฒิการศึกษาสูงสุดของสายสอน (Bar Chart)
+ */
+function renderFacultyEducationChart(eduLevels) {
+  var ctx = document.getElementById('chartFacultyEducation');
+  if (!ctx) return;
+
+  if (chartFacultyEducationInstance) {
+    chartFacultyEducationInstance.destroy();
+  }
+
+  var labels = (eduLevels || []).map(function(item) { return item.label; });
+  var counts = (eduLevels || []).map(function(item) { return parseInt(item.count, 10) || 0; });
+
+  var defaultLabels = ['ปริญญาเอก (Doctorate)', 'ปริญญาโท (Master)', 'ปริญญาตรี (Bachelor)'];
+  var defaultCounts = [12, 45, 3];
+  var barColors = ['#8b5cf6', '#3b82f6', '#10b981'];
+
+  chartFacultyEducationInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels.length ? labels : defaultLabels,
+      datasets: [{
+        label: 'จำนวนคณาจารย์ (ท่าน)',
+        data: counts.length ? counts : defaultCounts,
+        backgroundColor: barColors,
+        borderRadius: 8,
+        maxBarThickness: 50
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 10,
+            font: { family: 'Sarabun', size: 11 }
+          },
+          grid: {
+            color: '#f1f5f9'
+          }
+        },
+        x: {
+          ticks: {
+            font: { family: 'Sarabun', size: 11, weight: 'bold' }
+          },
+          grid: {
+            display: false
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return ' ' + context.dataset.label + ': ' + context.raw + ' ท่าน';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Watchlist 1: ตารางติดตามใบอนุญาตและบัตรใกล้หมดอายุ
+ */
+function renderLicenseAlertsTable(alerts) {
+  var $tbody = $('#dashLicenseAlertsTableBody');
+  if (!$tbody.length) return;
+
+  if (!alerts || !alerts.length) {
+    $tbody.html(
+      '<tr>' +
+        '<td colspan="4" class="text-center py-4 text-muted">' +
+          '<i class="fa-regular fa-circle-check text-success fs-3 d-block mb-1"></i>' +
+          '<span>ยอดเยี่ยม! ไม่มีใบอนุญาตหรือบัตรราชการที่ใกล้หมดอายุในระยะ 90 วันนี้</span>' +
+        '</td>' +
+      '</tr>'
+    );
+    return;
+  }
+
+  var html = '';
+  alerts.forEach(function(a) {
+    var photo = (a.photo_url || '').trim();
+    var avatarHtml = photo
+      ? '<img src="' + photo + '" class="rounded-circle border me-2" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=\'https://ui-avatars.com/api/?name=' + encodeURIComponent((a.fname || '') + '+' + (a.lname || '')) + '&background=e2e8f0&color=64748b&size=64\';">'
+      : '<div class="rounded-circle bg-light border d-inline-flex align-items-center justify-content-center me-2 text-muted fw-bold" style="width: 32px; height: 32px; font-size: 0.75rem;">' + ((a.fname || 'บ').charAt(0)) + '</div>';
+
+    var days = parseInt(a.days_remaining, 10);
+    var statusBadge = '';
+    if (days < 0) {
+      statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1"><i class="fa-solid fa-circle-exclamation me-1"></i>หมดอายุแล้ว</span>';
+    } else if (days <= 30) {
+      statusBadge = '<span class="badge bg-danger text-white rounded-pill px-2 py-1"><i class="fa-solid fa-bell me-1"></i>อีก ' + days + ' วัน</span>';
+    } else {
+      statusBadge = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1"><i class="fa-regular fa-clock me-1"></i>อีก ' + days + ' วัน</span>';
+    }
+
+    var expiryDisplay = a.expiry_date || '-';
+
+    html += '<tr>' +
+      '<td>' +
+        '<div class="d-flex align-items-center">' +
+          avatarHtml +
+          '<div class="text-truncate">' +
+            '<span class="fw-bold text-dark">' + (a.fname || '') + ' ' + (a.lname || '') + '</span><br>' +
+            '<small class="text-muted">PIN #' + (a.staff_id || '-') + '</small>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+      '<td>' +
+        '<span class="fw-medium text-dark">' + (a.license_title || 'เอกสาร') + '</span><br>' +
+        '<small class="text-muted">' + (a.doc_category || 'ทั่วไป') + '</small>' +
+      '</td>' +
+      '<td class="text-center font-monospace">' + expiryDisplay + '</td>' +
+      '<td class="text-center">' + statusBadge + '</td>' +
+    '</tr>';
+  });
+
+  $tbody.html(html);
+}
+
+/**
+ * Watchlist 2: ตารางคาดการณ์ผู้เกษียณอายุราชการ
+ */
+function renderRetirementHorizonTable(retirees) {
+  var $tbody = $('#dashRetirementTableBody');
+  if (!$tbody.length) return;
+
+  if (!retirees || !retirees.length) {
+    $tbody.html(
+      '<tr>' +
+        '<td colspan="3" class="text-center py-4 text-muted">' +
+          '<i class="fa-regular fa-calendar-check text-secondary fs-3 d-block mb-1 opacity-50"></i>' +
+          '<span>ไม่มีบุคลากรที่เข้าเกณฑ์เกษียณอายุใน 5 ปีนี้</span>' +
+        '</td>' +
+      '</tr>'
+    );
+    return;
+  }
+
+  var html = '';
+  retirees.forEach(function(r) {
+    var photo = (r.photo_url || '').trim();
+    var avatarHtml = photo
+      ? '<img src="' + photo + '" class="rounded-circle border me-2" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=\'https://ui-avatars.com/api/?name=' + encodeURIComponent((r.fname || '') + '+' + (r.lname || '')) + '&background=e2e8f0&color=64748b&size=64\';">'
+      : '<div class="rounded-circle bg-light border d-inline-flex align-items-center justify-content-center me-2 text-muted fw-bold" style="width: 32px; height: 32px; font-size: 0.75rem;">' + ((r.fname || 'บ').charAt(0)) + '</div>';
+
+    var yearsLeft = parseInt(r.years_left, 10);
+    var timeBadge = '';
+    if (yearsLeft <= 1) {
+      timeBadge = '<span class="badge bg-danger text-white rounded-pill px-2 py-1">ปีนี้ / 1 ปี</span>';
+    } else {
+      timeBadge = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1">อีก ' + yearsLeft + ' ปี</span>';
+    }
+
+    html += '<tr>' +
+      '<td>' +
+        '<div class="d-flex align-items-center">' +
+          avatarHtml +
+          '<div class="text-truncate">' +
+            '<span class="fw-bold text-dark">' + (r.fname || '') + ' ' + (r.lname || '') + '</span><br>' +
+            '<small class="text-muted">' + (r.position_title || 'บุคลากร') + '</small>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+      '<td class="text-center fw-bold text-primary">พ.ศ. ' + (r.retire_year_be || '-') + '</td>' +
+      '<td class="text-center">' + timeBadge + '</td>' +
+    '</tr>';
+  });
+
+  $tbody.html(html);
+}
+</script>

@@ -1,0 +1,459 @@
+<script>
+    // Helper: สร้าง Mini Staff Chip กะทัดรัด (Avatar 26px + ชื่อ-สกุล + ปุ่มลบจิ๋ว)
+    function renderMiniStaffChip(avatar, name, onClearFnName) {
+      const avatarHtml = renderStaffAvatarHtml(avatar, name, 26);
+      return `
+        <div class="mini-staff-chip d-inline-flex align-items-center gap-2 mt-2 px-2 py-1 rounded-pill border bg-white shadow-sm" style="border-color: #bae6fd !important; background: #f0f9ff !important;">
+          ${avatarHtml}
+          <span class="fw-semibold text-primary" style="font-size: 0.84rem; line-height: 1.2;">${escapeHtml(name)}</span>
+          <button type="button" class="btn btn-link text-danger p-0 ms-1 me-1" onclick="${onClearFnName}()" title="ยกเลิกการเลือก" style="text-decoration: none; line-height: 1;">
+            <i class="fa-solid fa-circle-xmark" style="font-size: 0.95rem;"></i>
+          </button>
+        </div>
+      `;
+    }
+
+    // ----------------------------------------------------
+    // User Roles Searchable Staff Picker (ค้นหาบุคลากรจาก staff_master)
+    // ----------------------------------------------------
+    function loadAvailableStaffList(selectedPin = '', callback = null) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.status === 'success') {
+            availableStaffList = res.data || [];
+            if (selectedPin) {
+              selectUserRoleStaff(selectedPin);
+            }
+            if (typeof callback === 'function') {
+              callback(availableStaffList);
+            }
+          }
+        })
+        .getAvailableStaff();
+    }
+
+    function showUserRoleStaffDropdown() {
+      filterUserRoleStaff($('#userRoleStaffSearch').val());
+      $('#userRoleStaffDropdown').removeClass('d-none');
+    }
+
+    function filterUserRoleStaff(query) {
+      const q = (query || '').toLowerCase().trim();
+      const filtered = availableStaffList.filter(s => {
+        if (!q) return true;
+        const nameMatch = (s.name || '').toLowerCase().includes(q);
+        const pinMatch = String(s.user_pin || '').toLowerCase().includes(q);
+        const deptMatch = (s.department || '').toLowerCase().includes(q);
+        const posMatch = (s.position || '').toLowerCase().includes(q);
+        return nameMatch || pinMatch || deptMatch || posMatch;
+      });
+
+      let html = '';
+      if (filtered.length === 0) {
+        html = '<div class="p-3 text-center text-muted small">ไม่พบบุคลากรที่ตรงกับคำค้นหา</div>';
+      } else {
+        filtered.slice(0, 40).forEach(s => {
+          const avatarHtml = renderStaffAvatarHtml(s.avatar, s.name, 36);
+          const assignedBadge = s.is_assigned ? `<span class="badge bg-secondary ms-1 small" style="font-size: 0.7rem;">ผูกสิทธิ์แล้ว</span>` : '';
+          html += `
+            <div class="staff-picker-item" onclick="selectUserRoleStaff('${s.user_pin}')">
+              ${avatarHtml}
+              <div class="flex-grow-1 text-truncate">
+                <div class="d-flex align-items-center gap-1">
+                  <span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.75rem;">#${s.user_pin}</span>
+                  <strong class="text-dark small">${escapeHtml(s.name)}</strong>
+                  ${assignedBadge}
+                </div>
+                <div class="text-muted" style="font-size:0.75rem;">${escapeHtml(s.department || s.position || '-')}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      $('#userRoleStaffDropdown').html(html).removeClass('d-none');
+    }
+
+    function selectUserRoleStaff(pin) {
+      const staff = availableStaffList.find(x => String(x.user_pin) === String(pin));
+      if (!staff) return;
+
+      selectedUserRoleStaffObj = staff;
+      $('#userRolePinInput').val(staff.user_pin);
+      $('#userRoleStaffSearch').val(staff.name);
+      $('#userRoleStaffDropdown').addClass('d-none');
+
+      // แสดง Selected Staff Preview Card พร้อมรูปภาพ
+      const avatarHtml = renderStaffAvatarHtml(staff.avatar, staff.name, 44);
+      const previewHtml = `
+        <div class="d-flex align-items-center gap-3">
+          ${avatarHtml}
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge" style="background:#e0f2fe;color:#0369a1;font-weight:600;">#${staff.user_pin}</span>
+              <strong class="text-dark">${escapeHtml(staff.name)}</strong>
+            </div>
+            <div class="text-muted small">${escapeHtml(staff.department || (staff.position || 'บุคลากร'))}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearUserRoleStaffSelection()" title="เปลี่ยนบุคลากร">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      $('#userRoleSelectedPreview').html(previewHtml).removeClass('d-none');
+
+      if (!$('#userRoleNoteInput').val() && staff.department) {
+        $('#userRoleNoteInput').val('สังกัด ' + staff.department);
+      }
+    }
+
+    function clearUserRoleStaffSelection() {
+      selectedUserRoleStaffObj = null;
+      $('#userRolePinInput').val('');
+      $('#userRoleStaffSearch').val('');
+      $('#userRoleSelectedPreview').html('').addClass('d-none');
+      $('#userRoleStaffDropdown').addClass('d-none');
+    }
+
+    // สถานะตัวกรองบุคลากรใน Modal ผูกสิทธิ์ (unassigned, assigned, all)
+    let currentBatchAssignStatusFilter = 'unassigned';
+
+    // Modal ผูกสิทธิ์บุคลากรแบบ Batch Import
+    function openAddUserModal() {
+      $('#userRoleFormId').val('0');
+      clearUserRoleStaffSelection();
+      selectedBatchStaffPins.clear();
+      currentBatchDeptFilter = 'all';
+      currentBatchAssignStatusFilter = 'unassigned';
+      $('#batchStaffSearchInput').val('');
+      $('#userRoleSelect').val('viewer');
+      $('#userRoleNoteInput').val('');
+
+      // รีเซ็ตปุ่มสถานะให้แท็บ "ยังไม่ได้ผูกสิทธิ์" เป็น active
+      $('#batchAssignStatusTabs button').removeClass('active btn-success btn-primary btn-secondary').addClass('btn-outline-primary');
+      $('#tabUnassignedBtn').addClass('active btn-success').removeClass('btn-outline-primary');
+      $('#tabAssignedBtn').addClass('btn-outline-primary');
+      $('#tabAllStatusBtn').addClass('btn-outline-secondary').removeClass('btn-outline-primary');
+
+      // รีเซ็ตปุ่มกลุ่มงาน
+      $('#batchDeptFilterButtons button').removeClass('active btn-primary btn-success btn-info btn-warning').addClass('btn-outline-primary');
+      $('#batchDeptFilterButtons button:first').addClass('active btn-primary').removeClass('btn-outline-primary');
+
+      $('#singleUserEditSection').addClass('d-none');
+      $('#batchStaffPickerSection').removeClass('d-none');
+      $('#userRoleModalTitle').html('<i class="fa-solid fa-users text-primary me-2"></i> ผูกสิทธิ์บุคลากรเข้าระบบ PPMS');
+      $('#batchStaffListContainer').html('<div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm text-primary me-2"></div>กำลังโหลดรายชื่อบุคลากร...</div>');
+
+      loadAvailableStaffList('', function() {
+        renderBatchStaffList();
+      });
+
+      new bootstrap.Modal(document.getElementById('userRoleModal')).show();
+    }
+
+    function filterBatchStaffByStatus(status, btnEl) {
+      currentBatchAssignStatusFilter = status;
+      $('#batchAssignStatusTabs button').removeClass('active btn-success btn-primary btn-secondary').addClass('btn-outline-secondary');
+      if (btnEl) {
+        if (status === 'unassigned') {
+          $(btnEl).addClass('active btn-success').removeClass('btn-outline-secondary');
+        } else if (status === 'assigned') {
+          $(btnEl).addClass('active btn-primary').removeClass('btn-outline-secondary');
+        } else {
+          $(btnEl).addClass('active btn-secondary').removeClass('btn-outline-secondary');
+        }
+      }
+      renderBatchStaffList();
+    }
+
+    function renderBatchStaffList() {
+      const q = ($('#batchStaffSearchInput').val() || '').toLowerCase().trim();
+      const dept = currentBatchDeptFilter;
+      const status = currentBatchAssignStatusFilter;
+      const list = availableStaffList || [];
+
+      // นับสถิติภาพรวม
+      const unassignedCount = list.filter(s => !s.is_assigned).length;
+      const assignedCount = list.filter(s => !!s.is_assigned).length;
+      const allCount = list.length;
+
+      $('#unassignedCountBadge').text(unassignedCount);
+      $('#assignedCountBadge').text(assignedCount);
+      $('#allStaffCountBadge').text(allCount);
+
+      const filtered = list.filter(s => {
+        // กรองตามสถานะการผูกสิทธิ์
+        if (status === 'unassigned' && s.is_assigned) return false;
+        if (status === 'assigned' && !s.is_assigned) return false;
+
+        // กรองตามกลุ่มงาน
+        if (dept !== 'all') {
+          const sDept = (s.department || '').toLowerCase();
+          if (!sDept.includes(dept.toLowerCase())) return false;
+        }
+
+        // กรองตามคำค้น
+        if (q) {
+          const nameMatch = (s.name || '').toLowerCase().includes(q);
+          const pinMatch = String(s.user_pin || '').toLowerCase().includes(q);
+          const posMatch = (s.position || '').toLowerCase().includes(q);
+          const deptMatch = (s.department || '').toLowerCase().includes(q);
+          if (!nameMatch && !pinMatch && !posMatch && !deptMatch) return false;
+        }
+        return true;
+      });
+
+      let html = '';
+      if (filtered.length === 0) {
+        html = '<div class="text-center py-4 text-muted small"><i class="fa-solid fa-circle-info me-1"></i> ไม่พบบุคลากรที่ตรงกับเงื่อนไข</div>';
+      } else {
+        filtered.forEach(s => {
+          const pinStr = String(s.user_pin);
+          const isChecked = selectedBatchStaffPins.has(pinStr);
+          const avatarHtml = renderStaffAvatarHtml(s.avatar, s.name, 36);
+          const assignedBadge = s.is_assigned 
+            ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small" style="font-size:0.68rem;"><i class="fa-solid fa-check me-1"></i>ผูกสิทธิ์แล้ว</span>' 
+            : '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill small" style="font-size:0.68rem;"><i class="fa-solid fa-plus me-1"></i>ยังไม่ผูก</span>';
+
+          html += `
+            <div class="d-flex align-items-center justify-content-between p-2 mb-1 rounded-3 border ${isChecked ? 'bg-primary-subtle border-primary' : 'bg-white'}" style="cursor:pointer;" onclick="toggleBatchStaffPin('${pinStr}')">
+              <div class="d-flex align-items-center gap-2">
+                <input type="checkbox" class="form-check-input batch-staff-check" value="${pinStr}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleBatchStaffPin('${pinStr}')">
+                ${avatarHtml}
+                <div>
+                  <div class="d-flex align-items-center gap-1 flex-wrap">
+                    <span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.75rem;">#${s.user_pin}</span>
+                    <strong class="text-dark small">${escapeHtml(s.name)}</strong>
+                    ${assignedBadge}
+                  </div>
+                  <div class="text-muted" style="font-size:0.72rem;">${escapeHtml(s.department || s.position || '-')}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      $('#batchStaffListContainer').html(html);
+      $('#batchSelectedCounter').text(`เลือกแล้ว ${selectedBatchStaffPins.size} คน`);
+    }
+
+    function filterBatchStaffByDept(dept, btnEl) {
+      currentBatchDeptFilter = dept;
+      $('#batchDeptFilterButtons button').removeClass('active btn-primary btn-success btn-info btn-warning').addClass('btn-outline-primary');
+      if (btnEl) {
+        $(btnEl).addClass('active btn-primary').removeClass('btn-outline-primary');
+      }
+      renderBatchStaffList();
+    }
+
+    function filterBatchStaffList(q) {
+      renderBatchStaffList();
+    }
+
+    function selectAllBatchStaff(isSelect) {
+      const q = ($('#batchStaffSearchInput').val() || '').toLowerCase().trim();
+      const dept = currentBatchDeptFilter;
+      const status = currentBatchAssignStatusFilter;
+
+      const filtered = (availableStaffList || []).filter(s => {
+        if (status === 'unassigned' && s.is_assigned) return false;
+        if (status === 'assigned' && !s.is_assigned) return false;
+
+        if (dept !== 'all') {
+          const sDept = (s.department || '').toLowerCase();
+          if (!sDept.includes(dept.toLowerCase())) return false;
+        }
+        if (q) {
+          const nameMatch = (s.name || '').toLowerCase().includes(q);
+          const pinMatch = String(s.user_pin || '').toLowerCase().includes(q);
+          const posMatch = (s.position || '').toLowerCase().includes(q);
+          const deptMatch = (s.department || '').toLowerCase().includes(q);
+          if (!nameMatch && !pinMatch && !posMatch && !deptMatch) return false;
+        }
+        return true;
+      });
+
+      filtered.forEach(s => {
+        const pinStr = String(s.user_pin);
+        if (isSelect) {
+          selectedBatchStaffPins.add(pinStr);
+        } else {
+          selectedBatchStaffPins.delete(pinStr);
+        }
+      });
+
+      renderBatchStaffList();
+    }
+
+    function toggleBatchStaffPin(pin) {
+      const pinStr = String(pin);
+      if (selectedBatchStaffPins.has(pinStr)) {
+        selectedBatchStaffPins.delete(pinStr);
+      } else {
+        selectedBatchStaffPins.add(pinStr);
+      }
+      renderBatchStaffList();
+    }
+
+    function editPpmsUser(id) {
+      const user = ppmsUsersList.find(x => x.id == id);
+      if (!user) return;
+
+      $('#userRoleFormId').val(user.id);
+      $('#userRolePinInput').val(user.user_pin);
+      $('#userRoleSelect').val(user.role || 'viewer');
+      $('#userRoleNoteInput').val(user.note || '');
+      $('#userRoleModalTitle').html('<i class="fa-solid fa-user-pen text-warning me-2"></i> แก้ไขสิทธิ์ผู้ใช้งาน: ' + escapeHtml(user.name));
+
+      $('#batchStaffPickerSection').addClass('d-none');
+      $('#singleUserEditSection').removeClass('d-none');
+
+      const avatarHtml = renderStaffAvatarHtml(user.avatar, user.name, 44);
+      const previewHtml = `
+        <div class="d-flex align-items-center gap-3">
+          ${avatarHtml}
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge" style="background:#e0f2fe;color:#0369a1;font-weight:600;">#${user.user_pin}</span>
+              <strong class="text-dark">${escapeHtml(user.name)}</strong>
+            </div>
+            <div class="text-muted small">${escapeHtml(user.department || (user.position || 'บุคลากร'))}</div>
+          </div>
+        </div>
+      `;
+      $('#userRoleSelectedPreview').html(previewHtml);
+
+      new bootstrap.Modal(document.getElementById('userRoleModal')).show();
+    }
+
+    // ----------------------------------------------------
+    // Project Leader Searchable Staff Picker (จาก ppmsUsersList)
+    // ----------------------------------------------------
+    function showProjectLeaderDropdown() {
+      filterProjectLeader($('#projectLeaderSearch').val());
+      $('#projectLeaderDropdown').removeClass('d-none');
+    }
+
+    function filterProjectLeader(query) {
+      const q = (query || '').toLowerCase().trim();
+      const filtered = ppmsUsersList.filter(u => {
+        if (!q) return true;
+        const nameMatch = (u.name || '').toLowerCase().includes(q);
+        const pinMatch = String(u.user_pin || '').toLowerCase().includes(q);
+        const deptMatch = (u.department || '').toLowerCase().includes(q);
+        return nameMatch || pinMatch || deptMatch;
+      });
+
+      let html = '';
+      if (filtered.length === 0) {
+        html = '<div class="p-3 text-center text-muted small">ไม่พบบุคลากรที่ผูกสิทธิ์ในระบบ (กรุณาไปที่เมนูจัดการผู้ใช้งานเพื่อผูกสิทธิ์ก่อน)</div>';
+      } else {
+        filtered.forEach(u => {
+          const avatarHtml = renderStaffAvatarHtml(u.avatar, u.name, 36);
+          html += `
+            <div class="staff-picker-item" onclick="selectProjectLeader('${u.user_pin}')">
+              ${avatarHtml}
+              <div class="flex-grow-1 text-truncate">
+                <div class="d-flex align-items-center gap-1">
+                  <span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.75rem;">#${u.user_pin}</span>
+                  <strong class="text-dark small">${escapeHtml(u.name)}</strong>
+                </div>
+                <div class="text-muted" style="font-size:0.75rem;">${escapeHtml(u.department || 'งานแผน')}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      $('#projectLeaderDropdown').html(html).removeClass('d-none');
+    }
+
+    function selectProjectLeader(pin) {
+      const user = ppmsUsersList.find(x => String(x.user_pin) === String(pin));
+      if (!user) return;
+
+      selectedProjectLeaderObj = user;
+      $('#formLeaderName').val(user.name);
+      $('#formLeaderPin').val(user.user_pin);
+      $('#projectLeaderSearch').val(user.name);
+      $('#projectLeaderDropdown').addClass('d-none');
+
+      // แสดง Selected Preview ในรูปแบบ Mini Staff Chip (Avatar 26px + ชื่อ-สกุล)
+      const previewHtml = renderMiniStaffChip(user.avatar, user.name, 'clearProjectLeaderSelection');
+      $('#projectLeaderSelectedPreview').html(previewHtml).removeClass('d-none');
+    }
+
+    function clearProjectLeaderSelection() {
+      selectedProjectLeaderObj = null;
+      $('#formLeaderName').val('');
+      $('#formLeaderPin').val('');
+      $('#projectLeaderSearch').val('');
+      $('#projectLeaderSelectedPreview').html('').addClass('d-none');
+      $('#projectLeaderDropdown').addClass('d-none');
+    }
+
+    // ----------------------------------------------------
+    // Activity Owner Searchable Staff Picker (จาก ppmsUsersList)
+    // ----------------------------------------------------
+    function showActivityOwnerDropdown() {
+      filterActivityOwner($('#actOwnerSearch').val());
+      $('#actOwnerDropdown').removeClass('d-none');
+    }
+
+    function filterActivityOwner(query) {
+      const q = (query || '').toLowerCase().trim();
+      const filtered = ppmsUsersList.filter(u => {
+        if (!q) return true;
+        const nameMatch = (u.name || '').toLowerCase().includes(q);
+        const pinMatch = String(u.user_pin || '').toLowerCase().includes(q);
+        const deptMatch = (u.department || '').toLowerCase().includes(q);
+        return nameMatch || pinMatch || deptMatch;
+      });
+
+      let html = '';
+      if (filtered.length === 0) {
+        html = '<div class="p-3 text-center text-muted small">ไม่พบบุคลากรที่ผูกสิทธิ์ในระบบ</div>';
+      } else {
+        filtered.forEach(u => {
+          const avatarHtml = renderStaffAvatarHtml(u.avatar, u.name, 36);
+          html += `
+            <div class="staff-picker-item" onclick="selectActivityOwner('${u.user_pin}')">
+              ${avatarHtml}
+              <div class="flex-grow-1 text-truncate">
+                <div class="d-flex align-items-center gap-1">
+                  <span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.75rem;">#${u.user_pin}</span>
+                  <strong class="text-dark small">${escapeHtml(u.name)}</strong>
+                </div>
+                <div class="text-muted" style="font-size:0.75rem;">${escapeHtml(u.department || 'งานแผน')}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      $('#actOwnerDropdown').html(html).removeClass('d-none');
+    }
+
+    function selectActivityOwner(pin) {
+      const user = ppmsUsersList.find(x => String(x.user_pin) === String(pin));
+      if (!user) return;
+
+      selectedActivityOwnerObj = user;
+      $('#actFormOwnerName').val(user.name);
+      $('#actFormOwnerPin').val(user.user_pin);
+      $('#actOwnerSearch').val(user.name);
+      $('#actOwnerDropdown').addClass('d-none');
+
+      // แสดง Selected Preview ในรูปแบบ Mini Staff Chip (Avatar 26px + ชื่อ-สกุล)
+      const previewHtml = renderMiniStaffChip(user.avatar, user.name, 'clearActivityOwnerSelection');
+      $('#actOwnerSelectedPreview').html(previewHtml).removeClass('d-none');
+    }
+
+    function clearActivityOwnerSelection() {
+      selectedActivityOwnerObj = null;
+      $('#actFormOwnerName').val('');
+      $('#actFormOwnerPin').val('');
+      $('#actOwnerSearch').val('');
+      $('#actOwnerSelectedPreview').html('').addClass('d-none');
+      $('#actOwnerDropdown').addClass('d-none');
+    }
+
+</script>

@@ -1,0 +1,949 @@
+<!-- ====================================================
+VIEW: ฟอร์มแก้ไขข้อมูลส่วนตัวบุคลากรแบบเต็มหน้าจอ (In-Pane Full Width - No Modal Pop-up)
+รูปแบบสไตล์ Modern Clean Minimalist ขาว-น้ำเงินสถาบัน ไม่บังหน้าจอ โปร่งตา ใช้งานสะดวกบน PC
+==================================================== -->
+<div id="view-personnel-edit" class="tab-pane-content d-none">
+
+  <style>
+    #view-personnel-edit #editPaneTabContent > .tab-pane:not(.active) {
+      display: none !important;
+    }
+    #view-personnel-edit #editPaneTabContent > .tab-pane.active {
+      display: block !important;
+    }
+  </style>
+
+  <!-- 1. Header Bar: Breadcrumb + ชื่องาน + ปุ่มย้อนกลับ -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <span class="badge rounded-pill px-3 py-1 fw-bold bg-warning-subtle text-warning-emphasis border border-warning-subtle mb-1">
+            <i class="fa-solid fa-user-pen me-1"></i> แก้ไขข้อมูลทะเบียนประวัติ ก.พ.7 & HROPS
+          </span>
+          <h3 class="fw-bold mb-0 text-primary" style="font-size: 1.55rem;">
+            แก้ไขข้อมูลส่วนตัว
+          </h3>
+          <div class="text-secondary small mt-1" id="inPaneEditSubtitle">
+            ปรับปรุงรายละเอียดประวัติส่วนบุคคล เชื่อมโยงฐานข้อมูลกลาง
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold shadow-sm" onclick="closePersonnelEditPane()" style="font-size: 0.9rem;">
+            <i class="fa-solid fa-arrow-left me-1"></i>ยกเลิก / ย้อนกลับ
+          </button>
+          <button type="button" class="btn text-white rounded-pill px-4 py-2 fw-bold shadow-sm" onclick="savePersonnelEditForm()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; font-size: 0.95rem;">
+            <i class="fa-solid fa-floppy-disk me-1"></i>บันทึกข้อมูลส่วนตัว
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. White Card Workspace: ฟอร์มแก้ไขข้อมูล 5 หมวดหมู่ -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <form id="inPaneEditPersonnelForm" novalidate onsubmit="event.preventDefault(); savePersonnelEditForm();">
+        
+        <!-- แท็บแบ่งหมวดหมู่ 6 แท็บ เรียงตามมาตรฐาน -->
+        <ul class="nav nav-pills nav-fill mb-4 p-1 bg-light rounded-pill border" id="editPanePillsTab" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-personal" type="button">
+              <i class="fa-solid fa-user me-1"></i> 1. ข้อมูลส่วนบุคคล
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-contact" type="button">
+              <i class="fa-solid fa-address-book me-1"></i> 2. ที่อยู่ & การติดต่อ
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-pos" type="button">
+              <i class="fa-solid fa-briefcase me-1"></i> 3. ตำแหน่ง & สังกัด
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-civil" type="button">
+              <i class="fa-solid fa-business-time me-1"></i> 4. ประวัติรับราชการ & ก.พ.7
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-academic-track" type="button">
+              <i class="fa-solid fa-award me-1"></i> 5. ประวัติการขอตำแหน่งวิชาการ
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill py-2 small fw-bold" data-bs-toggle="pill" data-bs-target="#editpane-tab-study" type="button">
+              <i class="fa-solid fa-graduation-cap me-1"></i> 6. สถานะการลาศึกษา ลาอบรม
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="editPaneTabContent">
+          <!-- แท็บ 1: ข้อมูลส่วนบุคคล ครอบครัว และรูปถ่ายทางการ -->
+          <div class="tab-pane fade show active" id="editpane-tab-personal">
+            
+            <!-- 1.1 ข้อมูลส่วนบุคคลพื้นฐาน -->
+            <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white">
+              <div class="card-header bg-white border-bottom p-3">
+                <div class="fw-bold text-primary small">
+                  <i class="fa-solid fa-id-card me-1"></i> ข้อมูลประวัติส่วนตัวทั่วไป
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <div class="row g-3">
+                  <div class="col-md-2">
+                    <label class="form-label small fw-bold text-dark">คำนำหน้า (TH) *</label>
+                    <select id="inPaneEditTitleTh" class="form-select rounded-3" onchange="onTitleThChanged(this.value)">
+                      <option value="">-- เลือกคำนำหน้า --</option>
+                    </select>
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small fw-bold text-dark">ชื่อ (ภาษาไทย) *</label>
+                    <input type="text" id="inPaneEditFnameTh" class="form-control rounded-3">
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small fw-bold text-dark">นามสกุล (ภาษาไทย) *</label>
+                    <input type="text" id="inPaneEditLnameTh" class="form-control rounded-3">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label small fw-bold text-dark">คำนำหน้า (ENG)</label>
+                    <select id="inPaneEditTitleEn" class="form-select rounded-3">
+                      <option value="">-- Select Prefix --</option>
+                    </select>
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small fw-bold text-dark">First Name (ENG)</label>
+                    <input type="text" id="inPaneEditFnameEn" class="form-control rounded-3" placeholder="เช่น KANCHAPORN">
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small fw-bold text-dark">Last Name (ENG)</label>
+                    <input type="text" id="inPaneEditLnameEn" class="form-control rounded-3" placeholder="เช่น KUNAKSORN">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-dark">เพศ</label>
+                    <select id="inPaneEditGender" class="form-select rounded-3">
+                      <option value="หญิง">หญิง</option>
+                      <option value="ชาย">ชาย</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-dark">เชื้อชาติ</label>
+                    <input type="text" id="inPaneEditEthnicity" class="form-control rounded-3" value="ไทย">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-dark">สัญชาติ</label>
+                    <input type="text" id="inPaneEditNationality" class="form-control rounded-3" value="ไทย">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-dark">ศาสนา</label>
+                    <input type="text" id="inPaneEditReligion" class="form-control rounded-3" value="พุทธ">
+                  </div>
+                  <div class="col-md-5">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label class="form-label small fw-bold text-dark mb-0">วันเดือนปีเกิด (พ.ศ.)</label>
+                      <span id="inPaneEditAgeBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill fw-semibold px-2 d-none"></span>
+                    </div>
+                    <div class="row g-1">
+                      <div class="col-4">
+                        <select id="inPaneEditBirthDay" class="form-select rounded-3 text-center" onchange="syncBirthDateBEtoAD()">
+                          <option value="">วัน</option>
+                        </select>
+                      </div>
+                      <div class="col-4">
+                        <select id="inPaneEditBirthMonth" class="form-select rounded-3 text-center" onchange="syncBirthDateBEtoAD()">
+                          <option value="">เดือน</option>
+                        </select>
+                      </div>
+                      <div class="col-4">
+                        <select id="inPaneEditBirthYearBE" class="form-select rounded-3 text-center" onchange="syncBirthDateBEtoAD()">
+                          <option value="">พ.ศ.</option>
+                        </select>
+                      </div>
+                    </div>
+                    <!-- ค.ศ. (YYYY-MM-DD) สำหรับส่งเข้าฐานข้อมูล MySQL -->
+                    <input type="hidden" id="inPaneEditBirthDate" name="birth_date">
+                    <div class="text-muted small mt-1" style="font-size: 0.76rem;"><i class="fa-solid fa-calculator me-1 text-primary"></i>ระบบคำนวณอายุและแปลงเป็น ค.ศ. จัดเก็บลงฐานข้อมูลให้อัตโนมัติ</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-dark">สถานภาพสมรส</label>
+                    <select id="inPaneEditMaritalStatus" class="form-select rounded-3">
+                      <option value="โสด">โสด</option>
+                      <option value="สมรส">สมรส</option>
+                      <option value="หม้าย">หม้าย</option>
+                      <option value="หย่าร้าง">หย่าร้าง</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small fw-bold text-dark">ภูมิลำเนา (จังหวัด 77 จังหวัด)</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-location-dot text-primary"></i></span>
+                      <input type="text" list="thaiProvincesList" id="inPaneEditHometown" class="form-control rounded-end-3" placeholder="พิมพ์ชื่อหรือคลิกเลือกจังหวัด..." autocomplete="off">
+                    </div>
+                    <div class="text-muted small mt-1" style="font-size: 0.76rem;">พิมพ์ค้นหาหรือคลิกเลือกจาก 77 จังหวัด</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1.2 ข้อมูลครอบครัว (สำหรับพิมพ์แบบสรุปประวัติบุคคล ก.พ.7) -->
+            <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white">
+              <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+                <div class="fw-bold text-success small">
+                  <i class="fa-solid fa-people-roof me-1"></i> ข้อมูลครอบครัว (สำหรับจัดทำ ก.พ.7 และบันทึกประวัติ)
+                </div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1" style="font-size: 0.72rem;">
+                  <i class="fa-solid fa-print me-1"></i> ก.พ.7 มาตรฐาน
+                </span>
+              </div>
+              <div class="card-body p-3">
+                <div class="row g-3">
+                  <!-- บิดา -->
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">
+                      <i class="fa-solid fa-person me-1 text-primary"></i> บิดา (ชื่อ - นามสกุล)
+                    </label>
+                    <input type="text" id="inPaneEditFatherName" class="form-control rounded-3" placeholder="เช่น นายทองดี คุณอักษร">
+                  </div>
+                  <!-- จำนวนบุตร -->
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">
+                      <i class="fa-solid fa-children me-1 text-info"></i> จำนวนบุตร (คน)
+                    </label>
+                    <div class="input-group">
+                      <input type="number" id="inPaneEditChildrenCount" class="form-control rounded-start-3" min="0" max="20" placeholder="0">
+                      <span class="input-group-text bg-light text-muted rounded-end-3">คน</span>
+                    </div>
+                  </div>
+                  <!-- มารดา -->
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">
+                      <i class="fa-solid fa-person-dress me-1 text-danger"></i> มารดา (ชื่อ - นามสกุลปัจจุบัน)
+                    </label>
+                    <input type="text" id="inPaneEditMotherName" class="form-control rounded-3" placeholder="เช่น นางสมศรี คุณอักษร">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">สกุลเดิมของมารดา (ก่อนสมรส)</label>
+                    <input type="text" id="inPaneEditMotherPrevSurname" class="form-control rounded-3" placeholder="ระบุนามสกุลเดิมของมารดา (ถ้ามี)">
+                  </div>
+                  <!-- คู่สมรส -->
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">
+                      <i class="fa-solid fa-heart me-1 text-danger"></i> คู่สมรส (ชื่อ - นามสกุล)
+                    </label>
+                    <input type="text" id="inPaneEditSpouseName" class="form-control rounded-3" placeholder="เช่น นายสมคิด สถิตมงคล (หากโสดเว้นว่างไว้)">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">สกุลเดิมของคู่สมรส (ก่อนสมรส)</label>
+                    <input type="text" id="inPaneEditSpousePrevSurname" class="form-control rounded-3" placeholder="ระบุนามสกุลเดิมก่อนสมรส (ถ้ามี)">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1.3 รูปถ่ายประจำตัวทางการ (ย้ายมาจากแท็บเดิม พร้อมการควบคุมสิทธิ์ RBAC) -->
+            <div class="card border-0 shadow-sm rounded-4 bg-white">
+              <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+                <div class="fw-bold text-dark small">
+                  <i class="fa-solid fa-image-portrait me-1 text-primary"></i> รูปถ่ายประจำตัวทางการ
+                </div>
+                <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-1" style="font-size: 0.72rem;">
+                  <i class="fa-solid fa-shield-halved me-1"></i> ควบคุมโดย HR Admin
+                </span>
+              </div>
+              <div class="card-body p-3">
+                <div id="alertRolePhotoNotice" class="alert alert-info py-2 px-3 small rounded-3 mb-3 d-none">
+                  <i class="fa-solid fa-lock me-1"></i> <strong>สิทธิ์การเข้าถึง:</strong> รูปถ่ายทางการได้รับการควบคุมและดูแลโดยงานทรัพยากรบุคคล (HR) บุคลากรทั่วไปสามารถดูตัวอย่างรูปภาพได้ หากต้องการเปลี่ยนรูปภาพทางการกรุณาติดต่อเจ้าหน้าที่ HR ค่ะ
+                </div>
+                <div class="row g-3 align-items-center">
+                  <div class="col-auto">
+                    <div class="position-relative" style="width: 80px; height: 100px; border-radius: 12px; overflow: hidden; border: 2px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center;">
+                      <img id="inPaneEditPhotoPreview" src="" alt="รูปถ่าย" style="width: 100%; height: 100%; object-fit: cover; display: none;" onerror="this.style.display='none'; $('#inPaneEditPhotoEmpty').show();">
+                      <div id="inPaneEditPhotoEmpty" class="text-center text-muted p-2" style="font-size: 0.72rem;">
+                        <i class="fa-solid fa-user fa-2x mb-1 text-secondary opacity-50"></i><br>ไม่มีรูป
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col">
+                    <label class="form-label small fw-bold text-dark">URL รูปถ่ายหน้าตรงประจำตัว</label>
+                    <input type="url" id="inPaneEditPhotoUrl" class="form-control rounded-3" placeholder="https://..." oninput="updateEditPhotoPreview(this.value)">
+                    <div class="text-muted small mt-1" style="font-size: 0.76rem;">
+                      <i class="fa-solid fa-circle-info me-1 text-primary"></i>รองรับลิงก์รูปถ่ายจาก Google Drive, FONMIS หรือ Server สถาบัน (เฉพาะ HR Admin แก้ไขได้)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- แท็บ 2: ที่อยู่ & การติดต่อ -->
+          <div class="tab-pane fade" id="editpane-tab-contact">
+            <div class="alert alert-light border py-2 px-3 small rounded-3 mb-3 text-secondary d-flex align-items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-primary" style="font-size: 1.1rem;"></i>
+              <div>
+                <strong>ระบบค้นหาที่อยู่อัจฉริยะ:</strong> สามารถพิมพ์รหัสไปรษณีย์ ตำบล หรืออำเภอเพื่อเติมข้อมูลอัตโนมัติ หรือคลิกเลือกจังหวัดจาก 77 จังหวัดได้ทันที และสามารถแก้ไขเองได้อย่างอิสระ
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark">ที่อยู่ (บ้านเลขที่ หมู่ ซอย ถนน)</label>
+                <input type="text" id="inPaneEditAddressDetail" class="form-control rounded-3" placeholder="เช่น 1 หมู่ 3 หรือ 92/7 ถนนอัมรินทร์วิถี">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark">ตำบล / แขวง</label>
+                <input type="text" id="inPaneEditSubdistrict" class="form-control rounded-3" placeholder="พิมพ์ชื่อตำบล...">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark">อำเภอ / เขต</label>
+                <input type="text" id="inPaneEditDistrict" class="form-control rounded-3" placeholder="พิมพ์ชื่ออำเภอ...">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">จังหวัด (77 จังหวัด)</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-location-dot text-primary"></i></span>
+                  <input type="text" list="thaiProvincesList" id="inPaneEditProvince" class="form-control rounded-end-3" placeholder="พิมพ์ชื่อหรือเลือกจังหวัด..." autocomplete="off">
+                </div>
+                <div class="text-muted small mt-1" style="font-size: 0.76rem;">พิมพ์ค้นหาหรือคลิกเลือกจาก 77 จังหวัด</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">รหัสไปรษณีย์</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-envelopes-bulk text-secondary"></i></span>
+                  <input type="text" id="inPaneEditPostalCode" class="form-control rounded-end-3" placeholder="เช่น 60000" maxlength="5">
+                </div>
+                <div class="text-muted small mt-1" style="font-size: 0.76rem;">พิมพ์รหัสไปรษณีย์เพื่อค้นหาที่อยู่อัตโนมัติ</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">เบอร์โทรติดต่อ</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-phone text-secondary"></i></span>
+                  <input type="text" id="inPaneEditPhoneNumber" class="form-control rounded-end-3" placeholder="เช่น 0884590010">
+                </div>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label small fw-bold text-dark">Email สถาบัน (@bcnsprnw.ac.th)</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-envelope text-secondary"></i></span>
+                  <input type="email" id="inPaneEditEmail" class="form-control rounded-end-3" placeholder="เช่น kanchaporn@bcnsprnw.ac.th">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แท็บ 3: ตำแหน่ง & สังกัด -->
+          <div class="tab-pane fade" id="editpane-tab-pos">
+            <div id="alertRolePosNotice" class="alert alert-info py-2 px-3 small rounded-3 mb-3 d-none">
+              <i class="fa-solid fa-lock me-1"></i> <strong>สงวนสิทธิ์เฉพาะเจ้าหน้าที่ HR:</strong> ข้อมูลตำแหน่งและสังกัดได้รับการดูแลโดยงานทรัพยากรบุคคล (HR) หากต้องการเปลี่ยนแปลงกรุณาติดต่อเจ้าหน้าที่ HR
+            </div>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark">รหัสพนักงาน / PIN *</label>
+                <input type="text" id="inPaneEditStaffId" class="form-control rounded-3 bg-light" readonly>
+                <div class="text-muted small mt-1">รหัสประจำตัวบุคลากร (ไม่อนุญาตให้แก้ไข)</div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark">เลขที่ตำแหน่ง</label>
+                <input type="text" id="inPaneEditPositionNumber" class="form-control rounded-3" placeholder="เช่น วพบ.2520/4110">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark">สถานะการปฏิบัติงาน *</label>
+                <select id="inPaneEditWorkStatus" class="form-select rounded-3" onchange="onWorkStatusChanged(this.value)">
+                  <optgroup label="ปฏิบัติงานปกติ / รับโอนย้ายเข้า">
+                    <option value="ปกติ/ปฏิบัติงาน/ข้าราชการ/รับโอน">ปกติ/ปฏิบัติงาน/ข้าราชการ/รับโอน</option>
+                    <option value="ย้ายข้าราชการมา สบช.">ย้ายข้าราชการมา สบช.</option>
+                    <option value="ตัดโอนตำแหน่ง/เงินเดือน มา สบช.">ตัดโอนตำแหน่ง/เงินเดือน มา สบช.</option>
+                  </optgroup>
+                  <optgroup label="การช่วยราชการ">
+                    <option value="มาช่วยราชการจากใน สบช.">มาช่วยราชการจากใน สบช.</option>
+                    <option value="มาช่วยราชการจากนอก สบช.">มาช่วยราชการจากนอก สบช.</option>
+                    <option value="ไปช่วยราชการภายใน สบช.">ไปช่วยราชการภายใน สบช.</option>
+                    <option value="ไปช่วยราชการนอก สบช.">ไปช่วยราชการนอก สบช.</option>
+                    <option value="ช่วยราชการ">ช่วยราชการ (ทั่วไป)</option>
+                  </optgroup>
+                  <optgroup label="พัฒนาบุคลากร">
+                    <option value="ลาศึกษาต่อ">ลาศึกษาต่อ</option>
+                  </optgroup>
+                  <optgroup label="พ้นสภาพ / โอนย้ายออก">
+                    <option value="โอนย้ายไปใน สบช.">โอนย้ายไปใน สบช. (หน่วยงานอื่นในสังกัด สบช.)</option>
+                    <option value="โอนย้ายไปนอก สบช.">โอนย้ายไปนอก สบช.</option>
+                    <option value="เกษียณอายุ">เกษียณอายุ</option>
+                    <option value="ลาออก">ลาออก</option>
+                    <option value="เสียชีวิต">เสียชีวิต</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark">ตำแหน่งปัจจุบัน *</label>
+                <input type="text" id="inPaneEditPositionTitle" class="form-control rounded-3" placeholder="เช่น อาจารย์, พยาบาลวิชาชีพ">
+              </div>
+              <div class="col-12 d-none" id="inPaneEditSecondmentLocContainer">
+                <div class="p-2 px-3 rounded-3 border border-info bg-info bg-opacity-10 d-flex align-items-center gap-2">
+                  <i class="fas fa-map-marker-alt text-info fs-5"></i>
+                  <div class="flex-grow-1">
+                    <label class="form-label small fw-bold text-dark mb-1">หน่วยงาน / สถาบันที่ไปช่วยราชการ (หรือต้นสังกัดที่ส่งตัวมาช่วยราชการ) *</label>
+                    <input type="text" id="inPaneEditSecondmentLocation" class="form-control rounded-3 bg-white" placeholder="เช่น วพบ.ชัยนาท, รพ.สวรรค์ประชารักษ์, สำนักงานสาธารณสุขจังหวัด">
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">ประเภทบุคลากร *</label>
+                <select id="inPaneEditPositionType" class="form-select rounded-3" onchange="onPositionTypeChanged(this.value)">
+                  <option value="ข้าราชการ (ก.พ.)">ข้าราชการ (ก.พ.)</option>
+                  <option value="ข้าราชการ (ก.ค.ศ.)">ข้าราชการ (ก.ค.ศ.)</option>
+                  <option value="ข้าราชการ">ข้าราชการ (ทั่วไป/เดิม)</option>
+                  <option value="พนักงานสถาบัน">พนักงานสถาบัน (สบช.)</option>
+                  <option value="พนักงานราชการ">พนักงานราชการ</option>
+                  <option value="พนักงานกระทรวงสาธารณสุข">พนักงานกระทรวงสาธารณสุข (เดิม)</option>
+                  <option value="ลูกจ้างชั่วคราว">ลูกจ้างชั่วคราว</option>
+                  <option value="ลูกจ้างประจำ">ลูกจ้างประจำ</option>
+                  <option value="จ้างเหมาบริการ">จ้างเหมาบริการ</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">สายงาน *</label>
+                <select id="inPaneEditJobLine" class="form-select rounded-3" onchange="onJobLineChanged(this.value)">
+                  <option value="สายสอน">สายสอน (อาจารย์)</option>
+                  <option value="สายสนับสนุน">สายสนับสนุน</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">ตำแหน่งทางการบริหาร</label>
+                <select id="inPaneEditAdminPosSelect" class="form-select rounded-3" onchange="onAdminPosSelectChanged(this.value)">
+                  <option value="">ไม่มี</option>
+                  <option value="ผู้อำนวยการวิทยาลัย">ผู้อำนวยการวิทยาลัย</option>
+                  <option value="รองผู้อำนวยการกลุ่มบริหารและยุทธศาสตร์">รองผู้อำนวยการกลุ่มบริหารและยุทธศาสตร์</option>
+                  <option value="รองผู้อำนวยการกลุ่มวิชาการ">รองผู้อำนวยการกลุ่มวิชาการ</option>
+                  <option value="รองผู้อำนวยการกลุ่มกิจการนักศึกษาและทะนุบำรุงศิลปวัฒนธรรม">รองผู้อำนวยการกลุ่มกิจการนักศึกษาและทะนุบำรุงศิลปวัฒนธรรม</option>
+                  <option value="รองผู้อำนวยการกลุ่มวิจัยและบริการวิชาการ">รองผู้อำนวยการกลุ่มวิจัยและบริการวิชาการ</option>
+                  <option value="ผู้ช่วยผู้อำนวยการ">ผู้ช่วยผู้อำนวยการ</option>
+                  <option value="หัวหน้ากลุ่มงาน">หัวหน้ากลุ่มงาน / หัวหน้างาน (ผูกกับงานย่อย)</option>
+                  <option value="หัวหน้าสาขา">หัวหน้าสาขา (ผูกกับ 5 สาขาวิชา)</option>
+                  <option value="ผู้รับผิดชอบหลักสูตร">ผู้รับผิดชอบหลักสูตร</option>
+                  <option value="อาจารย์ประจำหลักสูตร">อาจารย์ประจำหลักสูตร</option>
+                  <option value="custom">อื่นๆ (ระบุเอง)</option>
+                </select>
+                <input type="text" id="inPaneEditAdminPositionCustom" class="form-control rounded-3 mt-1 d-none" placeholder="พิมพ์ระบุตำแหน่งบริหารอื่นๆ" oninput="$('#inPaneEditAdminPosition').val(this.value)">
+                <input type="hidden" id="inPaneEditAdminPosition">
+                <div id="inPaneAdminPosPreview" class="text-primary small mt-1 d-none" style="font-size: 0.74rem; font-weight: 500;"></div>
+              </div>
+
+              <!-- โครงสร้างสังกัดตามผังองค์กร -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">กลุ่ม *</label>
+                <select id="inPaneEditMainGroup" class="form-select rounded-3" onchange="onMainGroupChanged(this.value)">
+                  <option value="">-- เลือกกลุ่ม --</option>
+                  <option value="กลุ่มบริหารและยุทธศาสตร์">กลุ่มบริหารและยุทธศาสตร์</option>
+                  <option value="กลุ่มวิชาการ">กลุ่มวิชาการ</option>
+                  <option value="กลุ่มกิจการนักศึกษาและทะนุบำรุงศิลปวัฒนธรรม">กลุ่มกิจการนักศึกษาและทะนุบำรุงศิลปวัฒนธรรม</option>
+                  <option value="กลุ่มวิจัย และบริการวิชาการ">กลุ่มวิจัย และบริการวิชาการ</option>
+                  <option value="อื่นๆ">อื่นๆ</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark">งาน / กลุ่มงานย่อย *</label>
+                <select id="inPaneEditDepartmentSelect" class="form-select rounded-3" onchange="onDepartmentSelectChanged(this.value)">
+                  <option value="">-- เลือกงานย่อยตามกลุ่ม --</option>
+                </select>
+                <input type="text" id="inPaneEditDepartment" class="form-control rounded-3 mt-1 d-none" placeholder="ระบุชื่องาน/กลุ่มงานย่อย">
+              </div>
+              <div class="col-md-4" id="inPaneEditAcademicBranchContainer">
+                <label class="form-label small fw-bold text-dark">สาขาวิชา (เฉพาะสายสอน) <span class="badge bg-primary-subtle text-primary border ms-1" style="font-size:0.7rem;">5 สาขาวิชา</span></label>
+                <select id="inPaneEditAcademicBranchSelect" class="form-select rounded-3 mb-1" onchange="onAcademicBranchChanged(this.value)">
+                  <option value="">-- เลือกสาขาวิชา --</option>
+                  <option value="การพยาบาลจิตเวชและสุขภาพจิต">การพยาบาลจิตเวชและสุขภาพจิต</option>
+                  <option value="การพยาบาลมารดาและทารก หรือการผดุงครรภ์">การพยาบาลมารดาและทารก หรือการผดุงครรภ์</option>
+                  <option value="การพยาบาลเด็ก">การพยาบาลเด็ก</option>
+                  <option value="การพยาบาลชุมชน">การพยาบาลชุมชน</option>
+                  <option value="การพยาบาลผู้ใหญ่และผู้สูงอายุ">การพยาบาลผู้ใหญ่และผู้สูงอายุ</option>
+                  <option value="custom">อื่นๆ (ระบุเอง)</option>
+                </select>
+                <input type="text" id="inPaneEditAcademicBranch" class="form-control rounded-3 d-none" placeholder="ระบุสาขาวิชาอื่นๆ">
+              </div>
+
+              <!-- บทบาทประเภทอาจารย์ตามหลักสูตร (เฉพาะสายสอน - เฉพาะเจ้าหน้าที่ HR ดูแล) -->
+              <div class="col-12 mt-2 pt-2 border-top" id="inPaneEditFacultyRolesRow">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">
+                      ประเภทอาจารย์ หลักสูตรพยาบาลศาสตรบัณฑิต (ป.ตรี)
+                      <span class="badge bg-secondary-subtle text-secondary border ms-1" style="font-size:0.68rem;"><i class="fa-solid fa-lock me-1"></i>เฉพาะเจ้าหน้าที่</span>
+                    </label>
+                    <select id="inPaneEditBachelorRole" class="form-select rounded-3">
+                      <option value="">-- ไม่ได้สังกัดหลักสูตร / ไม่มี --</option>
+                      <option value="อาจารย์ผู้รับผิดชอบหลักสูตร">อาจารย์ผู้รับผิดชอบหลักสูตร</option>
+                      <option value="อาจารย์ประจำหลักสูตร">อาจารย์ประจำหลักสูตร</option>
+                      <option value="อาจารย์ประจำ">อาจารย์ประจำ</option>
+                      <option value="อาจารย์ผู้สอน">อาจารย์ผู้สอน</option>
+                      <option value="อาจารย์พิเศษ">อาจารย์พิเศษ</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">
+                      ประเภทอาจารย์ หลักสูตรพยาบาลศาสตรมหาบัณฑิต (ป.โท)
+                      <span class="badge bg-secondary-subtle text-secondary border ms-1" style="font-size:0.68rem;"><i class="fa-solid fa-lock me-1"></i>เฉพาะเจ้าหน้าที่</span>
+                    </label>
+                    <select id="inPaneEditMasterRole" class="form-select rounded-3">
+                      <option value="">-- ไม่ได้สังกัดหลักสูตร / ไม่มี --</option>
+                      <option value="อาจารย์ผู้รับผิดชอบหลักสูตร">อาจารย์ผู้รับผิดชอบหลักสูตร</option>
+                      <option value="อาจารย์ประจำหลักสูตร">อาจารย์ประจำหลักสูตร</option>
+                      <option value="อาจารย์ประจำ">อาจารย์ประจำ</option>
+                      <option value="อาจารย์ผู้สอน">อาจารย์ผู้สอน</option>
+                      <option value="อาจารย์ที่ปรึกษาวิทยานิพนธ์">อาจารย์ที่ปรึกษาวิทยานิพนธ์</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ส่วนความเชี่ยวชาญ (เฉพาะอาจารย์สายสอน - บุคลากรสามารถแก้ไขของตนเองได้) -->
+              <div class="col-12 mt-3 pt-3 border-top" id="inPaneEditTeachingRolesCard">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-bold text-primary small">
+                    <i class="fa-solid fa-graduation-cap me-1"></i> ความเชี่ยวชาญทางวิชาการ (อาจารย์สายสอน)
+                  </div>
+                  <span class="badge bg-success-subtle text-success border" style="font-size:0.72rem;">
+                    <i class="fa-solid fa-pen-to-square me-1"></i>บุคลากรสามารถแก้ไขข้อมูลส่วนนี้ได้
+                  </span>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">ความเชี่ยวชาญด้านการเรียนการสอน / Faculty Practice</label>
+                    <input type="text" id="inPaneEditExpertiseTeaching" class="form-control rounded-3" placeholder="เช่น การพยาบาลผู้ใหญ่และผู้สูงอายุ, การพยาบาลผู้ป่วยวิกฤต">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark">ความเชี่ยวชาญด้านวิจัย</label>
+                    <input type="text" id="inPaneEditExpertiseResearch" class="form-control rounded-3" placeholder="เช่น การวิจัยเชิงระบบสุขภาพ, การพัฒนาคุณภาพการดูแลผู้สูงอายุ">
+                  </div>
+                </div>
+              </div>
+
+              <!-- ส่วนหน้าที่ความรับผิดชอบหลัก (สำหรับสายสนับสนุน) -->
+              <div class="col-12 mt-2 pt-3 border-top d-none" id="inPaneEditSupportDutyCard">
+                <div class="fw-bold text-secondary small mb-2">
+                  <i class="fa-solid fa-briefcase me-1"></i> หน้าที่ความรับผิดชอบหลัก / งานที่ได้รับมอบหมาย
+                </div>
+                <div>
+                  <textarea id="inPaneEditSupportDuty" class="form-control rounded-3" rows="2" placeholder="ระบุขอบเขตหน้าที่ความรับผิดชอบหลัก หรืองานที่ได้รับมอบหมาย..."></textarea>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- แท็บ 4: ประวัติการรับราชการและการจ้างงาน (Career & Service Journey + ก.พ.7) -->
+          <div class="tab-pane fade" id="editpane-tab-civil">
+            
+            <!-- กล่องแจ้งเตือนสิทธิ์เฉพาะ HR Admin -->
+            <div class="alert alert-warning border-0 rounded-4 shadow-sm mb-3 d-flex align-items-center gap-3 d-none" id="alertRoleCivilNotice" style="background-color: #fffbeb; color: #b45309;">
+              <i class="fa-solid fa-shield-halved fs-4 text-warning"></i>
+              <div class="small">
+                <strong>🔒 พื้นที่จำกัดสิทธิ์ (HR Admin Only):</strong> ข้อมูลประวัติการรับราชการ, วันเริ่มงาน, วันบรรจุ ก.พ., วันแต่งตั้ง ก.ค.ศ. และประวัติเงินเดือน ก.พ.7 สงวนสิทธิ์ให้ฝ่ายทรัพยากรบุคคล (HR) บันทึกและปรับปรุงเท่านั้น บุคลากรทั่วไปสามารถตรวจสอบความถูกต้องได้
+              </div>
+            </div>
+
+            <!-- 1. ส่วนเส้นทางการเติบโตและประวัติการจ้างงาน (Career & Service Journey Timeline) -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white overflow-hidden">
+              <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <i class="fa-solid fa-business-time"></i>
+                  </div>
+                  <div>
+                    <h6 class="fw-bold mb-0 text-dark">เส้นทางการเติบโตและประวัติการจ้างงาน / รับราชการ</h6>
+                    <div class="text-muted small" style="font-size: 0.76rem;">บันทึกวันเริ่มงานในตำแหน่งต่างๆ ทุกช่วงไม่จำกัด (ลูกจ้างชั่วคราว, พกส., พนักงานสถาบัน, ข้าราชการ)</div>
+                  </div>
+                </div>
+                <div>
+                  <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 shadow-xs fw-semibold" id="btnAdminAddService" onclick="openAddServiceModalInPane()">
+                    <i class="fa-solid fa-plus me-1"></i> เพิ่มช่วงประวัติการทำงาน
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0" id="inPaneServiceTable" style="font-size: 0.84rem;">
+                    <thead class="table-light text-muted">
+                      <tr>
+                        <th class="ps-3 text-center" style="width: 45px;">ลำดับ</th>
+                        <th style="width: 140px;">ประเภทบุคลากร</th>
+                        <th>ตำแหน่ง / สังกัด</th>
+                        <th>ระดับตำแหน่ง</th>
+                        <th style="width: 200px;">ช่วงเวลาปฏิบัติงาน (พ.ศ.)</th>
+                        <th>คำสั่งแต่งตั้ง/บรรจุ</th>
+                        <th class="text-center" style="width: 95px;">สถานะ</th>
+                        <th class="text-center pe-3" style="width: 85px;">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inPaneServiceTableBody">
+                      <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                          <i class="fa-solid fa-spinner fa-spin me-2 text-success"></i>กำลังโหลดข้อมูลประวัติการทำงาน...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. สรุปวันเริ่มทำงานในหน่วยงานและวันบรรจุรับราชการ (Rollup & Manual Fallback) -->
+            <div class="row g-4 mb-4">
+              <!-- 1. วันที่เริ่มทำงานในหน่วยงาน (พ.ศ.) -->
+              <div class="col-md-6">
+                <div class="p-3 bg-light rounded-4 border">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label small fw-bold text-dark mb-0">
+                      <i class="fa-solid fa-calendar-day me-1 text-primary"></i> วันที่เริ่มทำงานในหน่วยงาน (พ.ศ.)
+                    </label>
+                    <span id="inPaneEditStartWorkTenureBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill fw-semibold px-2 d-none"></span>
+                  </div>
+                  <div class="row g-1">
+                    <div class="col-4">
+                      <select id="inPaneEditStartWorkDay" class="form-select rounded-3 text-center" onchange="syncStartWorkingDateBEtoAD()">
+                        <option value="">วัน</option>
+                      </select>
+                    </div>
+                    <div class="col-4">
+                      <select id="inPaneEditStartWorkMonth" class="form-select rounded-3 text-center" onchange="syncStartWorkingDateBEtoAD()">
+                        <option value="">เดือน</option>
+                      </select>
+                    </div>
+                    <div class="col-4">
+                      <select id="inPaneEditStartWorkYearBE" class="form-select rounded-3 text-center" onchange="syncStartWorkingDateBEtoAD()">
+                        <option value="">พ.ศ.</option>
+                      </select>
+                    </div>
+                  </div>
+                  <!-- ค.ศ. (YYYY-MM-DD) สำหรับส่งเข้าฐานข้อมูล MySQL -->
+                  <input type="hidden" id="inPaneEditStartWorkingDate" name="start_working_date">
+                  <div class="text-muted small mt-2" style="font-size: 0.76rem;">
+                    <i class="fa-solid fa-circle-info me-1 text-primary"></i>วันเริ่มงานแรกสุด (ระบบคำนวณสรุปจากช่วงประวัติการทำงานและแปลงเป็น ค.ศ. ให้อัตโนมัติ)
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. วันที่บรรจุรับราชการ (ก.พ.7) (พ.ศ.) -->
+              <div class="col-md-6">
+                <div class="p-3 bg-light rounded-4 border">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label small fw-bold text-dark mb-0">
+                      <i class="fa-solid fa-building-columns me-1 text-success"></i> วันที่บรรจุรับราชการ (ก.พ.7) (พ.ศ.)
+                    </label>
+                    <span id="inPaneEditGovServiceTenureBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill fw-semibold px-2 d-none"></span>
+                  </div>
+                  <div class="row g-1">
+                    <div class="col-4">
+                      <select id="inPaneEditGovServiceDay" class="form-select rounded-3 text-center" onchange="syncGovServiceDateBEtoAD()">
+                        <option value="">วัน</option>
+                      </select>
+                    </div>
+                    <div class="col-4">
+                      <select id="inPaneEditGovServiceMonth" class="form-select rounded-3 text-center" onchange="syncGovServiceDateBEtoAD()">
+                        <option value="">เดือน</option>
+                      </select>
+                    </div>
+                    <div class="col-4">
+                      <select id="inPaneEditGovServiceYearBE" class="form-select rounded-3 text-center" onchange="syncGovServiceDateBEtoAD()">
+                        <option value="">พ.ศ.</option>
+                      </select>
+                    </div>
+                  </div>
+                  <!-- ค.ศ. (YYYY-MM-DD) สำหรับส่งเข้าฐานข้อมูล MySQL -->
+                  <input type="hidden" id="inPaneEditGovServiceDate" name="gov_service_date">
+                  <div class="text-muted small mt-2" style="font-size: 0.76rem;">
+                    <i class="fa-solid fa-circle-info me-1 text-success"></i>วันเริ่มนับอายุราชการสำหรับเครื่องราชฯ / วันลาพักผ่อน (คำนวณจากช่วงข้าราชการแรกสุด)
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. วันที่ได้รับการแต่งตั้ง / ปรับเข้าสู่ตำแหน่งอาจารย์ (ก.ค.ศ.) (พ.ศ.) -->
+              <div class="col-12" id="inPaneEditKksCard">
+                <div class="p-3 rounded-4 border" style="background-color: #faf5ff; border-color: #e9d5ff !important;">
+                  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                    <div class="fw-bold small" style="color: #6d28d9;">
+                      <i class="fa-solid fa-award me-1"></i> วันที่ได้รับการแต่งตั้ง / ปรับเข้าสู่ตำแหน่งอาจารย์ (ก.ค.ศ.)
+                      <span class="badge rounded-pill ms-1 fw-normal" style="background-color: #ede9fe; color: #6d28d9; font-size: 0.72rem;">ใช้นับเวลาขอผลงานวิชาการ ผศ./รศ.</span>
+                    </div>
+                    <span id="inPaneEditKksTenureBadge" class="badge rounded-pill px-3 py-1 fw-semibold d-none" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;"></span>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label small fw-bold text-dark mb-1">
+                        วันที่ได้รับการแต่งตั้ง / ปรับตำแหน่งเป็นอาจารย์ (ก.ค.ศ.) (พ.ศ.)
+                      </label>
+                      <div class="row g-1">
+                        <div class="col-4">
+                          <select id="inPaneEditKksDay" class="form-select rounded-3 text-center" onchange="syncKksDateBEtoAD()">
+                            <option value="">วัน</option>
+                          </select>
+                        </div>
+                        <div class="col-4">
+                          <select id="inPaneEditKksMonth" class="form-select rounded-3 text-center" onchange="syncKksDateBEtoAD()">
+                            <option value="">เดือน</option>
+                          </select>
+                        </div>
+                        <div class="col-4">
+                          <select id="inPaneEditKksYearBE" class="form-select rounded-3 text-center" onchange="syncKksDateBEtoAD()">
+                            <option value="">พ.ศ.</option>
+                          </select>
+                        </div>
+                      </div>
+                      <input type="hidden" id="inPaneEditKksAppointedDate" name="kks_appointed_date">
+                      <div class="text-muted small mt-1" style="font-size: 0.76rem;">
+                        <i class="fa-solid fa-circle-info me-1" style="color: #7c3aed;"></i>สำหรับอาจารย์พยาบาลเดิม (ก.พ.) ที่ปรับตำแหน่งเข้าสู่ข้าราชการ ก.ค.ศ.
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small fw-bold text-dark mb-1">
+                        เลขที่คำสั่งแต่งตั้ง (ก.ค.ศ.)
+                      </label>
+                      <input type="text" id="inPaneEditKksOrderNumber" class="form-control rounded-3" placeholder="เช่น คำสั่ง สบช. ที่ 1530/2566 ลงวันที่ 28 มิ.ย. 2566">
+                      <div class="text-muted small mt-1" style="font-size: 0.76rem;">
+                        ระบุเลขที่คำสั่งและวันที่ลงนามในคำสั่งแต่งตั้ง (ใช้ยื่นขอผลงานทางวิชาการและพิมพ์ ก.พ.7)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. ตารางประวัติการดำรงตำแหน่งและอัตราเงินเดือน (ก.พ.7) - ควบคุมสิทธิ์ RBAC -->
+            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+              <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 38px; height: 38px;">
+                    <i class="fa-solid fa-money-check-dollar"></i>
+                  </div>
+                  <div>
+                    <h6 class="fw-bold mb-0 text-dark">ตำแหน่งและอัตราเงินเดือน (ก.พ.7)</h6>
+                    <div class="text-muted small" style="font-size: 0.76rem;">ประวัติการเลื่อนขั้น ปรับเงินเดือน บรรจุ และย้ายตำแหน่ง (สมุด ก.พ.7 ตัวจริง)</div>
+                  </div>
+                </div>
+                <!-- ส่วนปุ่ม/ข้อความตามสิทธิ์ (Admin vs Staff) -->
+                <div id="inPaneSalaryActionArea">
+                  <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 shadow-xs fw-semibold" id="btnAdminAddSalary" onclick="openAddSalaryModalInPane()">
+                    <i class="fa-solid fa-plus me-1"></i> เพิ่มรายการ ก.พ.7
+                  </button>
+                  <span id="badgeStaffSalaryNotice" class="badge bg-secondary-subtle text-secondary border rounded-pill px-3 py-2 fw-semibold d-none" style="font-size: 0.76rem;">
+                    <i class="fa-solid fa-lock me-1 text-primary"></i> ข้อมูลควบคุมโดยงานการเจ้าหน้าที่ (HR) • ตรวจสอบความถูกต้อง
+                  </span>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0" id="inPaneSalaryTable" style="font-size: 0.84rem;">
+                    <thead class="table-light text-muted">
+                      <tr>
+                        <th class="ps-3 text-center" style="width: 50px;">ลำดับ</th>
+                        <th style="width: 125px;">ว.ด.ป. มีผล</th>
+                        <th>ตำแหน่ง / การเคลื่อนไหว</th>
+                        <th>เลขที่ตำแหน่ง</th>
+                        <th>ระดับ / ประเภท</th>
+                        <th class="text-end">เงินเดือน (บาท)</th>
+                        <th class="text-end">เงินประจำตำแหน่ง</th>
+                        <th>คำสั่งอ้างอิง</th>
+                        <th class="text-center pe-3 salary-admin-col" style="width: 90px;">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inPaneSalaryTableBody">
+                      <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                          ยังไม่มีบันทึกประวัติ หรือกำลังโหลด...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แท็บ 5: ประวัติการขอตำแหน่งวิชาการ (Academic Title Promotion Pipeline Placeholder) -->
+          <div class="tab-pane fade" id="editpane-tab-academic-track">
+            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+              <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
+                    <i class="fa-solid fa-award"></i>
+                  </div>
+                  <div>
+                    <h6 class="fw-bold mb-0 text-dark">ประวัติการขอตำแหน่งทางวิชาการ (Academic Title Promotion Pipeline)</h6>
+                    <div class="text-muted small" style="font-size: 0.76rem;">บันทึกประวัติการยื่นขอ และติดตามความก้าวหน้าการกำหนดตำแหน่งทางวิชาการ (ผศ. / รศ. / ศ. / ชำนาญการพิเศษ)</div>
+                  </div>
+                </div>
+                <span class="badge rounded-pill px-3 py-2 fw-semibold" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-size: 0.78rem;">
+                  <i class="fa-solid fa-clock-rotate-left me-1"></i> อยู่ระหว่างเตรียมการพัฒนาโมดูล
+                </span>
+              </div>
+              <div class="card-body p-4 text-center">
+                <!-- ขั้นตอน Timeline จำลอง Roadmap การขอตำแหน่งทางวิชาการ -->
+                <div class="row g-3 justify-content-center my-3 text-start">
+                  <div class="col-md-2 text-center">
+                    <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2 bg-light border" style="width: 48px; height: 48px; color: #6d28d9;">
+                      <i class="fa-solid fa-file-circle-check fa-lg"></i>
+                    </div>
+                    <div class="fw-bold small text-dark">1. ยื่นคำขอ</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">ตรวจสอบคุณสมบัติ</div>
+                  </div>
+                  <div class="col-md-2 text-center">
+                    <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2 bg-light border text-muted" style="width: 48px; height: 48px;">
+                      <i class="fa-solid fa-users-viewfinder fa-lg"></i>
+                    </div>
+                    <div class="fw-bold small text-dark">2. คณะกรรมการฯ</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">กลั่นกรองผลงาน</div>
+                  </div>
+                  <div class="col-md-2 text-center">
+                    <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2 bg-light border text-muted" style="width: 48px; height: 48px;">
+                      <i class="fa-solid fa-envelope-open-text fa-lg"></i>
+                    </div>
+                    <div class="fw-bold small text-dark">3. ส่ง Reader</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">ประเมินเอกสารวิชาการ</div>
+                  </div>
+                  <div class="col-md-2 text-center">
+                    <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2 bg-light border text-muted" style="width: 48px; height: 48px;">
+                      <i class="fa-solid fa-building-columns fa-lg"></i>
+                    </div>
+                    <div class="fw-bold small text-dark">4. สภาสถาบัน</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">พิจารณาอนุมัติผล</div>
+                  </div>
+                  <div class="col-md-2 text-center">
+                    <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2 bg-light border text-muted" style="width: 48px; height: 48px;">
+                      <i class="fa-solid fa-stamp fa-lg"></i>
+                    </div>
+                    <div class="fw-bold small text-dark">5. คำสั่งแต่งตั้ง</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">มีผลสมบูรณ์</div>
+                  </div>
+                </div>
+
+                <div class="alert alert-light border rounded-4 p-3 mt-4 text-secondary text-start mx-auto" style="max-width: 720px;">
+                  <div class="d-flex align-items-center gap-2 mb-1 text-dark fw-bold">
+                    <i class="fa-solid fa-wand-magic-sparkles text-primary"></i> โมดูลถัดไปในแผนงาน (Roadmap)
+                  </div>
+                  <div class="small">
+                    ส่วนนี้เตรียมไว้สำหรับเก็บประวัติการยื่นขอตำแหน่งทางวิชาการ วันที่ยื่น ผลงานที่เสนอ รายชื่อผู้ประเมิน (แบบปิด) และคำสั่งแต่งตั้ง โดยไอจังและนายท่านจะร่วมกันวิเคราะห์โครงสร้างฐานข้อมูลและฟังก์ชันการทำงานในขั้นตอนถัดไปค่ะ
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แท็บ 6: สถานะการลาศึกษา ลาอบรม -->
+          <div class="tab-pane fade" id="editpane-tab-study">
+            <div id="alertRoleStudyNotice" class="alert alert-info py-2 px-3 small rounded-3 mb-3 d-none">
+              <i class="fa-solid fa-lock me-1"></i> <strong>สงวนสิทธิ์เฉพาะเจ้าหน้าที่ HR:</strong> ข้อมูลการศึกษาต่อได้รับการดูแลโดยงานทรัพยากรบุคคล (HR) หากต้องการเปลี่ยนแปลงกรุณาติดต่อเจ้าหน้าที่ HR
+            </div>
+            <div class="card border-0 shadow-sm rounded-4 bg-white">
+              <div class="card-header bg-white border-bottom p-3">
+                <div class="fw-bold text-dark small">
+                  <i class="fa-solid fa-graduation-cap me-1 text-primary"></i> สถานะการลาศึกษาต่อ และฝึกอบรมระยะยาว
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <div class="row g-3">
+                  <div class="col-md-12">
+                    <label class="form-label small fw-bold text-dark">สถานะการศึกษาต่อ</label>
+                    <input type="text" id="inPaneEditFurtherStudy" class="form-control rounded-3" placeholder="เช่น ว่าง หรือ ศึกษาต่อ ป.เอก สาขาพยาบาลศาสตร์ จุฬาลงกรณ์มหาวิทยาลัย">
+                    <div class="text-muted small mt-1">ระบุสถานะและรายละเอียดหากกำลังลาศึกษาต่อหรือฝึกอบรม</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Actions Bar: อยู่ชิดพอดีกับเนื้อหาด้านบนเสมอ ไม่ตกลงไปล่าง -->
+        <div class="d-flex align-items-center justify-content-between pt-3 mt-3 border-top">
+          <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-semibold" onclick="closePersonnelEditPane()">
+            <i class="fa-solid fa-xmark me-1"></i> ยกเลิก
+          </button>
+          <button type="button" class="btn text-white rounded-pill px-4 py-2 fw-bold shadow-sm" onclick="savePersonnelEditForm()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
+            <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูลส่วนตัว
+          </button>
+        </div>
+
+        <!-- DataList 77 จังหวัดทั่วประเทศไทย -->
+        <datalist id="thaiProvincesList">
+          <option value="กระบี่">
+          <option value="กรุงเทพมหานคร">
+          <option value="กาญจนบุรี">
+          <option value="กาฬสินธุ์">
+          <option value="กำแพงเพชร">
+          <option value="ขอนแก่น">
+          <option value="จันทบุรี">
+          <option value="ฉะเชิงเทรา">
+          <option value="ชลบุรี">
+          <option value="ชัยนาท">
+          <option value="ชัยภูมิ">
+          <option value="ชุมพร">
+          <option value="เชียงราย">
+          <option value="เชียงใหม่">
+          <option value="ตรัง">
+          <option value="ตราด">
+          <option value="ตาก">
+          <option value="นครนายก">
+          <option value="นครปฐม">
+          <option value="นครพนม">
+          <option value="นครราชสีมา">
+          <option value="นครศรีธรรมราช">
+          <option value="นครสวรรค์">
+          <option value="นนทบุรี">
+          <option value="นราธิวาส">
+          <option value="น่าน">
+          <option value="บึงกาฬ">
+          <option value="บุรีรัมย์">
+          <option value="ปทุมธานี">
+          <option value="ประจวบคีรีขันธ์">
+          <option value="ปราจีนบุรี">
+          <option value="ปัตตานี">
+          <option value="พระนครศรีอยุธยา">
+          <option value="พะเยา">
+          <option value="พังงา">
+          <option value="พัทลุง">
+          <option value="พิจิตร">
+          <option value="พิษณุโลก">
+          <option value="เพชรบุรี">
+          <option value="เพชรบูรณ์">
+          <option value="แพร่">
+          <option value="ภูเก็ต">
+          <option value="มหาสารคาม">
+          <option value="มุกดาหาร">
+          <option value="แม่ฮ่องสอน">
+          <option value="ยโสธร">
+          <option value="ยะลา">
+          <option value="ร้อยเอ็ด">
+          <option value="ระนอง">
+          <option value="ระยอง">
+          <option value="ราชบุรี">
+          <option value="ลพบุรี">
+          <option value="ลำปาง">
+          <option value="ลำพูน">
+          <option value="เลย">
+          <option value="ศรีสะเกษ">
+          <option value="สกลนคร">
+          <option value="สงขลา">
+          <option value="สตูล">
+          <option value="สมุทรปราการ">
+          <option value="สมุทรสงคราม">
+          <option value="สมุทรสาคร">
+          <option value="สระแก้ว">
+          <option value="สระบุรี">
+          <option value="สิงห์บุรี">
+          <option value="สุโขทัย">
+          <option value="สุพรรณบุรี">
+          <option value="สุราษฎร์ธานี">
+          <option value="สุรินทร์">
+          <option value="หนองคาย">
+          <option value="หนองบัวลำภู">
+          <option value="อ่างทอง">
+          <option value="อำนาจเจริญ">
+          <option value="อุดรธานี">
+          <option value="อุตรดิตถ์">
+          <option value="อุทัยธานี">
+          <option value="อุบลราชธานี">
+        </datalist>
+
+      </form>
+    </div>
+  </div>
+
+</div>

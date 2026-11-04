@@ -1,0 +1,217 @@
+<!-- ====================================================
+     VIEW: แดชบอร์ดสถิติกำลังคน (HR Executive Dashboard & Action Cockpit)
+     มาตรฐาน Light Mode สไตล์ BCNSPRNW สะอาด เรียบหรู และมีประโยชน์ต่อการปฏิบัติงานจริง
+     ==================================================== -->
+<div id="view-dashboard" class="tab-pane-content">
+  <!-- Card Header -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge rounded-pill px-3 py-1 fw-bold bg-primary-subtle text-primary border border-primary-subtle">
+              <i class="fa-solid fa-chart-line me-1"></i> HR Executive Cockpit
+            </span>
+          </div>
+          <h4 class="fw-bold mb-0 text-dark">
+            <i class="fa-solid fa-people-roof text-primary me-2"></i> แดชบอร์ดโครงสร้างอัตรากำลังบุคลากร
+          </h4>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary rounded-pill px-3 py-2 shadow-sm bg-white" onclick="loadHrDashboardStats()">
+            <i class="fa-solid fa-arrows-rotate me-1"></i> อัปเดตข้อมูลสถิติ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 Summary Stat Cards (Essential HR KPIs) -->
+  <div class="row g-3 mb-4">
+    <!-- Card 1: กำลังคนปฏิบัติงานจริง -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-primary">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">บุคลากรปฏิบัติงานจริง</div>
+            <div class="h3 fw-bold text-dark mb-0 mt-1">
+              <span id="dashActiveStaff">--</span>
+              <small class="text-muted fw-normal" style="font-size: 0.85rem;">/ <span id="dashTotalStaff">120</span> คน</small>
+            </div>
+            <div class="text-muted mt-1" style="font-size: 0.72rem;" id="dashSubHeadcount">สายสอน -- ท่าน | สนับสนุน -- ท่าน</div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-users fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: ศึกษาต่อ & ภาระสัญญาทุน -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-info" style="border-left-color: #8b5cf6 !important;">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">ศึกษาต่อ & พันธะสัญญาทุน</div>
+            <div class="h3 fw-bold mb-0 mt-1" style="color: #7c3aed;">
+              <span id="dashStudyingStaff">--</span>
+              <small class="text-muted fw-normal" style="font-size: 0.85rem;">ท่าน</small>
+            </div>
+            <div class="text-muted mt-1" style="font-size: 0.72rem;" id="dashSubBonds">พันธะสัญญาชดใช้ทุน -- สัญญา</div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: #ede9fe; color: #7c3aed;">
+            <i class="fa-solid fa-user-graduate fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: แจ้งเตือนใบอนุญาตและบัตรใกล้หมดอายุ -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-danger">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">ใบอนุญาต & บัตรต้องต่ออายุ</div>
+            <div class="h3 fw-bold text-danger mb-0 mt-1">
+              <span id="dashExpiringLicenses">--</span>
+              <small class="text-muted fw-normal" style="font-size: 0.85rem;">รายการ</small>
+            </div>
+            <div class="text-danger mt-1 fw-medium" style="font-size: 0.72rem;" id="dashSubLicenseAlert">
+              <i class="fa-solid fa-triangle-exclamation me-1"></i>หมดอายุ / ใน 90 วัน
+            </div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-danger-subtle text-danger" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-id-badge fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: พร้อมเสนอขอเครื่องราชฯ & ร.จ.พ. -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-warning">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">พร้อมเสนอขอเครื่องราชฯ</div>
+            <div class="h3 fw-bold text-warning-emphasis mb-0 mt-1">
+              <span id="dashInsigniaReady">--</span>
+              <small class="text-muted fw-normal" style="font-size: 0.85rem;">ท่าน</small>
+            </div>
+            <div class="text-muted mt-1" style="font-size: 0.72rem;" id="dashSubInsignia">ครองครบ 5 ปี / เกณฑ์ ร.จ.พ. 25 ปี</div>
+          </div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-warning-subtle text-warning-emphasis" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-medal fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row (High-Value Visual Insights) -->
+  <div class="row g-4 mb-4">
+    <!-- Chart 1: โครงสร้างประเภทการจ้างงาน -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-primary"></i> โครงสร้างประเภทการจ้างงาน
+          </h6>
+          <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.7rem;">Employment Structure</span>
+        </div>
+        <div style="height: 250px; position: relative;">
+          <canvas id="chartEmploymentTypes"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart 2: วุฒิการศึกษาสูงสุดของสายสอน -->
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div>
+            <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+              <i class="fa-solid fa-graduation-cap text-success"></i> วุฒิการศึกษาสูงสุดของอาจารย์สายสอน
+            </h6>
+            <div class="text-muted small" style="font-size: 0.72rem;">ตัวชี้วัดประกันคุณภาพการศึกษา สมศ. และสภาการพยาบาล</div>
+          </div>
+          <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.7rem;">Faculty QA KPI</span>
+        </div>
+        <div style="height: 240px; position: relative;">
+          <canvas id="chartFacultyEducation"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HR Action Center & Watchlists Row -->
+  <div class="row g-4 mb-4">
+    <!-- Watchlist 1: ติดตามใบอนุญาตวิชาชีพและบัตรที่ต้องต่ออายุ -->
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-danger text-white rounded-pill px-2 py-0.5" style="font-size: 0.72rem;">Action Required</span>
+            <h6 class="fw-bold text-dark mb-0">
+              <i class="fa-solid fa-bell text-danger me-1"></i> รายการใบอนุญาตและบัตรที่ต้องต่ออายุ
+            </h6>
+          </div>
+          <span class="text-muted small" style="font-size: 0.75rem;">หมดอายุ / ใน 90 วัน</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width: 160px;">บุคลากร</th>
+                <th style="min-width: 140px;">รายการเอกสาร</th>
+                <th class="text-center" style="min-width: 100px;">วันหมดอายุ</th>
+                <th class="text-center" style="min-width: 110px;">สถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="dashLicenseAlertsTableBody">
+              <tr>
+                <td colspan="4" class="text-center py-4 text-muted">
+                  <i class="fa-regular fa-circle-check text-success fs-3 d-block mb-1"></i>
+                  เยี่ยมมาก! ไม่มีใบอนุญาตหรือบัตรที่ใกล้หมดอายุในระยะนี้
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Watchlist 2: คาดการณ์ผู้เกษียณอายุราชการล่วงหน้า -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.72rem;">HR Planning</span>
+            <h6 class="fw-bold text-dark mb-0">
+              <i class="fa-solid fa-hourglass-half text-primary me-1"></i> คาดการณ์ผู้เกษียณอายุราชการ
+            </h6>
+          </div>
+          <span class="text-muted small" style="font-size: 0.75rem;">ระยะ 1–5 ปี</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+            <thead class="table-light">
+              <tr>
+                <th>บุคลากร</th>
+                <th class="text-center">ปีที่เกษียณ</th>
+                <th class="text-center">ระยะเวลา</th>
+              </tr>
+            </thead>
+            <tbody id="dashRetirementTableBody">
+              <tr>
+                <td colspan="3" class="text-center py-4 text-muted">
+                  <i class="fa-regular fa-calendar-check text-secondary fs-3 d-block mb-1 opacity-50"></i>
+                  ไม่มีบุคลากรที่เข้าเกณฑ์เกษียณอายุใน 5 ปีนี้
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

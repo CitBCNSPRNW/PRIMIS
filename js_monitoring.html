@@ -1,0 +1,1176 @@
+<script>
+/**
+ * =========================================================================
+ * js_monitoring.html : ระบบบริหารจัดการเครื่องราชอิสริยาภรณ์และเหรียญ ร.จ.พ.
+ * (Royal Insignia & Medals Engine)
+ * เฉพาะข้าราชการวิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์
+ * รหัส PIN ขึ้นต้น 371 (สายสอน/อาจารย์) และ 379 (สายสนับสนุน)
+ * โครงสร้างชั้นตราดึงจากฐานข้อมูล Master (hr_insignia_classes) แบบ Dynamic 100%
+ * =========================================================================
+ */
+
+window.insigniaMasterDataTable = null;
+window.allInsigniaRecords = [];
+window.insigniaCivilStaffList = [];
+window.insigniaCivilStaffMap = {};
+window.insigniaClassesMaster = [];
+
+/**
+ * ตรวจสอบความถูกต้องว่าเป็นข้าราชการที่มีสิทธิ์ขอเครื่องราชฯ หรือไม่
+ * (เฉพาะข้าราชการ รหัส PIN ขึ้นต้นด้วย 371 หรือ 379 ที่ยังปฏิบัติงานอยู่ ไม่รวมผู้พ้นสภาพ/ลาออก/โอนย้ายไปนอก/เกษียณ)
+ */
+function isEligibleCivilServant(staff) {
+  if (!staff) return false;
+  const pin = String(staff.pin || staff.user_pin || staff.id || '').trim();
+  if (pin === '1' || pin === '999999' || pin === 'cit1') return false;
+
+  // 1. ตรวจสอบสถานะการปฏิบัติงาน คัดกรองผู้พ้นสภาพ (ลาออก, โอนย้ายไปนอก, เกษียณ, เสียชีวิต) ออกจากระบบ
+  const status = String(staff.work_status || '').trim().toLowerCase();
+  if (
+    status.includes('เกษียณ') ||
+    status.includes('ลาออก') ||
+    status.includes('เสียชีวิต') ||
+    status.includes('ตาย') ||
+    status.includes('พ้นสภาพ') ||
+    status.includes('โอนย้ายไปนอก') ||
+    status.includes('โอนย้ายไปใน') ||
+    status.includes('ย้ายไปนอก') ||
+    status.includes('ย้ายออก') ||
+    status.includes('ย้ายไปคณะแพทย์') ||
+    status.includes('ย้ายข้าราชการออก') ||
+    status.includes('โอนข้าราชการไปนอก')
+  ) {
+    return false;
+  }
+
+  // 2. ข้าราชการสายสอน (371) หรือ ข้าราชการสายสนับสนุน (379)
+  if (pin.startsWith('371') || pin.startsWith('379')) return true;
+
+  // Fallback กรณีระบุ position_type ว่าเป็นข้าราชการ
+  const posType = String(staff.position_type || '').toLowerCase();
+  if (posType.includes('ข้าราชการ')) return true;
+
+  return false;
+}
+
+/**
+ * คำนวณอายุราชการสะสมจากวันบรรจุรับราชการ (gov_service_date)
+ */
+function calculateCivilServiceDuration(govServiceDate) {
+  if (!govServiceDate) return { years: 0, months: 0, text: '-' };
+  const start = new Date(govServiceDate);
+  if (isNaN(start.getTime())) return { years: 0, months: 0, text: '-' };
+  
+  const now = new Date();
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (years < 0) return { years: 0, months: 0, text: '0 ปี' };
+  return {
+    years: years,
+    months: months,
+    text: `${years} ปี ${months} เดือน`
+  };
+}
+
+/**
+ * ดึงรายการชั้นตราเครื่องราชฯ จากตาราง Master ในฐานข้อมูล (hr_insignia_classes)
+ */
+function loadInsigniaClasses(callback) {
+  if (window.insigniaClassesMaster && window.insigniaClassesMaster.length > 0) {
+    renderInsigniaClassDropdowns(window.insigniaClassesMaster);
+    if (typeof callback === 'function') callback(window.insigniaClassesMaster);
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.status === 'success' && Array.isArray(res.data) && res.data.length > 0) {
+        window.insigniaClassesMaster = res.data;
+        renderInsigniaClassDropdowns(res.data);
+      } else {
+        // Fallback ชั้นตรามาตรฐานหากยังไม่ได้ Seed ในฐานข้อมูล
+        const fallbackClasses = [
+          { category_name: '🌟 ชั้นสายสะพาย', insignia_class: 'ม.ป.ช.', insignia_name: 'มหาปรมาภรณ์ช้างเผือก' },
+          { category_name: '🌟 ชั้นสายสะพาย', insignia_class: 'ม.ว.ม.', insignia_name: 'มหาวชิรมงกุฎ' },
+          { category_name: '🌟 ชั้นสายสะพาย', insignia_class: 'ป.ช.', insignia_name: 'ประถมาภรณ์ช้างเผือก' },
+          { category_name: '🌟 ชั้นสายสะพาย', insignia_class: 'ป.ม.', insignia_name: 'ประถมาภรณ์มงกุฎไทย' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'ท.ช.', insignia_name: 'ทวีติยาภรณ์ช้างเผือก' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'ท.ม.', insignia_name: 'ทวีติยาภรณ์มงกุฎไทย' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'ต.ช.', insignia_name: 'ตริตาภรณ์ช้างเผือก' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'ต.ม.', insignia_name: 'ตริตาภรณ์มงกุฎไทย' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'จ.ช.', insignia_name: 'จัตุรถาภรณ์ช้างเผือก' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'จ.ม.', insignia_name: 'จัตุรถาภรณ์มงกุฎไทย' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'บ.ช.', insignia_name: 'เบญจมาภรณ์ช้างเผือก' },
+          { category_name: '🎖️ ชั้นต่ำกว่าสายสะพาย', insignia_class: 'บ.ม.', insignia_name: 'เบญจมาภรณ์มงกุฎไทย' },
+          { category_name: '🛡️ เหรียญบำเหน็จความชอบในราชการ', insignia_class: 'ร.จ.พ.', insignia_name: 'เหรียญจักรพรรดิมาลา' }
+        ];
+        window.insigniaClassesMaster = fallbackClasses;
+        renderInsigniaClassDropdowns(fallbackClasses);
+      }
+      if (typeof callback === 'function') callback(window.insigniaClassesMaster);
+    })
+    .withFailureHandler(function(err) {
+      console.warn('Cannot fetch insignia classes from DB, using fallback:', err);
+      if (typeof callback === 'function') callback([]);
+    })
+    .getInsigniaClasses();
+}
+
+/**
+ * เรนเดอร์ตัวเลือกชั้นตราลงใน Dropdown ของ Modal และ Toolbar ตัวกรองหลัก
+ */
+function renderInsigniaClassDropdowns(classes) {
+  const $modalSelect = $('#insigniaClassSelect');
+  const $filterSelect = $('#insigniaFilterClass');
+
+  $modalSelect.empty().append('<option value="">-- เลือกชั้นตรา (จากฐานข้อมูล Master) --</option>');
+  $filterSelect.empty().append('<option value="all">-- ทุกชั้นตรา --</option>');
+
+  // จัดกลุ่มตาม category_name
+  const groups = {};
+  classes.forEach(function(c) {
+    const grp = c.category_name || 'เครื่องราชอิสริยาภรณ์';
+    if (!groups[grp]) groups[grp] = [];
+    groups[grp].push(c);
+  });
+
+  Object.keys(groups).forEach(function(grpName) {
+    const $optgroup = $('<optgroup>').attr('label', grpName);
+    groups[grpName].forEach(function(c) {
+      $optgroup.append(
+        $('<option>')
+          .val(c.insignia_class)
+          .attr('data-name', c.insignia_name)
+          .text(c.insignia_class + ' - ' + c.insignia_name)
+      );
+
+      // เติมตัวกรองหลัก
+      $filterSelect.append(
+        $('<option>')
+          .val(c.insignia_class)
+          .text(c.insignia_class + ' - ' + c.insignia_name)
+      );
+    });
+    $modalSelect.append($optgroup);
+  });
+}
+
+/**
+ * โหลดข้อมูลเครื่องราชอิสริยาภรณ์และผสานกับข้อมูลข้าราชการ (371 & 379)
+ * บุคลากรทั่วไป (Staff): เห็นเฉพาะข้อมูลของตนเอง 100% (ทั้งสถิติและการ์ดประวัติ)
+ * ผู้ดูแลระบบ (HR Admin): เห็นภาพรวมทั้งสถาบัน 61 ท่าน พร้อมตาราง 7 คอลัมน์กะทัดรัด
+ */
+function loadInsigniaModule(forceRefresh) {
+  showPpmsLoading('กำลังโหลดระบบเครื่องราชอิสริยาภรณ์...', 'กำลังดึงข้อมูลข้าราชการ (371 & 379) และประวัติราชกิจจานุเบกษา');
+  const safetyTimer = setTimeout(function() {
+    hidePpmsLoading();
+  }, 12000);
+
+  // ดึงรายการชั้นตราจาก DB ก่อน/ควบคู่กัน
+  loadInsigniaClasses();
+
+  ensurePersonnelListLoaded(function(staffList) {
+    const curRole = (window.currentUserRole || 'guest').toLowerCase();
+    const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+    const myPin = String(window.currentUserPin || '');
+
+    // 1. กรองเฉพาะข้าราชการ 371 และ 379 ตามกฎของสถาบัน
+    const civilOnly = (staffList || []).filter(isEligibleCivilServant);
+    window.insigniaCivilStaffList = civilOnly;
+    window.insigniaCivilStaffMap = {};
+    civilOnly.forEach(function(s) {
+      const pin = String(s.pin || s.user_pin || s.id);
+      window.insigniaCivilStaffMap[pin] = s;
+    });
+
+    if (!isAdmin) {
+      // ----------------------------------------------------
+      // บุคลากรทั่วไป (Staff - เจ้าตัว): แสดงเฉพาะตนเอง 100%
+      // ----------------------------------------------------
+      $('#insigniaAdminContainer').addClass('d-none');
+      $('#insigniaPersonalContainer').removeClass('d-none');
+      $('.btn-hr-admin-only').addClass('d-none');
+
+      // เติมตัวเลือกใน Staff Picker ของ Modal (ล็อคเป็นตนเอง)
+      populateInsigniaStaffPicker(civilOnly);
+
+      // ดึงเฉพาะประวัติเครื่องราชฯ ของตนเอง
+      google.script.run
+        .withSuccessHandler(function(res) {
+          clearTimeout(safetyTimer);
+          hidePpmsLoading();
+
+          if (res && res.status === 'success') {
+            window.allInsigniaRecords = res.data || [];
+          } else {
+            window.allInsigniaRecords = [];
+          }
+          processInsigniaMetricsAndRender();
+        })
+        .withFailureHandler(function(err) {
+          clearTimeout(safetyTimer);
+          hidePpmsLoading();
+          window.allInsigniaRecords = [];
+          processInsigniaMetricsAndRender();
+        })
+        .getInsigniaRecords(myPin);
+    } else {
+      // ----------------------------------------------------
+      // ผู้ดูแลระบบ (HR Admin / Super Admin): ดูภาพรวมทั้งวิทยาลัย
+      // ----------------------------------------------------
+      $('#insigniaPersonalContainer').addClass('d-none');
+      $('#insigniaAdminContainer').removeClass('d-none');
+      $('.btn-hr-admin-only').removeClass('d-none');
+
+      // เติมตัวเลือกใน Staff Picker ของ Modal บันทึกข้อมูล (พร้อม Select2 พิมพ์ค้นหาได้)
+      populateInsigniaStaffPicker(civilOnly);
+
+      // ดึงประวัติเครื่องราชฯ ทั้งหมดจาก API
+      google.script.run
+        .withSuccessHandler(function(res) {
+          clearTimeout(safetyTimer);
+          hidePpmsLoading();
+
+          if (res && res.status === 'success') {
+            window.allInsigniaRecords = res.data || [];
+          } else {
+            window.allInsigniaRecords = [];
+          }
+          processInsigniaMetricsAndRender();
+        })
+        .withFailureHandler(function(err) {
+          clearTimeout(safetyTimer);
+          hidePpmsLoading();
+          window.allInsigniaRecords = [];
+          processInsigniaMetricsAndRender();
+          Swal.fire('การเชื่อมต่อขัดข้อง', err ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+        })
+        .getInsigniaRecords('');
+    }
+  });
+}
+
+/**
+ * ประมวลผลสถานะการครองชั้นตรา 5 ปี, สิทธิ์ ร.จ.พ. 25 ปี และสถิติภาพรวม
+ */
+function processInsigniaMetricsAndRender() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = String(window.currentUserPin || '');
+  const curYearBe = new Date().getFullYear() + 543;
+
+  // จัดกลุ่มข้อมูลเครื่องราชฯ ตาม staff_id
+  const staffInsigniaMap = {};
+  (window.allInsigniaRecords || []).forEach(function(rec) {
+    const sPin = String(rec.staff_id);
+    if (!staffInsigniaMap[sPin]) {
+      staffInsigniaMap[sPin] = [];
+    }
+    staffInsigniaMap[sPin].push(rec);
+  });
+
+  // ประมวลผลสำหรับข้าราชการแต่ละท่าน
+  window.insigniaCivilStaffList.forEach(function(staff) {
+    const pin = String(staff.pin || staff.user_pin || staff.id);
+    const myRecords = staffInsigniaMap[pin] || [];
+    
+    // เรียงลำดับปี พ.ศ. จากล่าสุดไปเก่าสุด
+    myRecords.sort(function(a, b) {
+      return (Number(b.received_year) || 0) - (Number(a.received_year) || 0) || (b.id - a.id);
+    });
+
+    staff._insigniaRecords = myRecords;
+
+    // หาชั้นตราล่าสุดที่ไม่ใช่ ร.จ.พ. (เพื่อคำนวณการครองชั้นตรา 5 ปี)
+    const latestNonRjp = myRecords.find(function(r) {
+      return r.insignia_class !== 'ร.จ.พ.' && !String(r.insignia_name).includes('จักรพรรดิมาลา');
+    }) || null;
+
+    // ตรวจสอบว่าเคยได้รับ ร.จ.พ. หรือยัง
+    const rjpRecord = myRecords.find(function(r) {
+      return r.insignia_class === 'ร.จ.พ.' || String(r.insignia_name).includes('จักรพรรดิมาลา');
+    }) || null;
+
+    staff._latestInsignia = latestNonRjp || (myRecords.length > 0 ? myRecords[0] : null);
+    staff._rjpRecord = rjpRecord;
+
+    // คำนวณอายุราชการ
+    const dur = calculateCivilServiceDuration(staff.gov_service_date);
+    staff._serviceDuration = dur;
+
+    // คำนวณระยะเวลาครองชั้นตราเดิม
+    if (staff._latestInsignia && staff._latestInsignia.received_year) {
+      const recYear = Number(staff._latestInsignia.received_year) || 0;
+      staff._yearsHolding = curYearBe - recYear;
+      staff._is5YearReady = (staff._yearsHolding >= 5);
+    } else {
+      staff._yearsHolding = 0;
+      staff._is5YearReady = false;
+    }
+
+    // สิทธิ์ ร.จ.พ. (รับราชการครบ 25 ปี และยังไม่เคยได้รับ ร.จ.พ.)
+    staff._isRjpReady = (dur.years >= 25 && !rjpRecord);
+  });
+
+  if (!isAdmin) {
+    // ----------------------------------------------------
+    // บุคลากรทั่วไป (Staff - เจ้าตัว): อัปเดตสถิติและหน้าประวัติส่วนบุคคล
+    // ----------------------------------------------------
+    const myStaff = window.insigniaCivilStaffMap[myPin] || (window.allPersonnelList || []).find(function(p) { return String(p.pin || p.user_pin || p.id) === myPin; }) || {};
+    const myRecords = myStaff._insigniaRecords || (staffInsigniaMap[myPin] || []);
+    const myLatest = myStaff._latestInsignia || (myRecords.length > 0 ? myRecords[0] : null);
+    const myRjp = myStaff._rjpRecord || null;
+    const myDur = myStaff._serviceDuration || calculateCivilServiceDuration(myStaff.gov_service_date);
+
+    // Card 1: ชั้นตราสูงสุดที่ได้รับ
+    $('#statInsigniaCard1Title').text('ชั้นตราสูงสุดที่ได้รับ');
+    $('#statInsigniaCard1Icon').attr('class', 'fa-solid fa-medal fs-4');
+    $('#statInsigniaEligibleCount').text(myLatest ? myLatest.insignia_class : '-');
+    $('#statInsigniaCard1Unit').text(myLatest ? `(พ.ศ. ${myLatest.received_year})` : '');
+    $('#statInsigniaCard1Sub').text(myLatest ? myLatest.insignia_name : 'ยังไม่มีประวัติในระบบ');
+
+    // Card 2: จำนวนชั้นตราที่ได้รับสะสม
+    $('#statInsigniaCard2Title').text('จำนวนชั้นตราที่ได้รับ');
+    $('#statInsigniaCard2Icon').attr('class', 'fa-solid fa-award fs-4');
+    $('#statInsigniaRecordedCount').text(myRecords.length);
+    $('#statInsigniaCard2Unit').text('ชั้นตรา');
+    $('#statInsigniaRecordedSub').text(myRecords.length > 0 ? 'บันทึกตามราชกิจจาฯ' : 'ยังไม่มีบันทึก');
+
+    // Card 3: ระยะเวลาการครองชั้นตรา (5 ปี)
+    $('#statInsigniaCard3Title').text('การครองชั้นตราเดิม');
+    $('#statInsigniaCard3Icon').attr('class', 'fa-solid fa-clock fs-4');
+    if (myLatest && myLatest.received_year) {
+      const yHold = myStaff._yearsHolding || (curYearBe - Number(myLatest.received_year));
+      $('#statInsignia5YearsCount').text(`${yHold} ปี`);
+      $('#statInsigniaCard3Unit').text('');
+      if (yHold >= 5) {
+        $('#statInsigniaCard3Sub').html('<span class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>ครองครบ 5 ปี (พร้อมเสนอขอ)</span>');
+      } else {
+        const rem = 5 - yHold;
+        $('#statInsigniaCard3Sub').html(`<span class="text-warning fw-semibold"><i class="fa-solid fa-clock me-1"></i>ขาดอีก ${rem} ปี จึงจะครบเกณฑ์ 5 ปี</span>`);
+      }
+    } else {
+      $('#statInsignia5YearsCount').text('-');
+      $('#statInsigniaCard3Unit').text('');
+      $('#statInsigniaCard3Sub').text('ยังไม่มีชั้นตราเดิม');
+    }
+
+    // Card 4: เกณฑ์เหรียญ ร.จ.พ. (25 ปี)
+    $('#statInsigniaCard4Title').text('เกณฑ์เหรียญ ร.จ.พ.');
+    $('#statInsigniaCard4Icon').attr('class', 'fa-solid fa-shield-halved fs-4');
+    if (myRjp) {
+      $('#statInsignia25YearsCount').text('ได้รับแล้ว');
+      $('#statInsigniaCard4Unit').text(`(พ.ศ. ${myRjp.received_year})`);
+      $('#statInsigniaCard4Sub').text('เหรียญจักรพรรดิมาลา');
+    } else if (myDur.years >= 25) {
+      $('#statInsignia25YearsCount').text(`${myDur.years} ปี`);
+      $('#statInsigniaCard4Unit').text('อายุราชการ');
+      $('#statInsigniaCard4Sub').html('<span class="fw-bold" style="color: #7c3aed;"><i class="fa-solid fa-circle-check me-1"></i>ครบ 25 ปี (พร้อมเสนอขอ ร.จ.พ.)</span>');
+    } else if (myDur.years > 0) {
+      const rem = 25 - myDur.years;
+      $('#statInsignia25YearsCount').text(`${myDur.years} ปี`);
+      $('#statInsigniaCard4Unit').text('อายุราชการ');
+      $('#statInsigniaCard4Sub').text(`ขาดอีก ${rem} ปี จะครบเกณฑ์ 25 ปี`);
+    } else {
+      $('#statInsignia25YearsCount').text('-');
+      $('#statInsigniaCard4Unit').text('');
+      $('#statInsigniaCard4Sub').text('ไม่ระบุวันบรรจุราชการ');
+    }
+
+    // เรนเดอร์ Personal Hero Card
+    renderInsigniaPersonalHero(myStaff, myRecords);
+
+    // เรนเดอร์ Personal History Table
+    renderInsigniaPersonalTable(myRecords);
+
+  } else {
+    // ----------------------------------------------------
+    // ผู้ดูแลระบบ (HR Admin): อัปเดตสถิติและตารางรวมทั้งสถาบัน
+    // ----------------------------------------------------
+    let recordedStaffCount = 0;
+    let fiveYearsEligibleCount = 0;
+    let rjpEligibleCount = 0;
+
+    window.insigniaCivilStaffList.forEach(function(staff) {
+      if ((staff._insigniaRecords || []).length > 0) recordedStaffCount++;
+      if (staff._is5YearReady) fiveYearsEligibleCount++;
+      if (staff._isRjpReady) rjpEligibleCount++;
+    });
+
+    $('#statInsigniaCard1Title').text('ข้าราชการที่มีสิทธิ์');
+    $('#statInsigniaCard1Icon').attr('class', 'fa-solid fa-users-gear fs-4');
+    $('#statInsigniaEligibleCount').text(window.insigniaCivilStaffList.length);
+    $('#statInsigniaCard1Unit').text('ท่าน');
+    $('#statInsigniaCard1Sub').text('สายสอน และ สายสนับสนุน (ปฏิบัติงานจริง)');
+
+    $('#statInsigniaCard2Title').text('มีประวัติเครื่องราชฯ แล้ว');
+    $('#statInsigniaCard2Icon').attr('class', 'fa-solid fa-medal fs-4');
+    $('#statInsigniaRecordedCount').text(recordedStaffCount);
+    $('#statInsigniaCard2Unit').text('ท่าน');
+    $('#statInsigniaRecordedSub').text(`จากข้าราชการทั้งหมด ${window.insigniaCivilStaffList.length} ท่าน`);
+
+    $('#statInsigniaCard3Title').text('ครองชั้นตราครบ 5 ปี');
+    $('#statInsigniaCard3Icon').attr('class', 'fa-solid fa-award fs-4');
+    $('#statInsignia5YearsCount').text(fiveYearsEligibleCount);
+    $('#statInsigniaCard3Unit').text('ท่าน');
+    $('#statInsigniaCard3Sub').html('<span class="text-success fw-semibold">พร้อมเสนอขอชั้นตราถัดไป</span>');
+
+    $('#statInsigniaCard4Title').text('เกณฑ์เหรียญ ร.จ.พ. (25 ปี)');
+    $('#statInsigniaCard4Icon').attr('class', 'fa-solid fa-clock-rotate-left fs-4');
+    $('#statInsignia25YearsCount').text(rjpEligibleCount);
+    $('#statInsigniaCard4Unit').text('ท่าน');
+    $('#statInsigniaCard4Sub').text('อายุราชการ ≥ 25 ปี');
+
+    // กรองและเรนเดอร์ตารางภาพรวมของ Admin
+    applyInsigniaFilters();
+  }
+}
+
+/**
+ * เรนเดอร์การ์ดข้อมูลส่วนตัวเครื่องราชฯ สำหรับ Staff (Personal Showcase Hero Card)
+ */
+function renderInsigniaPersonalHero(staff, records) {
+  const pin = String(staff.pin || staff.user_pin || staff.id || window.currentUserPin || '');
+  const nameTh = (staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '') || (window.currentUserName || `ข้าราชการ PIN #${pin}`);
+  const posTitle = (staff.position_title && staff.position_title.trim() && staff.position_title.trim() !== 'บุคลากร') 
+    ? staff.position_title 
+    : (staff.position || staff.position_title || 'ข้าราชการ');
+  const deptInfo = [staff.main_group, staff.department].filter(Boolean).join(' » ') || 'วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์';
+  const posDept = `${posTitle} • ${deptInfo}`;
+
+  const isTeacher = pin.startsWith('371') || (staff.job_line === 'สายสอน');
+  const jobLineBadge = isTeacher 
+    ? '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;"><i class="fa-solid fa-chalkboard-user me-1"></i>สายสอน</span>' 
+    : '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;"><i class="fa-solid fa-briefcase me-1"></i>สายสนับสนุน</span>';
+
+  const rawPhoto = staff.photo_url || staff.master_photo || '';
+  const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+  $('#insigniaPersonalAvatar').attr('src', avatarUrl);
+  $('#insigniaPersonalPin').text('#' + pin);
+  $('#insigniaPersonalName').text(nameTh);
+  $('#insigniaPersonalJobLineBadge').html(jobLineBadge);
+  $('#insigniaPersonalPosDept').text(posDept);
+
+  const dur = staff._serviceDuration || calculateCivilServiceDuration(staff.gov_service_date);
+  const govDateStr = staff.gov_service_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(staff.gov_service_date) : staff.gov_service_date) : 'ไม่ระบุ';
+  $('#insigniaPersonalGovDates').html(`บรรจุ: ${govDateStr} <span class="badge bg-white text-dark border ms-1">${dur.text}</span>`);
+
+  if (staff._latestInsignia && staff._latestInsignia.received_year) {
+    if (staff._is5YearReady) {
+      $('#insigniaPersonalHoldingStatus').html(`<span class="badge rounded-pill px-2 py-1" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac;"><i class="fa-solid fa-circle-check me-1"></i>ครองครบ ${staff._yearsHolding} ปี (พร้อมเสนอขอ)</span>`);
+    } else {
+      const rem = 5 - staff._yearsHolding;
+      $('#insigniaPersonalHoldingStatus').html(`<span class="badge rounded-pill px-2 py-1" style="background-color: #fef9c3; color: #a16207; border: 1px solid #fde047;"><i class="fa-solid fa-clock me-1"></i>ครองแล้ว ${staff._yearsHolding} ปี (ขาดอีก ${rem} ปี)</span>`);
+    }
+  } else {
+    $('#insigniaPersonalHoldingStatus').html('<span class="text-muted small">-</span>');
+  }
+
+  if (staff._rjpRecord) {
+    $('#insigniaPersonalRjpStatus').html(`<span class="badge rounded-pill px-2 py-1" style="background-color: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe;"><i class="fa-solid fa-shield-halved me-1"></i>ได้รับแล้ว (${staff._rjpRecord.received_year})</span>`);
+  } else if (staff._isRjpReady) {
+    $('#insigniaPersonalRjpStatus').html(`<span class="badge rounded-pill px-2 py-1" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #a78bfa;"><i class="fa-solid fa-medal me-1"></i>พร้อมเสนอขอ (อายุราชการครบ 25 ปี)</span>`);
+  } else if (dur.years > 0) {
+    const rem = 25 - dur.years;
+    $('#insigniaPersonalRjpStatus').html(`<span class="text-muted small">อายุราชการ ${dur.years} ปี (ขาดอีก ${rem} ปี)</span>`);
+  } else {
+    $('#insigniaPersonalRjpStatus').html('<span class="text-muted small">-</span>');
+  }
+}
+
+/**
+ * เรนเดอร์ตารางประวัติเครื่องราชฯ ส่วนบุคคลสำหรับ Staff (Personal Insignia History Table)
+ */
+function renderInsigniaPersonalTable(records) {
+  const $tbody = $('#insigniaPersonalTableBody');
+  $tbody.empty();
+
+  const myPin = String(window.currentUserPin || '');
+  const sorted = (records || []).slice().sort(function(a, b) {
+    return (Number(b.received_year) || 0) - (Number(a.received_year) || 0) || (b.id - a.id);
+  });
+
+  $('#insigniaPersonalCountBadge').text(`${sorted.length} ชั้นตรา`);
+
+  if (sorted.length === 0) {
+    $tbody.html(`
+      <tr>
+        <td colspan="8" class="text-center py-5 text-muted">
+          <i class="fa-solid fa-award fs-2 text-warning opacity-50 mb-2 d-block"></i>
+          <div class="fw-bold">ยังไม่มีบันทึกข้อมูลเครื่องราชอิสริยาภรณ์ในระบบ</div>
+          <div class="small text-muted mt-1">คลิกปุ่ม "+ บันทึกข้อมูลเครื่องราชฯ ของฉัน" ด้านบน เพื่อเพิ่มข้อมูลชั้นตราที่เคยได้รับพระราชทานค่ะ</div>
+        </td>
+      </tr>
+    `);
+    return;
+  }
+
+  sorted.forEach(function(rec, idx) {
+    const parts = [];
+    if (rec.gazette_volume) parts.push('เล่ม ' + rec.gazette_volume);
+    if (rec.gazette_issue) parts.push('ตอน ' + rec.gazette_issue);
+    if (rec.gazette_page) parts.push('หน้า ' + rec.gazette_page);
+    if (rec.gazette_item_no) parts.push('ลำดับ ' + rec.gazette_item_no);
+    const gazetteInfo = parts.join(' ') || '-';
+    const gazetteDateStr = rec.gazette_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(rec.gazette_date) : rec.gazette_date) : '-';
+
+    let docBtn = '<span class="text-muted small">-</span>';
+    if (rec.doc_url) {
+      docBtn = '<a href="' + rec.doc_url + '" target="_blank" class="btn btn-outline-primary btn-sm px-2 py-0 rounded-pill shadow-2xs" title="เปิดดูประกาศราชกิจจานุเบกษา" style="font-size: 0.74rem;"><i class="fa-solid fa-file-pdf me-1"></i>ดูเอกสาร</a>';
+    }
+
+    const actions = '<div class="btn-group btn-group-sm text-nowrap shadow-2xs" role="group">' +
+      '<button type="button" class="btn btn-outline-warning btn-sm px-2 py-1" onclick="editInsigniaRecord(' + rec.id + ')" title="แก้ไขข้อมูล" style="font-size: 0.76rem;"><i class="fa-solid fa-pen-to-square"></i></button>' +
+      '<button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="deleteInsigniaRecordById(' + rec.id + ', \'' + myPin + '\')" title="ลบรายการ" style="font-size: 0.76rem;"><i class="fa-solid fa-trash"></i></button>' +
+      '</div>';
+
+    const tr = '<tr>' +
+      '<td class="text-center fw-bold text-muted">' + (idx + 1) + '</td>' +
+      '<td>' +
+        '<span class="badge rounded-pill px-2 py-1 fw-bold me-1" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;">' + rec.insignia_class + '</span> ' +
+        '<span class="fw-semibold text-dark">' + rec.insignia_name + '</span>' +
+      '</td>' +
+      '<td class="text-center fw-bold text-primary">' + (rec.received_year || '-') + '</td>' +
+      '<td>' + gazetteDateStr + '</td>' +
+      '<td><span class="small text-muted">' + gazetteInfo + '</span></td>' +
+      '<td class="text-center">' + docBtn + '</td>' +
+      '<td><span class="small text-muted">' + (rec.remarks || '-') + '</span></td>' +
+      '<td class="text-center">' + actions + '</td>' +
+      '</tr>';
+    $tbody.append(tr);
+  });
+}
+
+/**
+ * กรองข้อมูลและอัปเดตตารางตาม Dropdown ตัวกรอง (Admin View)
+ */
+function applyInsigniaFilters() {
+  const jobLineFilter = $('#insigniaFilterJobLine').val() || 'all';
+  const classFilter = $('#insigniaFilterClass').val() || 'all';
+  const statusFilter = $('#insigniaFilterStatus').val() || 'all';
+
+  const filtered = window.insigniaCivilStaffList.filter(function(staff) {
+    const pin = String(staff.pin || staff.user_pin || staff.id);
+    
+    // กรองสายงาน
+    if (jobLineFilter === 'teacher') {
+      if (!pin.startsWith('371') && staff.job_line !== 'สายสอน') return false;
+    } else if (jobLineFilter === 'support') {
+      if (!pin.startsWith('379') && staff.job_line !== 'สายสนับสนุน') return false;
+    }
+
+    // กรองชั้นตราล่าสุด
+    if (classFilter !== 'all') {
+      const hasClass = (staff._insigniaRecords || []).some(function(r) {
+        return r.insignia_class === classFilter;
+      });
+      if (!hasClass) return false;
+    }
+
+    // กรองสถานะความพร้อม
+    if (statusFilter === 'ready_5years') {
+      if (!staff._is5YearReady) return false;
+    } else if (statusFilter === 'ready_rjp') {
+      if (!staff._isRjpReady) return false;
+    } else if (statusFilter === 'has_record') {
+      if (!staff._insigniaRecords || staff._insigniaRecords.length === 0) return false;
+    } else if (statusFilter === 'holding') {
+      if (!staff._latestInsignia || staff._is5YearReady) return false;
+    } else if (statusFilter === 'no_record') {
+      if (staff._insigniaRecords && staff._insigniaRecords.length > 0) return false;
+    }
+
+    return true;
+  });
+
+  $('#insigniaTableCountBadge').text(`แสดง ${filtered.length} จาก ${window.insigniaCivilStaffList.length} ท่าน`);
+  renderInsigniaMasterTable(filtered);
+}
+
+/**
+ * เรนเดอร์ตารางทะเบียนเครื่องราชฯ รวมสำหรับ Admin (DataTables 7 คอลัมน์ ไม่ล้นขอบจอ)
+ */
+function renderInsigniaMasterTable(staffList) {
+  if (window.insigniaMasterDataTable) {
+    window.insigniaMasterDataTable.destroy();
+    window.insigniaMasterDataTable = null;
+  }
+
+  const $tbody = $('#insigniaMasterTableBody');
+  $tbody.empty();
+
+  if (!staffList || staffList.length === 0) {
+    $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-folder-open fs-3 d-block mb-2 opacity-50"></i>ไม่พบข้อมูลข้าราชการตามเงื่อนไขที่เลือก</td></tr>');
+    return;
+  }
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+
+  staffList.forEach(function(staff) {
+    const pin = String(staff.pin || staff.user_pin || staff.id || '');
+    const nameTh = (staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '');
+    const posTitle = (staff.position_title && staff.position_title.trim() && staff.position_title.trim() !== 'บุคลากร') 
+      ? staff.position_title 
+      : (staff.position || staff.position_title || 'ข้าราชการ');
+    const posNo = staff.position_number ? ('<span class="badge bg-light text-dark border me-1">' + staff.position_number + '</span>') : '';
+
+    const isTeacher = pin.startsWith('371') || (staff.job_line === 'สายสอน');
+    const jobLineBadge = isTeacher 
+      ? '<span class="badge rounded-pill px-2 py-0 fw-bold" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 0.68rem;"><i class="fa-solid fa-chalkboard-user me-1"></i>สายสอน</span>' 
+      : '<span class="badge rounded-pill px-2 py-0 fw-bold" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-size: 0.68rem;"><i class="fa-solid fa-briefcase me-1"></i>สายสนับสนุน</span>';
+
+    // อายุราชการ
+    const dur = staff._serviceDuration || calculateCivilServiceDuration(staff.gov_service_date);
+    const govDateStr = staff.gov_service_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(staff.gov_service_date) : staff.gov_service_date) : 'ไม่ระบุ';
+    const govHtml = '<div><span class="fw-semibold text-dark small">' + dur.text + '</span></div>' +
+      '<div class="text-muted" style="font-size: 0.70rem;">บรรจุ: ' + govDateStr + '</div>';
+
+    // ชั้นตราล่าสุด
+    let latestBadge = '<span class="text-muted small">-</span>';
+    const recCount = (staff._insigniaRecords || []).length;
+    if (staff._latestInsignia) {
+      latestBadge = '<div class="d-flex align-items-center gap-1 flex-wrap">' +
+        '<span class="badge rounded-pill px-2 py-0 fw-bold" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;">' + staff._latestInsignia.insignia_class + '</span>' +
+        '<span class="small fw-semibold text-dark">' + staff._latestInsignia.insignia_name + '</span>' +
+        '</div>' +
+        '<div class="text-muted" style="font-size: 0.70rem;">พ.ศ. ' + staff._latestInsignia.received_year + ' (รวม ' + recCount + ' ชั้นตรา)</div>';
+    }
+
+    // สถานะครองชั้นตรา 5 ปี
+    let holdingBadge = '<span class="text-muted small">-</span>';
+    if (staff._latestInsignia && staff._latestInsignia.received_year) {
+      if (staff._is5YearReady) {
+        holdingBadge = '<span class="badge rounded-pill px-2 py-1 fw-semibold shadow-2xs" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac;"><i class="fa-solid fa-circle-check me-1"></i>ครองครบ ' + staff._yearsHolding + ' ปี</span>';
+      } else {
+        const rem = 5 - staff._yearsHolding;
+        holdingBadge = '<span class="badge rounded-pill px-2 py-1 fw-semibold" style="background-color: #fef9c3; color: #a16207; border: 1px solid #fde047;"><i class="fa-solid fa-clock me-1"></i>ครอง ' + staff._yearsHolding + ' ปี (ขาด ' + rem + ')</span>';
+      }
+    }
+
+    // สถานะเหรียญ ร.จ.พ.
+    let rjpHtml = '<span class="text-muted small">-</span>';
+    if (staff._rjpRecord) {
+      rjpHtml = '<span class="badge rounded-pill px-2 py-1 fw-semibold" style="background-color: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe;"><i class="fa-solid fa-shield-halved me-1"></i>ได้รับแล้ว (' + staff._rjpRecord.received_year + ')</span>';
+    } else if (staff._isRjpReady) {
+      rjpHtml = '<span class="badge rounded-pill px-2 py-1 fw-semibold shadow-2xs" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #a78bfa;"><i class="fa-solid fa-medal me-1"></i>พร้อมขอ (ครบ 25 ปี)</span>';
+    } else if (dur.years > 0) {
+      const remY = 25 - dur.years;
+      rjpHtml = '<span class="text-muted small">ขาดอีก ' + remY + ' ปี</span>';
+    }
+
+    // Avatar
+    const rawPhoto = staff.photo_url || staff.master_photo || '';
+    const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+    // Action Buttons
+    let btns = '<div class="btn-group btn-group-sm text-nowrap shadow-2xs" role="group">' +
+      '<button type="button" class="btn btn-outline-primary btn-sm px-2 py-1 text-nowrap" onclick="openInsigniaHistoryModal(\'' + pin + '\')" title="ดูประวัติการรับพระราชทานทุกชั้นตรา" style="font-size: 0.76rem;">' +
+      '<i class="fa-solid fa-eye me-1"></i>ประวัติ (' + recCount + ')</button>';
+
+    if (isAdmin) {
+      btns += '<button type="button" class="btn btn-outline-success btn-sm px-2 py-1 text-nowrap" onclick="openAddInsigniaModal(\'' + pin + '\')" title="เพิ่มชั้นตราใหม่ให้ข้าราชการท่านนี้" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-plus"></i></button>';
+    }
+    btns += '</div>';
+
+    const deptInfo = [staff.main_group, staff.department].filter(Boolean).join(' » ') || '-';
+
+    // โครงสร้างแถว 7 คอลัมน์ที่สมส่วน พอดีหน้าจอ ไม่ล้นขอบ
+    const trHtml = '<tr>' +
+      '<td class="text-center"><span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#' + pin + '</span></td>' +
+      '<td>' +
+        '<div class="d-flex align-items-center gap-2">' +
+          '<img src="' + avatarUrl + '" alt="' + nameTh + '" class="rounded-circle border cursor-pointer" style="width: 34px; height: 34px; min-width: 34px; object-fit: cover;" onclick="openPersonnelInPaneDetail(\'' + pin + '\')" onerror="this.onerror=null;this.src=DEFAULT_STAFF_AVATAR">' +
+          '<div class="min-w-0">' +
+            '<div class="d-flex align-items-center gap-1 flex-wrap">' +
+              '<a href="javascript:void(0)" class="personnel-name-link fw-bold text-dark text-truncate" onclick="openPersonnelInPaneDetail(\'' + pin + '\')" title="คลิกเพื่อดูรายละเอียด" style="font-size: 0.86rem; line-height: 1.25;">' + nameTh + '</a>' +
+              jobLineBadge +
+            '</div>' +
+            '<div class="text-muted" style="font-size: 0.72rem; line-height: 1.2; margin-top: 2px;">' + posNo + posTitle + ' • ' + deptInfo + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+      '<td>' + govHtml + '</td>' +
+      '<td>' + latestBadge + '</td>' +
+      '<td class="text-center">' + holdingBadge + '</td>' +
+      '<td class="text-center">' + rjpHtml + '</td>' +
+      '<td class="text-center text-nowrap">' + btns + '</td>' +
+      '</tr>';
+
+    $tbody.append(trHtml);
+  });
+
+  window.insigniaMasterDataTable = $('#insigniaMasterTable').DataTable({
+    autoWidth: false,
+    pageLength: 10,
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "ค้นหาข้าราชการ, PIN, ชั้นตรา...",
+      lengthMenu: "แสดง _MENU_ แถวต่อหน้า",
+      info: "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ ท่าน",
+      infoEmpty: "ไม่พบข้อมูล",
+      infoFiltered: "(กรองจากทั้งหมด _MAX_ ท่าน)",
+      zeroRecords: "ไม่พบข้อมูลตรงกับคำค้นหา",
+      paginate: {
+        previous: "ก่อนหน้า",
+        next: "ถัดไป"
+      }
+    },
+    columnDefs: [
+      { className: 'text-nowrap align-middle', targets: [0, 2, 4, 5, 6] },
+      { className: 'align-middle', targets: [1, 3] },
+      { orderable: false, targets: [6] }
+    ]
+  });
+}
+
+/**
+ * เติมตัวเลือกใน Staff Picker Modal (กรองเฉพาะข้าราชการ 371 และ 379 พร้อม Select2 พิมพ์ค้นหาได้)
+ */
+function populateInsigniaStaffPicker(staffList) {
+  const $select = $('#insigniaStaffSelect');
+  $select.empty();
+  $select.append('<option value="">-- ค้นหาและเลือกข้าราชการ (พิมพ์ PIN หรือชื่อ) --</option>');
+
+  staffList.forEach(function(s) {
+    const pin = String(s.pin || s.user_pin || s.id);
+    const name = (s.title_th || '') + (s.fname_th || s.master_fname || '') + ' ' + (s.lname_th || s.master_lname || '');
+    const pos = s.position_title || s.position || 'ข้าราชการ';
+    const tag = pin.startsWith('371') ? '[สายสอน]' : '[สายสนับสนุน]';
+    $select.append('<option value="' + pin + '" data-name="' + name + '" data-pos="' + pos + '" data-photo="' + (s.photo_url || s.master_photo || '') + '">#' + pin + ' ' + tag + ' ' + name + ' (' + pos + ')</option>');
+  });
+
+  // ผูก Select2 เข้ากับ Modal ให้พิมพ์ค้นหาได้ทันทีตามกฎ Searchable Staff Picker
+  if ($.fn.select2) {
+    if ($select.hasClass('select2-hidden-accessible')) {
+      $select.select2('destroy');
+    }
+    $select.select2({
+      dropdownParent: $('#insigniaRecordModal'),
+      width: '100%',
+      placeholder: '-- ค้นหาและเลือกข้าราชการ (พิมพ์ PIN หรือชื่อ) --',
+      allowClear: true,
+      matcher: (typeof select2MatcherWithPin === 'function' ? select2MatcherWithPin : undefined)
+    });
+
+    $select.off('change.insigniaSelect2').on('change.insigniaSelect2', function() {
+      onInsigniaStaffChanged();
+    });
+  }
+}
+
+/**
+ * จัดการเมื่อเปลี่ยนตัวเลือกข้าราชการใน Modal Form
+ */
+function onInsigniaStaffChanged() {
+  const $opt = $('#insigniaStaffSelect option:selected');
+  const pin = $opt.val();
+  if (pin) {
+    const name = $opt.attr('data-name') || '';
+    const pos = $opt.attr('data-pos') || '';
+    const rawPhoto = $opt.attr('data-photo') || '';
+    const avatar = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+    $('#insigniaStaffPreviewName').text(name);
+    $('#insigniaStaffPreviewPos').text(pos);
+    $('#insigniaStaffPreviewAvatar').attr('src', avatar);
+    $('#insigniaStaffPreviewBox').removeClass('d-none');
+  } else {
+    $('#insigniaStaffPreviewBox').addClass('d-none');
+  }
+}
+
+/**
+ * จัดการเมื่อเปลี่ยนตัวเลือกชั้นตรา (Auto-fill ชื่อเต็มชั้นตรา)
+ */
+function onInsigniaClassChanged() {
+  const $opt = $('#insigniaClassSelect option:selected');
+  const full = $opt.attr('data-name') || '';
+  if (full) {
+    $('#insigniaNameInput').val(full);
+  }
+}
+
+/**
+ * เปิด Modal เพิ่มเครื่องราชฯ (รองรับทั้ง Admin เลือกข้าราชการ และ Staff บันทึกของตนเอง)
+ */
+function openAddInsigniaModal(preselectedPin) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = String(window.currentUserPin || '');
+
+  // มั่นใจว่ารายการชั้นตราถูกโหลดแล้ว
+  loadInsigniaClasses();
+
+  $('#insigniaRecordId').val('0');
+  $('#insigniaRecordForm')[0].reset();
+  $('#insigniaExistingDocUrl').val('');
+  $('#insigniaExistingDocBox').addClass('d-none');
+  $('#insigniaRecordModalLabel').text('บันทึกข้อมูลเครื่องราชอิสริยาภรณ์และเหรียญ ร.จ.พ.');
+
+  if (isAdmin) {
+    $('#insigniaStaffPickerContainer').removeClass('d-none');
+    $('#insigniaStaffSelfContainer').addClass('d-none');
+    if (preselectedPin) {
+      $('#insigniaStaffSelect').val(String(preselectedPin));
+      if ($.fn.select2) $('#insigniaStaffSelect').trigger('change.select2');
+      onInsigniaStaffChanged();
+    } else {
+      $('#insigniaStaffSelect').val('');
+      if ($.fn.select2) $('#insigniaStaffSelect').trigger('change.select2');
+      $('#insigniaStaffPreviewBox').addClass('d-none');
+    }
+  } else {
+    // โหมด Staff (เจ้าตัว): ซ่อน Staff Picker และแสดงข้อมูลตนเอง
+    $('#insigniaStaffPickerContainer').addClass('d-none');
+    $('#insigniaStaffSelfContainer').removeClass('d-none');
+    $('#insigniaStaffSelect').val(myPin);
+
+    const myStaff = window.insigniaCivilStaffMap[myPin] || (window.allPersonnelList || []).find(function(p) { return String(p.pin || p.user_pin || p.id) === myPin; }) || {};
+    const nameTh = (myStaff.title_th || '') + (myStaff.fname_th || myStaff.master_fname || '') + ' ' + (myStaff.lname_th || myStaff.master_lname || '') || (window.currentUserName || `ข้าราชการ PIN #${myPin}`);
+    const posTitle = myStaff.position_title || myStaff.position || 'ข้าราชการ';
+    const rawPhoto = myStaff.photo_url || myStaff.master_photo || '';
+    const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+    $('#insigniaStaffSelfName').text(nameTh + ' (PIN #' + myPin + ')');
+    $('#insigniaStaffSelfPos').text(posTitle + ' • ' + (myStaff.department || myStaff.main_group || 'วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์'));
+    $('#insigniaStaffSelfAvatar').attr('src', avatarUrl);
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('insigniaRecordModal'));
+  modal.show();
+}
+
+/**
+ * เปิด Modal แก้ไขข้อมูลเครื่องราชฯ (Admin แก้ไขได้ทุกท่าน / Staff แก้ไขได้เฉพาะของตนเอง)
+ */
+function editInsigniaRecord(recId) {
+  const rec = (window.allInsigniaRecords || []).find(function(r) {
+    return Number(r.id) === Number(recId);
+  });
+  if (!rec) {
+    Swal.fire('ไม่พบข้อมูล', 'ไม่พบข้อมูลเครื่องราชฯ รายการนี้', 'error');
+    return;
+  }
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = String(window.currentUserPin || '');
+
+  // ถ้าไม่ใช่ Admin และไม่ใช่ของตนเอง ห้ามแก้ไข
+  if (!isAdmin && String(rec.staff_id) !== myPin) {
+    Swal.fire('ไม่มีสิทธิ์', 'ท่านสามารถแก้ไขได้เฉพาะข้อมูลเครื่องราชฯ ของตนเองเท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  loadInsigniaClasses(function() {
+    $('#insigniaRecordId').val(rec.id);
+    $('#insigniaStaffSelect').val(String(rec.staff_id));
+
+    if (isAdmin) {
+      $('#insigniaStaffPickerContainer').removeClass('d-none');
+      $('#insigniaStaffSelfContainer').addClass('d-none');
+      if ($.fn.select2) $('#insigniaStaffSelect').trigger('change.select2');
+      onInsigniaStaffChanged();
+    } else {
+      $('#insigniaStaffPickerContainer').addClass('d-none');
+      $('#insigniaStaffSelfContainer').removeClass('d-none');
+      const myStaff = window.insigniaCivilStaffMap[myPin] || (window.allPersonnelList || []).find(function(p) { return String(p.pin || p.user_pin || p.id) === myPin; }) || {};
+      const nameTh = (myStaff.title_th || '') + (myStaff.fname_th || myStaff.master_fname || '') + ' ' + (myStaff.lname_th || myStaff.master_lname || '') || (window.currentUserName || `ข้าราชการ PIN #${myPin}`);
+      const posTitle = myStaff.position_title || myStaff.position || 'ข้าราชการ';
+      const rawPhoto = myStaff.photo_url || myStaff.master_photo || '';
+      const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+      $('#insigniaStaffSelfName').text(nameTh + ' (PIN #' + myPin + ')');
+      $('#insigniaStaffSelfPos').text(posTitle + ' • ' + (myStaff.department || myStaff.main_group || 'วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์'));
+      $('#insigniaStaffSelfAvatar').attr('src', avatarUrl);
+    }
+
+    $('#insigniaClassSelect').val(rec.insignia_class);
+    $('#insigniaNameInput').val(rec.insignia_name || '');
+    $('#insigniaReceivedYear').val(rec.received_year || '');
+    $('#insigniaGazetteDate').val(rec.gazette_date || '');
+    $('#insigniaGazetteVolume').val(rec.gazette_volume || '');
+    $('#insigniaGazetteIssue').val(rec.gazette_issue || '');
+    $('#insigniaGazettePage').val(rec.gazette_page || '');
+    $('#insigniaGazetteItemNo').val(rec.gazette_item_no || '');
+    $('#insigniaRemarks').val(rec.remarks || '');
+
+    if (rec.doc_url) {
+      $('#insigniaExistingDocUrl').val(rec.doc_url);
+      $('#insigniaExistingDocLink').attr('href', rec.doc_url);
+      $('#insigniaExistingDocBox').removeClass('d-none');
+    } else {
+      $('#insigniaExistingDocUrl').val('');
+      $('#insigniaExistingDocBox').addClass('d-none');
+    }
+
+    $('#insigniaRecordModalLabel').text('แก้ไขข้อมูลเครื่องราชอิสริยาภรณ์');
+    const modal = new bootstrap.Modal(document.getElementById('insigniaRecordModal'));
+    modal.show();
+  });
+}
+
+/**
+ * บันทึกฟอร์มข้อมูลเครื่องราชฯ
+ */
+function submitInsigniaRecordForm() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = String(window.currentUserPin || '');
+  let staffPin = $('#insigniaStaffSelect').val();
+  if (!isAdmin) staffPin = myPin;
+
+  const recYear = $('#insigniaReceivedYear').val();
+  const insigClass = $('#insigniaClassSelect').val();
+  const insigName = $('#insigniaNameInput').val();
+
+  if (!staffPin) {
+    Swal.fire('กรุณาเลือกข้าราชการ', 'โปรดเลือกข้าราชการผู้ได้รับพระราชทาน', 'warning');
+    return;
+  }
+  if (!recYear || Number(recYear) < 2400 || Number(recYear) > 2700) {
+    Swal.fire('ปี พ.ศ. ไม่ถูกต้อง', 'โปรดระบุปี พ.ศ. ที่ได้รับพระราชทานให้ถูกต้อง (เช่น 2563)', 'warning');
+    return;
+  }
+  if (!insigClass || !insigName) {
+    Swal.fire('กรุณาระบุชั้นตรา', 'โปรดเลือกชั้นตราเครื่องราชอิสริยาภรณ์', 'warning');
+    return;
+  }
+
+  showPpmsLoading('กำลังบันทึกข้อมูล...', 'กำลังบันทึกลงใน cit_mis_db');
+
+  const fileInput = document.getElementById('insigniaDocFile');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64Data = e.target.result;
+      google.script.run
+        .withSuccessHandler(function(uploadRes) {
+          if (uploadRes && uploadRes.status === 'success') {
+            doSaveInsigniaData(uploadRes.file_url);
+          } else {
+            hidePpmsLoading();
+            Swal.fire('อัปโหลดไฟล์ไม่สำเร็จ', uploadRes ? uploadRes.message : 'เกิดข้อผิดพลาดในการอัปโหลด', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('อัปโหลดไฟล์ล้มเหลว', err ? err.message : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ไฟล์ได้', 'error');
+        })
+        .uploadServerFile({
+          user_pin: staffPin,
+          folder_type: 'insignia',
+          original_name: file.name,
+          base64_data: base64Data
+        });
+    };
+    reader.readAsDataURL(file);
+  } else {
+    const existingUrl = $('#insigniaExistingDocUrl').val() || '';
+    doSaveInsigniaData(existingUrl);
+  }
+}
+
+/**
+ * ส่งคำสั่งบันทึกไปยัง GAS Backend
+ */
+function doSaveInsigniaData(docUrl) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+  let staffPin = Number($('#insigniaStaffSelect').val());
+  if (!isAdmin) staffPin = myPin;
+
+  const payload = {
+    record: {
+      id: Number($('#insigniaRecordId').val()) || 0,
+      staff_id: staffPin,
+      received_year: Number($('#insigniaReceivedYear').val()),
+      insignia_class: $('#insigniaClassSelect').val(),
+      insignia_name: $('#insigniaNameInput').val(),
+      gazette_date: $('#insigniaGazetteDate').val() || null,
+      gazette_volume: $('#insigniaGazetteVolume').val() || null,
+      gazette_issue: $('#insigniaGazetteIssue').val() || null,
+      gazette_page: $('#insigniaGazettePage').val() || null,
+      gazette_item_no: $('#insigniaGazetteItemNo').val() || null,
+      doc_url: docUrl || null,
+      remarks: $('#insigniaRemarks').val() || null,
+      operator_role: curRole,
+      operator_pin: myPin
+    }
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        const modalEl = document.getElementById('insigniaRecordModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ!',
+          text: res.message || 'บันทึกข้อมูลเครื่องราชอิสริยาภรณ์เรียบร้อยแล้ว',
+          timer: 1800,
+          showConfirmButton: false
+        });
+
+        // โหลดข้อมูลใหม่
+        loadInsigniaModule(true);
+
+        // หากกำลังเปิดหน้ารายละเอียด In-Pane ให้รีเฟรชด้วย
+        const viewingPin = String(window.currentViewingPin || '');
+        if (viewingPin && viewingPin === String(payload.record.staff_id)) {
+          openPersonnelInPaneDetail(viewingPin);
+        }
+      } else {
+        Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('ข้อผิดพลาดการเชื่อมต่อ', err ? err.message : 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
+    })
+    .saveInsigniaRecord(payload);
+}
+
+/**
+ * ลบข้อมูลเครื่องราชฯ
+ */
+function deleteInsigniaRecordById(recId, pin) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = String(window.currentUserPin || '');
+  if (!isAdmin && String(pin) !== myPin) {
+    Swal.fire('ไม่มีสิทธิ์', 'ท่านสามารถลบได้เฉพาะข้อมูลเครื่องราชฯ ของตนเองเท่านั้นค่ะ', 'warning');
+    return;
+  }
+
+  Swal.fire({
+    title: 'ยืนยันการลบรายการ?',
+    text: 'ต้องการลบข้อมูลเครื่องราชอิสริยาภรณ์รายการนี้ใช่หรือไม่ การกระทำนี้ไม่สามารถย้อนคืนได้',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'ใช่, ลบข้อมูล',
+    cancelButtonText: 'ยกเลิก'
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังลบข้อมูล...', 'กำลังลบรายการจากฐานข้อมูล');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire('ลบสำเร็จ!', res.message || 'ลบข้อมูลเรียบร้อยแล้ว', 'success');
+            loadInsigniaModule(true);
+            const viewingPin = String(window.currentViewingPin || '');
+            if (viewingPin) {
+              openPersonnelInPaneDetail(viewingPin);
+            }
+            // ปิดหรือรีเฟรช History Modal
+            const histModalEl = document.getElementById('insigniaHistoryModal');
+            if (histModalEl && $(histModalEl).hasClass('show')) {
+              openInsigniaHistoryModal(pin);
+            }
+          } else {
+            Swal.fire('ลบไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('ข้อผิดพลาดการเชื่อมต่อ', err ? err.message : 'ไม่สามารถลบข้อมูลได้', 'error');
+        })
+        .deleteInsigniaRecord(recId, pin, curRole, Number(window.currentUserPin || 0));
+    }
+  });
+}
+
+/**
+ * เปิด Modal ดูประวัติการรับพระราชทานทุกชั้นตราของข้าราชการ
+ */
+function openInsigniaHistoryModal(pin) {
+  const staff = window.insigniaCivilStaffMap[String(pin)];
+  if (!staff) {
+    Swal.fire('ไม่พบข้อมูล', 'ไม่พบข้อมูลข้าราชการรหัส #' + pin, 'error');
+    return;
+  }
+
+  const nameTh = (staff.title_th || '') + (staff.fname_th || staff.master_fname || '') + ' ' + (staff.lname_th || staff.master_lname || '');
+  const posTitle = staff.position_title || staff.position || 'ข้าราชการ';
+  const rawPhoto = staff.photo_url || staff.master_photo || '';
+  const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+  $('#insigniaHistAvatar').attr('src', avatarUrl);
+  $('#insigniaHistName').text(nameTh + ' (PIN #' + pin + ')');
+  $('#insigniaHistPos').text(posTitle + ' • ' + (staff.department || staff.main_group || 'วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์'));
+  
+  const dur = staff._serviceDuration || calculateCivilServiceDuration(staff.gov_service_date);
+  const govDateStr = staff.gov_service_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(staff.gov_service_date) : staff.gov_service_date) : '-';
+  $('#insigniaHistGovDate').html('<strong>วันบรรจุราชการ:</strong> ' + govDateStr + ' (อายุราชการ ' + dur.text + ')');
+
+  const myRecords = (staff._insigniaRecords || []).slice();
+  myRecords.sort(function(a, b) {
+    return (Number(b.received_year) || 0) - (Number(a.received_year) || 0) || (b.id - a.id);
+  });
+
+  const $tbody = $('#insigniaHistoryTableBody');
+  $tbody.empty();
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+
+  if (myRecords.length === 0) {
+    $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-medal fs-4 d-block mb-2 text-warning opacity-50"></i>ยังไม่มีบันทึกข้อมูลเครื่องราชอิสริยาภรณ์สำหรับข้าราชการท่านนี้</td></tr>');
+  } else {
+    myRecords.forEach(function(rec, idx) {
+      const parts = [];
+      if (rec.gazette_volume) parts.push('เล่ม ' + rec.gazette_volume);
+      if (rec.gazette_issue) parts.push('ตอน ' + rec.gazette_issue);
+      if (rec.gazette_page) parts.push('หน้า ' + rec.gazette_page);
+      if (rec.gazette_item_no) parts.push('ลำดับ ' + rec.gazette_item_no);
+      const gazetteInfo = parts.join(' ') || '-';
+      const gazetteDateStr = rec.gazette_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(rec.gazette_date) : rec.gazette_date) : '-';
+
+      let docBtn = '<span class="text-muted small">-</span>';
+      if (rec.doc_url) {
+        docBtn = '<a href="' + rec.doc_url + '" target="_blank" class="btn btn-xs btn-outline-primary px-2 py-1" title="เปิดดูประกาศราชกิจจานุเบกษา"><i class="fa-solid fa-file-pdf me-1"></i>ดูเอกสาร</a>';
+      }
+
+      let actions = '-';
+      if (isAdmin) {
+        actions = '<div class="btn-group btn-group-sm">' +
+          '<button type="button" class="btn btn-outline-warning btn-xs px-2 py-1" onclick="editInsigniaRecord(' + rec.id + ')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>' +
+          '<button type="button" class="btn btn-outline-danger btn-xs px-2 py-1" onclick="deleteInsigniaRecordById(' + rec.id + ', \'' + pin + '\')" title="ลบ"><i class="fa-solid fa-trash"></i></button>' +
+          '</div>';
+      }
+
+      const tr = '<tr>' +
+        '<td class="text-center fw-bold text-muted">' + (idx + 1) + '</td>' +
+        '<td>' +
+          '<span class="badge rounded-pill px-2 py-1 fw-bold me-1" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;">' + rec.insignia_class + '</span> ' +
+          '<span class="fw-semibold text-dark">' + rec.insignia_name + '</span>' +
+        '</td>' +
+        '<td class="text-center fw-bold text-primary">' + (rec.received_year || '-') + '</td>' +
+        '<td>' + gazetteDateStr + '</td>' +
+        '<td><span class="small text-muted">' + gazetteInfo + '</span></td>' +
+        '<td class="text-center">' + docBtn + '</td>' +
+        '<td class="text-center btn-hr-admin-only">' + actions + '</td>' +
+        '</tr>';
+      $tbody.append(tr);
+    });
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('insigniaHistoryModal'));
+  modal.show();
+}
+</script>

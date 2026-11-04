@@ -1,0 +1,286 @@
+<!-- =========================================================================
+     PRIMIS : ระบบประวัติการใช้งานและตรวจสอบระบบ (System Audit Trail & Security Logs)
+     มาตรฐาน UI Light Mode ขาวสะอาด สไตล์ BCNSPRNW
+     ========================================================================= -->
+<div id="view-logs" class="tab-pane-content d-none">
+  <!-- Header Title & Badges -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 rounded-pill small">
+          <i class="fa-solid fa-shield-halved text-primary me-1"></i> PDPA & Security Compliance
+        </span>
+        <span class="badge bg-primary-subtle text-primary border px-2 py-1 rounded-pill small">
+          <i class="fa-solid fa-fingerprint me-1"></i> Audit Trail Engine
+        </span>
+      </div>
+      <h3 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+        <i class="fa-solid fa-clock-rotate-left text-primary"></i> ประวัติการใช้งานระบบและการแก้ไขข้อมูล (Audit Logs)
+      </h3>
+      <p class="text-muted small mb-0">
+        เก็บบันทึกประวัติกิจกรรมการเข้าสู่ระบบ การเพิ่ม แก้ไข ลบ และการรับรองข้อมูลทุกรายการ เพื่อความโปร่งใสและตรวจสอบได้ย้อนหลัง
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm bg-white" onclick="resetHrLogsFilters()">
+        <i class="fa-solid fa-filter-circle-xmark me-1"></i> ล้างตัวกรอง
+      </button>
+      <button class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onclick="loadHrLogsModule(true)">
+        <i class="fa-solid fa-rotate me-1"></i> รีเฟรชข้อมูล
+      </button>
+    </div>
+  </div>
+
+  <!-- 4 Summary Stat Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white border-start border-4 border-primary">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">กิจกรรมวันนี้</div>
+            <div class="fs-4 fw-bold text-primary mt-1" id="statLogToday">0</div>
+            <div class="text-muted" style="font-size: 0.72rem;">รายการใน 24 ชม.</div>
+          </div>
+          <div class="rounded-circle bg-primary-subtle text-primary p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-calendar-day fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white border-start border-4 border-success">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">เพิ่มข้อมูลใหม่</div>
+            <div class="fs-4 fw-bold text-success mt-1" id="statLogCreate">0</div>
+            <div class="text-muted" style="font-size: 0.72rem;">CREATE records</div>
+          </div>
+          <div class="rounded-circle bg-success-subtle text-success p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-circle-plus fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white border-start border-4 border-warning">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">แก้ไขข้อมูล</div>
+            <div class="fs-4 fw-bold text-warning mt-1" id="statLogUpdate">0</div>
+            <div class="text-muted" style="font-size: 0.72rem;">UPDATE records</div>
+          </div>
+          <div class="rounded-circle bg-warning-subtle text-warning p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-pen-to-square fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white border-start border-4 border-danger">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold">ลบข้อมูล</div>
+            <div class="fs-4 fw-bold text-danger mt-1" id="statLogDelete">0</div>
+            <div class="text-muted" style="font-size: 0.72rem;">DELETE records</div>
+          </div>
+          <div class="rounded-circle bg-danger-subtle text-danger p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+            <i class="fa-solid fa-trash-can fs-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Card -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white p-3">
+    <div class="row g-2 align-items-end">
+      <!-- Filter: Module -->
+      <div class="col-12 col-sm-6 col-md-3">
+        <label class="form-label small fw-bold text-muted mb-1">
+          <i class="fa-solid fa-cubes text-primary me-1"></i> โมดูลระบบ
+        </label>
+        <select id="filterLogModule" class="form-select form-select-sm rounded-3" onchange="loadHrLogsModule()">
+          <option value="all">ทุกโมดูลระบบ</option>
+          <option value="profile">ข้อมูลส่วนตัว & ประวัติบุคลากร (Profile)</option>
+          <option value="education">ประวัติการศึกษา & คุณวุฒิ (Education)</option>
+          <option value="study_bonds">ศึกษาต่อ & ชดใช้ทุน (Study Bonds)</option>
+          <option value="insignia">เครื่องราชฯ & ร.จ.พ. (Insignia)</option>
+          <option value="licenses">ใบอนุญาตวิชาชีพ & บัตร (Licenses)</option>
+          <option value="training">ประวัติการฝึกอบรม (Training)</option>
+          <option value="awards">ผลงาน & รางวัลเชิดชูเกียรติ (Awards)</option>
+          <option value="user_roles">สิทธิ์ผู้ใช้งาน (User Roles)</option>
+          <option value="auth">การเข้าสู่ระบบ (Authentication)</option>
+        </select>
+      </div>
+
+      <!-- Filter: Action Type -->
+      <div class="col-12 col-sm-6 col-md-2">
+        <label class="form-label small fw-bold text-muted mb-1">
+          <i class="fa-solid fa-bolt text-warning me-1"></i> ประเภทการกระทำ
+        </label>
+        <select id="filterLogAction" class="form-select form-select-sm rounded-3" onchange="loadHrLogsModule()">
+          <option value="all">ทุกประเภท</option>
+          <option value="CREATE">เพิ่มข้อมูลใหม่ (CREATE)</option>
+          <option value="UPDATE">แก้ไขข้อมูล (UPDATE)</option>
+          <option value="DELETE">ลบข้อมูล (DELETE)</option>
+          <option value="VERIFY">ตรวจสอบ/รับรอง (VERIFY)</option>
+          <option value="LOGIN">เข้าสู่ระบบ (LOGIN)</option>
+        </select>
+      </div>
+
+      <!-- Filter: Date Range Start -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-bold text-muted mb-1">
+          <i class="fa-regular fa-calendar me-1"></i> ตั้งแต่วันที่
+        </label>
+        <input type="date" id="filterLogStartDate" class="form-control form-control-sm rounded-3" onchange="loadHrLogsModule()">
+      </div>
+
+      <!-- Filter: Date Range End -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-bold text-muted mb-1">
+          <i class="fa-regular fa-calendar me-1"></i> ถึงวันที่
+        </label>
+        <input type="date" id="filterLogEndDate" class="form-control form-control-sm rounded-3" onchange="loadHrLogsModule()">
+      </div>
+
+      <!-- Filter: Quick Search Box -->
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-bold text-muted mb-1">
+          <i class="fa-solid fa-magnifying-glass me-1"></i> ค้นหาด่วน
+        </label>
+        <div class="input-group input-group-sm">
+          <input type="text" id="filterLogSearch" class="form-control rounded-start-3" placeholder="PIN, ชื่อ, รายละเอียด, IP..." onkeydown="if(event.key==='Enter') loadHrLogsModule()">
+          <button class="btn btn-primary rounded-end-3" type="button" onclick="loadHrLogsModule()">
+            <i class="fa-solid fa-search"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    #hrLogsTable th,
+    #hrLogsTable td {
+      padding: 0.35rem 0.50rem !important;
+      vertical-align: middle;
+    }
+    #hrLogsTable tbody tr {
+      height: 38px;
+      transition: background-color 0.15s ease;
+    }
+    #hrLogsTable tbody tr:hover {
+      background-color: #f8fafc !important;
+    }
+    #hrLogsTable .badge {
+      padding: 0.18rem 0.45rem;
+      font-size: 0.74rem;
+      font-weight: 500;
+    }
+  </style>
+
+  <!-- Logs Table Card -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="fw-bold text-dark d-flex align-items-center gap-2">
+        <i class="fa-solid fa-list-check text-primary"></i> บันทึกกิจกรรมระบบ (System Activity Records)
+        <span class="badge bg-light text-secondary border rounded-pill ms-1" id="hrLogsRecordCount">0 รายการ</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table id="hrLogsTable" class="table table-hover align-middle w-100" style="font-size: 0.88rem;">
+        <thead class="table-light">
+          <tr>
+            <th class="text-center" style="width: 50px;">#</th>
+            <th style="min-width: 140px;">วัน-เวลาที่ทำรายการ</th>
+            <th style="min-width: 200px;">ผู้ทำรายการ (Operator)</th>
+            <th class="text-center" style="min-width: 110px;">การกระทำ</th>
+            <th style="min-width: 150px;">โมดูล / เป้าหมาย</th>
+            <th style="min-width: 280px;">รายละเอียดการเปลี่ยนแปลง</th>
+            <th style="min-width: 130px;">IP / อุปกรณ์</th>
+          </tr>
+        </thead>
+        <tbody id="hrLogsTableBody">
+          <!-- Populated by js_logs.html -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================================
+     MODAL: รายละเอียดกิจกรรมระบบ (Log Details Modal)
+     ========================================================================= -->
+<div class="modal fade" id="hrLogDetailModal" tabindex="-1" aria-labelledby="hrLogDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-bottom-0 pb-0 px-4 pt-4">
+        <div>
+          <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="hrLogDetailModalLabel">
+            <i class="fa-solid fa-circle-info text-primary"></i> รายละเอียดบันทึกกิจกรรมระบบ (Log Details)
+          </h5>
+          <span class="text-muted small" id="logModalSubtitle">รหัสรายการบันทึก</span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body px-4 py-3">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="p-3 bg-light rounded-3">
+              <div class="text-muted small fw-semibold mb-1">ผู้กระทำการ (Operator)</div>
+              <div class="d-flex align-items-center gap-2">
+                <img id="logModalUserAvatar" src="" class="rounded-circle border" style="width: 38px; height: 38px; object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name=User&background=cbd5e1&color=475569'">
+                <div>
+                  <div class="fw-bold text-dark" id="logModalUserName">-</div>
+                  <div class="small text-muted" id="logModalUserSub">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3 bg-light rounded-3">
+              <div class="text-muted small fw-semibold mb-1">เป้าหมายข้อมูล (Target / Subject)</div>
+              <div class="d-flex align-items-center gap-2">
+                <img id="logModalTargetAvatar" src="" class="rounded-circle border" style="width: 38px; height: 38px; object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name=Target&background=e2e8f0&color=64748b'">
+                <div>
+                  <div class="fw-bold text-dark" id="logModalTargetName">-</div>
+                  <div class="small text-muted" id="logModalTargetSub">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-2 border rounded-3 bg-white">
+              <span class="text-muted small">วัน-เวลา:</span>
+              <div class="fw-semibold text-dark small" id="logModalCreatedAt">-</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-2 border rounded-3 bg-white">
+              <span class="text-muted small">ประเภท / โมดูล:</span>
+              <div class="small" id="logModalActionModule">-</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-2 border rounded-3 bg-white">
+              <span class="text-muted small">IP Address:</span>
+              <div class="fw-semibold text-dark small font-monospace" id="logModalIp">-</div>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold text-dark mb-1">รายละเอียดการเปลี่ยนแปลง (Event Details):</label>
+            <div class="p-3 bg-light rounded-3 border font-monospace small text-break" id="logModalDetailsText" style="max-height: 220px; overflow-y: auto; white-space: pre-wrap;">-</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small text-muted mb-1">เบราว์เซอร์ / อุปกรณ์ (User Agent):</label>
+            <div class="small text-muted font-monospace text-break" id="logModalUserAgent" style="font-size: 0.75rem;">-</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-top-0 px-4 pb-4 pt-2">
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+</div>

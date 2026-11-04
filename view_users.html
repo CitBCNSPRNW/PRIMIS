@@ -1,0 +1,283 @@
+<div id="view-users" class="tab-pane-content d-none animate__animated animate__fadeIn">
+  <!-- View Header -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
+    <div>
+      <div
+        class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 mb-2 fw-medium"
+        style="font-size: 0.76rem;">
+        <i class="fa-solid fa-shield-halved me-1"></i>Security & Role-Based Access Control (RBAC Matrix)
+      </div>
+      <h2 class="page-title mb-1">
+        <i class="fa-solid fa-users-gear text-primary me-2"></i>จัดการผู้ใช้งานและสิทธิ์ (User Roles & Permissions)
+      </h2>
+      <div class="text-muted small">
+        กำหนดระดับสิทธิ์บุคลากรแบบรายบุคคลหรือแบบกลุ่ม (Batch) เพื่อควบคุมการเข้าถึงทะเบียนประวัติ ก.พ.7,
+        ข้อมูลเงินเดือน, และเมนูบริหารจัดการระบบ
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-outline-secondary rounded-pill px-3 py-2 btn-sm shadow-sm" onclick="loadUserRolesTable()"
+        title="รีเฟรชข้อมูล">
+        <i class="fa-solid fa-arrows-rotate me-1"></i>รีเฟรช
+      </button>
+      <button id="btnAddUserRoleBtn"
+        class="btn btn-primary rounded-pill px-3 py-2 btn-sm shadow-sm fw-semibold super-admin-only"
+        onclick="openAddUserRoleModal()">
+        <i class="fa-solid fa-user-plus me-1"></i>+ กำหนดสิทธิ์รายคน
+      </button>
+    </div>
+  </div>
+
+  <!-- Institutional Summary Cards (5 Groups: ทั้งหมด, อาจารย์, สายสนับสนุน, จ้างเหมา, ลาออก/เกษียณ) -->
+  <div class="row g-3 mb-4">
+    <!-- Card 0: ผู้ใช้งานทั้งหมด -->
+    <div class="col-6 col-md-4 col-xl">
+      <div id="staffGroupCardAll"
+        class="custom-card p-3 border-start border-4 border-primary h-100 cursor-pointer role-filter-card active-card"
+        onclick="filterByStaffGroupCard('all')" title="คลิกเพื่อดูผู้ใช้งานทั้งหมด" data-group="all">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-truncate me-2">
+            <div class="text-muted small fw-bold text-truncate">ผู้ใช้งานทั้งหมด</div>
+            <div class="fs-4 fw-bold text-dark mt-1" id="staffGroupCountAll">0</div>
+          </div>
+          <div class="avatar-circle bg-primary-subtle text-primary"
+            style="width: 40px; height: 40px; min-width: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-users fs-5"></i>
+          </div>
+        </div>
+        <div class="text-muted text-truncate" id="staffGroupDescAll" style="font-size: 0.72rem; margin-top: 4px;">
+          ทั้งหมดในระบบ (120 คน)</div>
+      </div>
+    </div>
+
+    <!-- Card 1: อาจารย์ -->
+    <div class="col-6 col-md-4 col-xl">
+      <div id="staffGroupCardTeaching"
+        class="custom-card p-3 border-start border-4 border-info h-100 cursor-pointer role-filter-card"
+        onclick="filterByStaffGroupCard('teaching')" title="คลิกเพื่อกรองเฉพาะอาจารย์/สายสอน" data-group="teaching">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-truncate me-2">
+            <div class="text-muted small fw-bold text-truncate">อาจารย์</div>
+            <div class="fs-4 fw-bold text-info mt-1" id="staffGroupCountTeaching">0</div>
+          </div>
+          <div class="avatar-circle bg-info-subtle text-info"
+            style="width: 40px; height: 40px; min-width: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-chalkboard-user fs-5"></i>
+          </div>
+        </div>
+        <div class="text-muted text-truncate" id="staffGroupDescTeaching" style="font-size: 0.72rem; margin-top: 4px;">
+          คณาจารย์ปฏิบัติงานจริง</div>
+      </div>
+    </div>
+
+    <!-- Card 2: สายสนับสนุน -->
+    <div class="col-6 col-md-4 col-xl">
+      <div id="staffGroupCardSupport"
+        class="custom-card p-3 border-start border-4 border-success h-100 cursor-pointer role-filter-card"
+        onclick="filterByStaffGroupCard('support')" title="คลิกเพื่อกรองเฉพาะสายสนับสนุน" data-group="support">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-truncate me-2">
+            <div class="text-muted small fw-bold text-truncate">สายสนับสนุน</div>
+            <div class="fs-4 fw-bold text-success mt-1" id="staffGroupCountSupport">0</div>
+          </div>
+          <div class="avatar-circle bg-success-subtle text-success"
+            style="width: 40px; height: 40px; min-width: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-user-tie fs-5"></i>
+          </div>
+        </div>
+        <div class="text-muted text-truncate" id="staffGroupDescSupport" style="font-size: 0.72rem; margin-top: 4px;">
+          บุคลากรสายสนับสนุนประจำ</div>
+      </div>
+    </div>
+
+    <!-- Card 3: จ้างเหมาบริการ -->
+    <div class="col-6 col-md-6 col-xl">
+      <div id="staffGroupCardContract"
+        class="custom-card p-3 border-start border-4 border-warning h-100 cursor-pointer role-filter-card"
+        onclick="filterByStaffGroupCard('contract')" title="คลิกเพื่อกรองเฉพาะจ้างเหมาบริการ" data-group="contract">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-truncate me-2">
+            <div class="text-muted small fw-bold text-truncate">จ้างเหมาบริการ</div>
+            <div class="fs-4 fw-bold text-warning-emphasis mt-1" id="staffGroupCountContract">0</div>
+          </div>
+          <div class="avatar-circle bg-warning-subtle text-warning"
+            style="width: 40px; height: 40px; min-width: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-file-contract fs-5"></i>
+          </div>
+        </div>
+        <div class="text-muted text-truncate" id="staffGroupDescContract" style="font-size: 0.72rem; margin-top: 4px;">
+          ตามประเภทการจ้างงาน</div>
+      </div>
+    </div>
+
+    <!-- Card 4: ลาออก/เกษียณ -->
+    <div class="col-12 col-md-6 col-xl">
+      <div id="staffGroupCardInactive"
+        class="custom-card p-3 border-start border-4 border-danger h-100 cursor-pointer role-filter-card"
+        onclick="filterByStaffGroupCard('inactive')" title="คลิกเพื่อกรองผู้ลาออก/เกษียณ" data-group="inactive">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-truncate me-2">
+            <div class="text-muted small fw-bold text-truncate">ลาออก/เกษียณ</div>
+            <div class="fs-4 fw-bold text-danger mt-1" id="staffGroupCountInactive">0</div>
+          </div>
+          <div class="avatar-circle bg-danger-subtle text-danger"
+            style="width: 40px; height: 40px; min-width: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-user-xmark fs-5"></i>
+          </div>
+        </div>
+        <div class="text-muted text-truncate" id="staffGroupDescInactive" style="font-size: 0.72rem; margin-top: 4px;">
+          พ้นสภาพการปฏิบัติงาน</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Filter Card -->
+  <div class="custom-card p-3 mb-3 bg-white">
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-md-4">
+        <label class="form-label small fw-bold text-muted mb-1"><i
+            class="fa-solid fa-briefcase text-primary me-1"></i>ตำแหน่ง (staff_master):</label>
+        <select id="userRolesPosFilter" class="form-select form-select-sm rounded-pill"
+          onchange="applyUserRolesFilters()">
+          <option value="all">💼 ทุกตำแหน่งใน staff_master (ทั้งหมด)</option>
+        </select>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <label class="form-label small fw-bold text-muted mb-1"><i
+            class="fa-solid fa-shield text-primary me-1"></i>ระดับสิทธิ์ (Role):</label>
+        <select id="userRolesRoleFilter" class="form-select form-select-sm rounded-pill"
+          onchange="applyUserRolesFilters()">
+          <option value="all">🛡️ ทุกระดับสิทธิ์ (ทั้งหมด)</option>
+          <option value="super_admin">🔴 Super Admin</option>
+          <option value="hr_admin">🔵 HR Admin</option>
+          <option value="executive">🔷 Executive</option>
+          <option value="staff">🟢 Staff</option>
+        </select>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <label class="form-label small fw-bold text-muted mb-1"><i
+            class="fa-solid fa-star text-warning me-1"></i>ประเภทสิทธิ์:</label>
+        <select id="userRolesStatusFilter" class="form-select form-select-sm rounded-pill"
+          onchange="applyUserRolesFilters()">
+          <option value="all">⭐ ทุกประเภท (พิเศษและเริ่มต้น)</option>
+          <option value="custom">🌟 เฉพาะสิทธิ์พิเศษที่มอบหมาย (Custom)</option>
+          <option value="default">🔹 เฉพาะสิทธิ์เริ่มต้น (Default)</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-md-2 d-flex align-items-end gap-1 mt-auto">
+        <button class="btn btn-outline-primary btn-sm rounded-pill w-100" onclick="selectAllFilteredRoles()"
+          title="เลือกทุกคนตามผลตัวกรอง">
+          <i class="fa-solid fa-check-double me-1"></i>เลือกทั้งหมด
+        </button>
+        <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="resetUserRolesFilters()"
+          title="ล้างตัวกรอง">
+          <i class="fa-solid fa-arrow-rotate-left"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating / In-Pane Batch Action Toolbar (เมื่อมีการเลือก >= 1 คน) -->
+  <div id="batchRoleToolbar"
+    class="d-none custom-card p-3 mb-3 border-0 shadow-lg animate__animated animate__fadeInDown"
+    style="background: linear-gradient(135deg, #0b1f3a 0%, #174287 50%, #1d4ed8 100%); color: #ffffff; border-radius: 16px;">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <!-- Left: Counter & Clear -->
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6">
+          <i class="fa-solid fa-users me-1"></i>เลือกแล้ว <span id="batchSelectedCountText">0</span> ท่าน
+        </span>
+        <button class="btn btn-sm btn-link text-white-50 text-decoration-none" onclick="clearBatchRoleSelection()">
+          <i class="fa-solid fa-xmark me-1"></i>ยกเลิกการเลือก
+        </button>
+      </div>
+
+      <!-- Center: Controls for Bulk Role & Permissions -->
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div class="d-flex align-items-center gap-1">
+          <label class="small fw-bold text-white-50 text-nowrap">กำหนด Role:</label>
+          <select id="batchAssignRoleSelect"
+            class="form-select form-select-sm rounded-pill fw-semibold bg-white text-dark" style="min-width: 140px;">
+            <option value="staff">👤 Staff</option>
+            <option value="executive">👔 Executive</option>
+            <option value="hr_admin">💼 HR Admin</option>
+            <option value="super_admin">🛡️ Super Admin</option>
+          </select>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-1 rounded-pill">
+          <div class="form-check form-check-inline m-0">
+            <input class="form-check-input" type="checkbox" id="batchPermExport" checked>
+            <label class="form-check-label small text-white" for="batchPermExport">Export ก.พ.7</label>
+          </div>
+          <div class="form-check form-check-inline m-0">
+            <input class="form-check-input" type="checkbox" id="batchPermInsignia">
+            <label class="form-check-label small text-white" for="batchPermInsignia">เครื่องราชฯ</label>
+          </div>
+          <div class="form-check form-check-inline m-0">
+            <input class="form-check-input" type="checkbox" id="batchPermBonds">
+            <label class="form-check-label small text-white" for="batchPermBonds">ชดใช้ทุน</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Action Buttons -->
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm" onclick="applyBatchRoleAssignment()">
+          <i class="fa-solid fa-floppy-disk me-1"></i>บันทึกสิทธิ์กลุ่มนี้
+        </button>
+        <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="applyBatchRoleReset()">
+          <i class="fa-solid fa-rotate-left me-1"></i>คืนค่าเริ่มต้น
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Roles Table Card -->
+  <div class="custom-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between pb-3 mb-3 border-bottom gap-2">
+      <div class="fw-bold text-dark d-flex align-items-center gap-2">
+        <i class="fa-solid fa-id-badge text-primary fs-5"></i>
+        <span>รายชื่อบุคลากรและสิทธิ์การใช้งานในระบบ (All Personnel Role Matrix)</span>
+        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 ms-1"
+          id="userRolesTotalCountBadge">0 คน</span>
+      </div>
+      <div class="text-muted small">
+        <i class="fa-solid fa-circle-info text-primary me-1"></i>สิทธิ์พิเศษ (Custom) จะมีผลเหนือค่าเริ่มต้นใน
+        staff_master
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table id="userRolesTable" class="table table-hover align-middle w-100" style="font-size: 0.88rem;">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 40px;" class="text-center">
+              <input type="checkbox" class="form-check-input" id="userRoleSelectAllBox"
+                onchange="toggleSelectAllRoleBoxes(this.checked)" title="เลือกทั้งหมดในหน้านี้">
+            </th>
+            <th style="width: 85px;">PIN</th>
+            <th style="min-width: 220px;">บุคลากร</th>
+            <th style="min-width: 150px;">ตำแหน่ง (staff_master)</th>
+            <th style="width: 140px;" class="text-center">ระดับสิทธิ์ (Role)</th>
+            <th style="min-width: 160px;">สิทธิ์เฉพาะด้าน</th>
+            <th style="width: 120px;">ปรับปรุงล่าสุด</th>
+            <th style="width: 90px;" class="text-center">การจัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="userRolesTableBody">
+          <tr>
+            <td colspan="8" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+              กำลังโหลดข้อมูลสิทธิ์ผู้ใช้งาน...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,1321 @@
+<script>
+/**
+ * js_disbursements.html
+ * โมดูลระบบศึกษาต่อ & สัญญาชดใช้ทุน (สบช. & ก.พ.)
+ * PRIMIS v1.4.01
+ */
+
+let studyBondsData = [];
+let studyBondsDataTable = null;
+let currentViewingStudyId = null;
+let studyStaffMasterList = [];
+
+/**
+ * 1. ฟังก์ชันโหลดข้อมูลโมดูลระบบศึกษาต่อและสัญญาชดใช้ทุน
+ */
+function loadStudyBondsModule(targetPin, forceRefresh) {
+  const userPin = window.currentUserPin || '';
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  // ควบคุมการแสดงผลปุ่มเพิ่มข้อมูล (สงวนสิทธิ์เฉพาะ Admin เหมือนข้อมูลวุฒิการศึกษา)
+  if (isAdmin) {
+    $('#btnAddStudyBondRecord').removeClass('d-none');
+    $('#studyStaffFilterContainer').removeClass('d-none');
+  } else {
+    $('#btnAddStudyBondRecord').addClass('d-none'); // สงวนสิทธิ์ HR Admin เท่านั้นเหมือนกับข้อมูลวุฒิ
+    $('#studyStaffFilterContainer').addClass('d-none'); // ซ่อน Filter บุคลากรคนอื่น
+  }
+
+  // โหลดรายชื่อบุคลากรเข้า Dropdown หากยังไม่มี
+  populateStudyStaffDropdowns();
+
+  const queryPin = targetPin || (isAdmin ? 0 : userPin);
+
+  $('#studyBondsTableBody').html(`
+    <tr>
+      <td colspan="9" class="text-center py-5 text-muted">
+        <div class="spinner-border text-warning spinner-border-sm me-2" role="status"></div>
+        กำลังโหลดข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน...
+      </td>
+    </tr>
+  `);
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.status === 'success' && Array.isArray(res.data)) {
+        studyBondsData = res.data;
+        updateStudyStats(studyBondsData);
+        renderStudyBondsTable(studyBondsData);
+      } else {
+        studyBondsData = [];
+        updateStudyStats([]);
+        renderStudyBondsTable([]);
+        if (res && res.message && !res.message.includes('Action ไม่ถูกต้อง')) {
+          console.warn('Study Bonds Notice:', res.message);
+        }
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.error('Error loading study bonds:', err);
+      $('#studyBondsTableBody').html(`
+        <tr>
+          <td colspan="9" class="text-center py-4 text-danger">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i> ไม่สามารถโหลดข้อมูลได้: ${err.message || err}
+          </td>
+        </tr>
+      `);
+    })
+    .getStudyBondsRecords(queryPin, 'all', 'all');
+}
+
+/**
+ * 2. ปรับปรุงตัวเลขในการ์ดสรุปสถิติ (KPI 4 Cards)
+ */
+function updateStudyStats(list) {
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const userPin = parseInt(window.currentUserPin || 0, 10);
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  let targetList = list || [];
+  if (!isAdmin && userPin > 0) {
+    targetList = targetList.filter(function(r) {
+      return parseInt(r.staff_id || 0, 10) === userPin;
+    });
+  }
+
+  let studyingCount = 0;
+  let inServiceCount = 0;
+  let nearDueCount = 0;
+  let dischargedCount = 0;
+
+  targetList.forEach(function(r) {
+    const sStatus = r.study_status || 'studying';
+    const bStatus = r.bond_status || 'waiting';
+    const hasBond = parseInt(r.has_bond || 0, 10);
+
+    // กำลังศึกษาต่อ
+    if (sStatus === 'studying' || sStatus === 'extended') {
+      studyingCount++;
+    }
+
+    // อยู่ระหว่างชดใช้ทุน
+    if (bStatus === 'in_service') {
+      inServiceCount++;
+      if (r.is_near_due || (r.days_remaining > 0 && r.days_remaining <= 180)) {
+        nearDueCount++;
+      }
+    }
+
+    // ปลอดภาระสัญญาแล้ว หรือไม่มีภาระสัญญา
+    if (bStatus === 'discharged' || hasBond === 0 || parseFloat(r.service_multiplier || 0) === 0) {
+      dischargedCount++;
+    }
+  });
+
+  $('#statStudyingCount').text(studyingCount.toLocaleString());
+  $('#statInServiceCount').text(inServiceCount.toLocaleString());
+  $('#statNearDueCount').text(nearDueCount.toLocaleString());
+  $('#statDischargedCount').text(dischargedCount.toLocaleString());
+}
+
+/**
+ * 3. เติมรายชื่อบุคลากรเข้าสู่ Dropdown Filter และ Modal Select (ดึงผ่านแคชกลาง ensurePersonnelListLoaded)
+ */
+function populateStudyStaffDropdowns(targetModalPin, callback) {
+  if (typeof ensurePersonnelListLoaded === 'function') {
+    ensurePersonnelListLoaded(function(list) {
+      const rawList = (list && list.length > 0) ? list : (window.allPersonnelList || (typeof currentPersonnelList !== 'undefined' ? currentPersonnelList : []));
+      const activeList = rawList.filter(function(p) {
+        if (typeof isStaffActiveOrStudying === 'function') {
+          return isStaffActiveOrStudying(p);
+        }
+        const st = String(p.work_status || '').toLowerCase();
+        return !st.includes('เกษียณ') && !st.includes('ลาออก') && !st.includes('เสียชีวิต');
+      });
+
+      studyStaffMasterList = activeList;
+
+      // 1. เติมข้อมูลใน Dropdown Filter หน้ารายการ
+      const $filterSel = $('#studyStaffFilterSelect');
+      if ($filterSel.length) {
+        const curFilterVal = $filterSel.val() || 'all';
+        $filterSel.empty().append('<option value="all">-- แสดงบุคลากรทั้งหมด --</option>');
+        activeList.forEach(function(st) {
+          const p = String(st.pin || st.staff_id || st.user_pin || st.id || '').trim();
+          if (!p) return;
+          const title = st.title_th || '';
+          const fname = st.fname_th || st.first_name_th || st.master_fname || '';
+          const lname = st.lname_th || st.last_name_th || st.master_lname || '';
+          const name = `${title}${fname} ${lname}`.trim() || `PIN #${p}`;
+          const pos = st.position_title || st.position || 'บุคลากร';
+          $filterSel.append(`<option value="${p}" data-pin="${p}">#${p} - ${name} (${pos})</option>`);
+        });
+        if (curFilterVal && curFilterVal !== 'all') {
+          $filterSel.val(curFilterVal);
+        }
+      }
+
+      // 2. เติมข้อมูลใน Dropdown ใน Modal
+      const $modalSel = $('#studyModalStaffSelect');
+      if ($modalSel.length) {
+        $modalSel.empty().append('<option value="">-- ค้นหาและเลือกบุคลากร --</option>');
+        activeList.forEach(function(st) {
+          const p = String(st.pin || st.staff_id || st.user_pin || st.id || '').trim();
+          if (!p) return;
+          const title = st.title_th || '';
+          const fname = st.fname_th || st.first_name_th || st.master_fname || '';
+          const lname = st.lname_th || st.last_name_th || st.master_lname || '';
+          const name = `${title}${fname} ${lname}`.trim() || `PIN #${p}`;
+          const pos = st.position_title || st.position || 'บุคลากร';
+          $modalSel.append(`<option value="${p}" data-pin="${p}">#${p} - ${name} (${pos})</option>`);
+        });
+
+        // ผูก Select2 ค้นหาด้วยชื่อหรือ PIN
+        if ($.fn.select2) {
+          if ($modalSel.hasClass('select2-hidden-accessible')) {
+            $modalSel.select2('destroy');
+          }
+          $modalSel.select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('#editStudyBondModal'),
+            placeholder: '-- ค้นหาและเลือกบุคลากร --',
+            matcher: (typeof select2MatcherWithPin === 'function' ? select2MatcherWithPin : undefined)
+          });
+          $modalSel.off('change.studyModalStaff').on('change.studyModalStaff', function() {
+            onStudyModalStaffSelectChanged(this.value);
+          });
+        }
+
+        if (targetModalPin) {
+          $modalSel.val(String(targetModalPin));
+          if ($.fn.select2) $modalSel.trigger('change.select2');
+          $('#studyStaffPin').val(String(targetModalPin));
+        }
+      }
+
+      if (typeof callback === 'function') {
+        callback(activeList);
+      }
+    });
+  }
+}
+
+/**
+ * 4. เรนเดอร์ตาราง Universal DataTable
+ */
+function renderStudyBondsTable(dataList) {
+  if ($.fn.DataTable.isDataTable('#studyBondsTable')) {
+    $('#studyBondsTable').DataTable().clear().destroy();
+  }
+
+  const $tbody = $('#studyBondsTableBody');
+  $tbody.empty();
+
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const userPin = parseInt(window.currentUserPin || 0, 10);
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  // ถ้าไม่ใช่ Admin ให้กรองเฉพาะข้อมูลของตนเองอย่างเคร่งครัด
+  if (!isAdmin && userPin > 0) {
+    dataList = (dataList || []).filter(function(r) {
+      return parseInt(r.staff_id || 0, 10) === userPin;
+    });
+  }
+
+  if (!Array.isArray(dataList) || dataList.length === 0) {
+    $tbody.html(`
+      <tr>
+        <td colspan="9" class="text-center py-5 text-muted">
+          <div class="py-4">
+            <i class="fa-solid fa-user-graduate fs-1 text-muted opacity-50 mb-2"></i>
+            <div class="fw-bold">ไม่พบข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน</div>
+            <div class="small text-muted mt-1">คลิกปุ่ม "+ บันทึกการศึกษาต่อและสัญญา" ด้านบนเพื่อเพิ่มข้อมูลใหม่ค่ะ</div>
+          </div>
+        </td>
+      </tr>
+    `);
+    return;
+  }
+
+  dataList.forEach(function(r, idx) {
+    const sId = r.study_id;
+    const bId = r.bond_id || 0;
+    const pin = parseInt(r.staff_id || 0, 10);
+    const hasBond = parseInt(r.has_bond || 0, 10);
+    const multiplier = parseFloat(r.service_multiplier || 0);
+
+    // บุคลากร Profile
+    const title = r.title_th || '';
+    const fname = r.fname_th || '';
+    const lname = r.lname_th || '';
+    const fullName = (title + fname + ' ' + lname).trim() || `บุคลากร PIN #${pin}`;
+    const pos = r.position_title || 'บุคลากร';
+    const dept = r.department ? ` • ${r.department}` : '';
+    const photoUrl = r.photo_url || '';
+
+    let avatarHtml = '';
+    if (photoUrl) {
+      avatarHtml = `<img src="${photoUrl}" alt="${fullName}" class="rounded-circle border" style="width: 38px; height: 38px; object-fit: cover;" onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\'rounded-circle bg-light d-flex align-items-center justify-content-center border fw-bold text-muted\' style=\'width:38px;height:38px;font-size:0.8rem;\'>${fname.charAt(0) || 'U'}</div>';">`;
+    } else {
+      const initial = fname.charAt(0) || 'U';
+      avatarHtml = `<div class="rounded-circle bg-light d-flex align-items-center justify-content-center border fw-bold text-muted" style="width: 38px; height: 38px; font-size: 0.8rem;">${initial}</div>`;
+    }
+
+    // ข้อมูลหลักสูตร & สถาบัน
+    const degree = r.degree_level || 'ปริญญาโท';
+    const program = r.program_name || '-';
+    const institution = r.institution || '-';
+    const country = r.country && r.country !== 'ไทย' ? `<span class="badge bg-light text-dark border ms-1" style="font-size:0.68rem;"><i class="fa-solid fa-earth-americas me-0.5"></i>${r.country}</span>` : '';
+
+    // รูปแบบการศึกษา (4 รูปแบบ สบช.)
+    let modalityBadge = '';
+    switch (r.study_modality) {
+      case 'full_time_leave':
+        modalityBadge = `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle" style="font-size:0.75rem;"><i class="fa-solid fa-plane-departure me-1"></i>ลาเต็มเวลา</span>`;
+        break;
+      case 'part_time_off_hours':
+        modalityBadge = `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle" style="font-size:0.75rem;"><i class="fa-solid fa-moon me-1"></i>นอกเวลาราชการ</span>`;
+        break;
+      case 'informal_study':
+        modalityBadge = `<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle" style="font-size:0.75rem;"><i class="fa-solid fa-feather-pointed me-1"></i>ทำวิทยานิพนธ์</span>`;
+        break;
+      case 'partial_leave':
+        modalityBadge = `<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:0.75rem;"><i class="fa-solid fa-business-time me-1"></i>ลาบางเวลา</span>`;
+        break;
+      default:
+        modalityBadge = `<span class="badge rounded-pill bg-light text-dark border" style="font-size:0.75rem;">${r.study_modality || '-'}</span>`;
+    }
+
+    // แหล่งทุน & เงินเดือน
+    let fundingText = 'ทุนส่วนตัว';
+    if (r.funding_type === 'institute') fundingText = 'ทุน สบช.';
+    else if (r.funding_type === 'government') fundingText = 'ทุน ก.พ./รัฐบาล';
+    else if (r.funding_type === 'external') fundingText = 'ทุนภายนอก';
+    else if (r.funding_type === 'none') fundingText = 'ไม่มีทุน';
+
+    let salaryBadge = '';
+    if (r.salary_status === 'with_salary') {
+      salaryBadge = `<span class="badge bg-primary-subtle text-primary" style="font-size:0.68rem;">รับเงินเดือน</span>`;
+    } else if (r.salary_status === 'without_salary') {
+      salaryBadge = `<span class="badge bg-secondary-subtle text-secondary" style="font-size:0.68rem;">ไม่รับเงินเดือน</span>`;
+    } else {
+      salaryBadge = `<span class="badge bg-light text-muted border" style="font-size:0.68rem;">นอกเวลา</span>`;
+    }
+
+    // ช่วงเวลาศึกษา
+    const startStr = formatThaiDateShort(r.approved_start_date);
+    const endStr = formatThaiDateShort(r.actual_end_date || r.approved_end_date);
+    const datesHtml = `
+      <div class="fw-bold text-dark text-nowrap" style="font-size: 0.84rem;">${startStr} - ${endStr}</div>
+      <div class="text-muted small" style="font-size: 0.72rem;">อนุมัติ: ${r.approval_doc_no || '-'}</div>
+    `;
+
+    // สัญญา & ตัวคูณ
+    let bondContractHtml = '';
+    if (hasBond === 0 || multiplier === 0) {
+      bondContractHtml = `<span class="badge bg-light text-muted border rounded-pill px-2 py-1 small">ไม่มีภาระสัญญา</span>`;
+    } else {
+      const cNo = r.contract_no || 'มีสัญญา';
+      const multBadge = `<span class="badge rounded-pill px-2 py-0.5 fw-bold" style="background: rgba(234, 88, 12, 0.12); color: #ea580c; font-size: 0.72rem;">${multiplier}x</span>`;
+      const totDays = parseInt(r.total_service_days || 0, 10).toLocaleString();
+      bondContractHtml = `
+        <div class="fw-bold text-dark text-truncate" style="max-width: 140px; font-size: 0.82rem;" title="${cNo}">${cNo}</div>
+        <div class="d-flex align-items-center gap-1 mt-0.5">
+          ${multBadge}
+          <span class="text-muted small" style="font-size: 0.72rem;">${totDays} วัน</span>
+        </div>
+      `;
+    }
+
+    // ความคืบหน้าการชดใช้ทุน (Progress Bar)
+    let progressHtml = '';
+    if (hasBond === 0 || multiplier === 0) {
+      progressHtml = `
+        <div class="text-success small fw-medium">
+          <i class="fa-solid fa-circle-check me-1"></i>ปลอดหนี้ผูกพัน (0.0x)
+        </div>
+      `;
+    } else if (r.bond_status === 'discharged') {
+      progressHtml = `
+        <div class="d-flex align-items-center gap-1.5">
+          <span class="badge bg-success-subtle text-success rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.75rem;">
+            <i class="fa-solid fa-check-double me-1"></i>ชดใช้ครบสัญญา (100%)
+          </span>
+        </div>
+        <div class="text-muted small mt-0.5" style="font-size: 0.72rem;">ปลดเปลื้อง: ${r.discharge_doc_no || formatThaiDateShort(r.discharge_date) || '-'}</div>
+      `;
+    } else if (r.bond_status === 'in_service') {
+      const served = parseInt(r.days_served || 0, 10);
+      const total = parseInt(r.total_service_days || 0, 10);
+      const remain = parseInt(r.days_remaining || 0, 10);
+      const pct = parseFloat(r.progress_percent || 0);
+
+      let barColor = 'bg-primary';
+      if (pct >= 80) barColor = 'bg-success';
+      else if (pct >= 40) barColor = 'bg-info';
+      if (r.is_near_due) barColor = 'bg-warning';
+
+      progressHtml = `
+        <div class="d-flex justify-content-between align-items-center small mb-1" style="font-size: 0.74rem;">
+          <span class="fw-bold text-dark">${served.toLocaleString()} / ${total.toLocaleString()} วัน</span>
+          <span class="fw-bold text-primary">${pct}%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated ${barColor}" role="progressbar" style="width: ${pct}%"></div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center text-muted small mt-1" style="font-size: 0.7rem;">
+          <span>เริ่ม: ${formatThaiDateShort(r.bond_start_date)}</span>
+          <span class="${r.is_near_due ? 'text-danger fw-bold' : ''}">เหลือ ${remain.toLocaleString()} ว.</span>
+        </div>
+      `;
+    } else if (r.bond_status === 'breached') {
+      progressHtml = `
+        <span class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.75rem;">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i>ผิดสัญญา / เรียกเงินคืน
+        </span>
+      `;
+    } else {
+      progressHtml = `
+        <div class="text-muted small">
+          <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-0.5" style="font-size: 0.72rem;">
+            รอเริ่มชดใช้ทุน
+          </span>
+          <div class="mt-0.5" style="font-size: 0.7rem;">กำลังศึกษาต่อ</div>
+        </div>
+      `;
+    }
+
+    // สถานะการศึกษา & สถานะสัญญา (Badges)
+    let studyStatusBadge = '';
+    switch (r.study_status) {
+      case 'studying':
+        studyStatusBadge = `<span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">กำลังศึกษา</span>`;
+        break;
+      case 'extended':
+        studyStatusBadge = `<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.72rem;">ขยายเวลา</span>`;
+        break;
+      case 'graduated':
+        studyStatusBadge = `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle" style="font-size: 0.72rem;">จบการศึกษา</span>`;
+        break;
+      case 'withdrawn':
+        studyStatusBadge = `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.72rem;">ยุติ/สละสิทธิ์</span>`;
+        break;
+      default:
+        studyStatusBadge = `<span class="badge rounded-pill bg-light text-dark border" style="font-size: 0.72rem;">${r.study_status || '-'}</span>`;
+    }
+
+    // สิทธิ์การแก้ไข/ลบ (สงวนสิทธิ์เฉพาะ HR Admin เท่านั้นเหมือนกับข้อมูลวุฒิ)
+    const canEdit = isAdmin;
+    const canDelete = isAdmin;
+
+    const rowHtml = `
+      <tr>
+        <td class="text-center text-muted small">${idx + 1}</td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            ${avatarHtml}
+            <div>
+              <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                <span class="badge rounded-pill px-2 py-0.5 fw-bold text-primary" style="background-color: #e0f2fe; font-size: 0.72rem;">#${pin}</span>
+                <span class="fw-bold text-dark" style="font-size: 0.88rem;">${fullName}</span>
+              </div>
+              <div class="text-muted small text-truncate" style="max-width: 170px; font-size: 0.74rem;">${pos}${dept}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="d-flex align-items-center gap-1">
+            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">${degree}</span>
+            ${country}
+          </div>
+          <div class="fw-bold text-dark mt-1 text-truncate" style="max-width: 220px; font-size: 0.84rem;" title="${program}">${program}</div>
+          <div class="text-muted small text-truncate" style="max-width: 220px; font-size: 0.74rem;" title="${institution}">${institution}</div>
+        </td>
+        <td>
+          <div>${modalityBadge}</div>
+          <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+            <span class="fw-medium text-dark small" style="font-size: 0.74rem;">${fundingText}</span>
+            ${salaryBadge}
+          </div>
+        </td>
+        <td>${datesHtml}</td>
+        <td>${bondContractHtml}</td>
+        <td>${progressHtml}</td>
+        <td class="text-center">
+          <div>${studyStatusBadge}</div>
+        </td>
+        <td class="text-center text-nowrap">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 rounded-start-pill shadow-2xs" title="ดูรายละเอียด" onclick="viewStudyBondDetail(${sId})">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+            ${canEdit ? `
+              <button type="button" class="btn btn-outline-warning btn-sm py-1 px-2 shadow-2xs" title="แก้ไขข้อมูล" onclick="editStudyBondRecord(${sId})">
+                <i class="fa-solid fa-pencil text-dark"></i>
+              </button>
+            ` : ''}
+            ${canDelete ? `
+              <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2 rounded-end-pill shadow-2xs" title="ลบรายการ" onclick="deleteStudyBondRecordPrompt(${sId}, ${bId}, ${pin}, '${escapeHtml(program)}')">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+    $tbody.append(rowHtml);
+  });
+
+  // กำหนดค่า DataTables
+  studyBondsDataTable = $('#studyBondsTable').DataTable({
+    paging: true,
+    pageLength: 10,
+    lengthMenu: [10, 25, 50, 100],
+    ordering: true,
+    order: [[0, 'asc']],
+    responsive: true,
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "ค้นหาในตาราง...",
+      lengthMenu: "แสดง _MENU_ รายการ",
+      info: "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ รายการ",
+      infoEmpty: "ไม่มีข้อมูล",
+      infoFiltered: "(กรองจาก _MAX_ รายการ)",
+      zeroRecords: "ไม่พบข้อมูลที่ตรงกับคำค้นหา",
+      paginate: {
+        first: '<i class="fa-solid fa-angles-left"></i>',
+        last: '<i class="fa-solid fa-angles-right"></i>',
+        next: '<i class="fa-solid fa-chevron-right"></i>',
+        previous: '<i class="fa-solid fa-chevron-left"></i>'
+      }
+    },
+    dom: "<'row g-2 align-items-center mb-2'<'col-12 col-md-6'l><'col-12 col-md-6 d-flex justify-content-md-end'f>>" +
+         "<'row'<'col-12'tr>>" +
+         "<'row g-2 align-items-center mt-3'<'col-12 col-md-5 small text-muted'i><'col-12 col-md-7 d-flex justify-content-md-end'p>>"
+  });
+}
+
+/**
+ * 5. ฟิลเตอร์ข้อมูลแบบเรียลไทม์
+ */
+function onStudyFilterChanged() {
+  const staffVal = $('#studyStaffFilterSelect').val() || 'all';
+  const modalityVal = $('#studyModalityFilterSelect').val() || 'all';
+  const fundingVal = $('#studyFundingFilterSelect').val() || 'all';
+  const bondVal = $('#studyBondStatusFilterSelect').val() || 'all';
+  const searchVal = ($('#studyInstantSearchInput').val() || '').trim().toLowerCase();
+
+  const filtered = studyBondsData.filter(function(r) {
+    // 1. Staff PIN
+    if (staffVal !== 'all' && String(r.staff_id) !== String(staffVal)) {
+      return false;
+    }
+    // 2. Modality
+    if (modalityVal !== 'all' && r.study_modality !== modalityVal) {
+      return false;
+    }
+    // 3. Funding
+    if (fundingVal !== 'all' && r.funding_type !== fundingVal) {
+      return false;
+    }
+    // 4. Bond Status
+    if (bondVal !== 'all') {
+      if (bondVal === 'near_due') {
+        if (!r.is_near_due && !(r.days_remaining > 0 && r.days_remaining <= 180)) return false;
+      } else if (bondVal === 'no_bond') {
+        if (parseInt(r.has_bond || 0, 10) !== 0 && parseFloat(r.service_multiplier || 0) > 0) return false;
+      } else {
+        if (r.bond_status !== bondVal) return false;
+      }
+    }
+    // 5. Search Text
+    if (searchVal) {
+      const matchText = (
+        (r.fname_th || '') + ' ' +
+        (r.lname_th || '') + ' ' +
+        (r.program_name || '') + ' ' +
+        (r.institution || '') + ' ' +
+        (r.contract_no || '') + ' ' +
+        (r.staff_id || '')
+      ).toLowerCase();
+      if (!matchText.includes(searchVal)) return false;
+    }
+    return true;
+  });
+
+  renderStudyBondsTable(filtered);
+}
+
+function onStudySearchKeyUp(event) {
+  if (event.key === 'Enter') {
+    onStudyFilterChanged();
+  }
+}
+
+/**
+ * 6. ตรรกะระเบียบ ก.พ. & สบช. อัตโนมัติ (ทุนส่วนตัว, ทุนสถาบัน, 4 รูปแบบ)
+ */
+function onStudyModalityOrFundingChanged() {
+  const modality = $('#studyModality').val();
+  const funding = $('#studyFundingType').val();
+  const salaryStatus = $('#studySalaryStatus').val();
+  const country = ($('#studyCountry').val() || '').trim();
+  const isAbroad = country && country !== 'ไทย';
+
+  const $hasBondSwitch = $('#studyHasBondSwitch');
+  const $multiplierSelect = $('#bondMultiplierSelect');
+  const $notice = $('#bondRuleNoticeText');
+  const $workImpact = $('#studyWorkImpact');
+
+  // ปรับสถานะภาระงานราชการตามรูปแบบ
+  if (modality === 'full_time_leave') {
+    $workImpact.val('on_leave');
+  } else if (modality === 'part_time_off_hours') {
+    $workImpact.val('normal_duty');
+  } else {
+    $workImpact.val('partial_duty');
+  }
+
+  // รูปแบบที่ 2: ศึกษานอกเวลาราชการ
+  if (modality === 'part_time_off_hours') {
+    $('#studySalaryStatus').val('off_hours');
+    $hasBondSwitch.prop('checked', false);
+    toggleBondSection(false);
+    $multiplierSelect.val('0.0');
+    $notice.html('<strong>ศึกษานอกเวลาราชการ (วันหยุด/นอกเวลา):</strong> ปฏิบัติหน้าที่ราชการตามปกติ รับเงินเดือนปกติ <u>ไม่มีภาระสัญญาชดใช้ทุน (ตัวคูณ 0.0 เท่า)</u>');
+    recalcBondCalculation();
+    return;
+  }
+
+  // รูปแบบอื่นๆ และพิจารณาตามแหล่งทุน & การรับเงินเดือน
+  if (funding === 'self') {
+    if (salaryStatus === 'without_salary') {
+      $hasBondSwitch.prop('checked', false);
+      toggleBondSection(false);
+      $multiplierSelect.val('0.0');
+      $notice.html('<strong>ทุนส่วนตัว (ไม่รับเงินเดือน):</strong> <u>ไม่มีภาระสัญญาชดใช้ทุน (ตัวคูณ 0.0 เท่า)</u> เนื่องจากไม่ได้รับเงินเดือนจากทางราชการระหว่างศึกษา');
+    } else {
+      $hasBondSwitch.prop('checked', true);
+      toggleBondSection(true);
+      $multiplierSelect.val('1.0');
+      $notice.html('<strong>ทุนส่วนตัว (ได้รับเงินเดือน):</strong> มีภาระสัญญาผูกพันชดใช้ทุน <u>1.0 เท่า</u> ของระยะเวลาศึกษาจริง (ตามระเบียบ ก.พ.)');
+    }
+  } else if (funding === 'institute' || funding === 'government') {
+    $hasBondSwitch.prop('checked', true);
+    toggleBondSection(true);
+    if (isAbroad) {
+      $multiplierSelect.val('3.0');
+      $notice.html('<strong>ทุนสถาบัน/รัฐบาล (ศึกษาต่างประเทศ):</strong> มีภาระสัญญาชดใช้ทุน <u>3.0 เท่า</u> ของระยะเวลาศึกษาจริง');
+    } else {
+      $multiplierSelect.val('2.0');
+      $notice.html('<strong>ทุนสถาบันพระบรมราชชนก / ทุนรัฐบาล (ในประเทศ):</strong> มีภาระสัญญาชดใช้ทุน <u>2.0 เท่า</u> ของระยะเวลาศึกษาจริง');
+    }
+  } else if (funding === 'none') {
+    if (salaryStatus === 'without_salary') {
+      $hasBondSwitch.prop('checked', false);
+      toggleBondSection(false);
+      $multiplierSelect.val('0.0');
+      $notice.text('ไม่มีทุนและไม่รับเงินเดือน: ไม่มีภาระสัญญาชดใช้ทุน (ตัวคูณ 0.0 เท่า)');
+    } else {
+      $hasBondSwitch.prop('checked', true);
+      toggleBondSection(true);
+      $multiplierSelect.val('1.0');
+      $notice.text('ไม่มีทุนแต่ได้รับเงินเดือน: มีภาระสัญญาชดใช้ทุน 1.0 เท่าตามระเบียบ ก.พ.');
+    }
+  }
+
+  recalcBondCalculation();
+}
+
+function toggleBondSection(isChecked) {
+  if (isChecked) {
+    $('#bondFieldsContainer').removeClass('opacity-50 pointer-events-none');
+    $('#bondFieldsContainer input, #bondFieldsContainer select').prop('disabled', false);
+  } else {
+    $('#bondFieldsContainer').addClass('opacity-50 pointer-events-none');
+    $('#bondFieldsContainer input, #bondFieldsContainer select').prop('disabled', true);
+    $('#bondMultiplierSelect').val('0.0');
+    $('#bondTotalServiceDays').val('0');
+  }
+}
+
+function onBondMultiplierChanged(val) {
+  if (val === 'custom') {
+    $('#bondMultiplierCustom').removeClass('d-none').focus();
+  } else {
+    $('#bondMultiplierCustom').addClass('d-none');
+  }
+  recalcBondCalculation();
+}
+
+/**
+ * 7. คำนวณจำนวนวันชดใช้ทุนและวันสิ้นสุดสัญญาอัตโนมัติ
+ */
+function recalcBondCalculation() {
+  const startStr = $('#studyApprovedStartDate').val();
+  const endStr = $('#studyActualEndDate').val() || $('#studyApprovedEndDate').val();
+  if (!startStr || !endStr) return;
+
+  const startDate = new Date(startStr);
+  const endDate = new Date(endStr);
+  if (endDate < startDate) return;
+
+  const diffTime = Math.abs(endDate - startDate);
+  const studyDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  let multVal = $('#bondMultiplierSelect').val();
+  let mult = multVal === 'custom' ? parseFloat($('#bondMultiplierCustom').val() || 0) : parseFloat(multVal || 0);
+
+  const totalBondDays = Math.round(studyDays * mult);
+  $('#bondTotalServiceDays').val(totalBondDays);
+  $('#bondDaysCalcHint').text(`คำนวณจากระยะเวลาศึกษา ${studyDays} วัน × ${mult} เท่า = ${totalBondDays} วัน`);
+
+  recalcBondEndDate();
+}
+
+function recalcBondDatesFromDays() {
+  recalcBondEndDate();
+}
+
+function recalcBondEndDate() {
+  const startBondStr = $('#bondStartDate').val();
+  const days = parseInt($('#bondTotalServiceDays').val() || 0, 10);
+  if (!startBondStr || days <= 0) return;
+
+  const d = new Date(startBondStr);
+  d.setDate(d.getDate() + days - 1);
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  $('#bondEndDate').val(`${yyyy}-${mm}-${dd}`);
+}
+
+function onBondReturnDutyDateChanged(val) {
+  if (val && !$('#bondStartDate').val()) {
+    $('#bondStartDate').val(val);
+    recalcBondEndDate();
+  }
+}
+
+function onBondStatusSelectChanged(val) {
+  if (val === 'discharged') {
+    if (!$('#bondDischargeDate').val()) {
+      const today = new Date().toISOString().split('T')[0];
+      $('#bondDischargeDate').val(today);
+    }
+  }
+}
+
+function onStudyStatusChanged(val) {
+  if (val === 'graduated') {
+    $('#bondStatusSelect').val('in_service');
+  }
+}
+
+function onStudyDegreeLevelChanged(val) {
+  // auto-adjust defaults if needed
+}
+
+/**
+ * 8. เปิดหน้าต่างบันทึกข้อมูล (Add Modal)
+ */
+function openAddStudyBondModal(prefillPin) {
+  $('#studyBondRecordForm')[0].reset();
+  $('#studyRecordId').val('');
+  $('#studyBondId').val('');
+  $('#studyDocUrlExisting').val('');
+  $('#bondDocUrlExisting').val('');
+  $('#studyExistingFileContainer').addClass('d-none');
+  $('#studyMultiplierCustom').addClass('d-none');
+
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const userPin = window.currentUserPin || '';
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  // สงวนสิทธิ์ HR Admin เท่านั้นเหมือนกับข้อมูลวุฒิการศึกษา
+  if (!isAdmin) {
+    Swal.fire({
+      icon: 'warning',
+      title: '🔒 สิทธิ์เฉพาะเจ้าหน้าที่บุคคล',
+      text: 'การเพิ่มหรือปรับปรุงข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน สงวนสิทธิ์สำหรับเจ้าหน้าที่ฝ่ายทรัพยากรบุคคล (HR Admin) เท่านั้นค่ะ',
+      confirmButtonText: 'รับทราบ',
+      confirmButtonColor: '#ea580c'
+    });
+    return;
+  }
+
+  $('#studyStaffSelectContainer').removeClass('d-none');
+  $('#studyStaffFixedBadge').addClass('d-none');
+  populateStudyStaffDropdowns(prefillPin || '', function(activeList) {
+    if (prefillPin) {
+      $('#studyStaffPin').val(String(prefillPin));
+    } else {
+      $('#studyStaffPin').val('');
+    }
+  });
+
+  // ค่าเริ่มต้น
+  $('#studyDegreeLevel').val('ปริญญาโท');
+  $('#studyModality').val('full_time_leave');
+  $('#studyFundingType').val('self');
+  $('#studySalaryStatus').val('with_salary');
+  $('#studyCountry').val('ไทย');
+  $('#studyStatus').val('studying');
+  $('#bondStatusSelect').val('waiting');
+  $('#studyHasBondSwitch').prop('checked', true);
+
+  onStudyModalityOrFundingChanged();
+
+  $('#editStudyBondModalLabel').text('เพิ่มข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน');
+  const modal = new bootstrap.Modal(document.getElementById('editStudyBondModal'));
+  modal.show();
+}
+
+function onStudyModalStaffSelectChanged(pin) {
+  $('#studyStaffPin').val(pin);
+}
+
+/**
+ * 9. เปิดหน้าต่างแก้ไขข้อมูล (Edit Modal)
+ */
+function editStudyBondRecord(studyId) {
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  // สงวนสิทธิ์ HR Admin เท่านั้นเหมือนกับข้อมูลวุฒิการศึกษา
+  if (!isAdmin) {
+    Swal.fire({
+      icon: 'warning',
+      title: '🔒 สิทธิ์เฉพาะเจ้าหน้าที่บุคคล',
+      text: 'การแก้ไขข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน สงวนสิทธิ์สำหรับเจ้าหน้าที่ฝ่ายทรัพยากรบุคคล (HR Admin) เท่านั้นค่ะ',
+      confirmButtonText: 'รับทราบ',
+      confirmButtonColor: '#ea580c'
+    });
+    return;
+  }
+
+  const item = studyBondsData.find(r => parseInt(r.study_id, 10) === parseInt(studyId, 10));
+  if (!item) {
+    Swal.fire({ icon: 'error', title: 'ไม่พบข้อมูล', text: 'ไม่พบรายการศึกษาต่อที่ต้องการแก้ไขค่ะ' });
+    return;
+  }
+
+  $('#studyRecordId').val(item.study_id);
+  $('#studyBondId').val(item.bond_id || '');
+  $('#studyStaffPin').val(item.staff_id);
+
+  $('#studyStaffSelectContainer').removeClass('d-none');
+  $('#studyStaffFixedBadge').addClass('d-none');
+  populateStudyStaffDropdowns(item.staff_id, function() {
+    $('#studyStaffPin').val(item.staff_id);
+  });
+
+  // ฟอร์มศึกษาต่อ
+  $('#studyDegreeLevel').val(item.degree_level || 'ปริญญาโท');
+  $('#studyProgramName').val(item.program_name || '');
+  $('#studyInstitution').val(item.institution || '');
+  $('#studyCountry').val(item.country || 'ไทย');
+  $('#studyStatus').val(item.study_status || 'studying');
+  $('#studyModality').val(item.study_modality || 'full_time_leave');
+  $('#studyFundingType').val(item.funding_type || 'self');
+  $('#studySalaryStatus').val(item.salary_status || 'with_salary');
+  $('#studyFundingName').val(item.funding_name || '');
+  $('#studyWorkImpact').val(item.work_impact || 'on_leave');
+  $('#studyApprovedStartDate').val(item.approved_start_date || '');
+  $('#studyApprovedEndDate').val(item.approved_end_date || '');
+  $('#studyActualEndDate').val(item.actual_end_date || '');
+  $('#studyApprovalDocNo').val(item.approval_doc_no || '');
+  $('#studyApprovalDocDate').val(item.approval_doc_date || '');
+  $('#studyThesisTitle').val(item.thesis_title || '');
+  $('#studyRemarks').val(item.study_remarks || '');
+
+  // สัญญาและการชดใช้ทุน
+  const hasBond = parseInt(item.has_bond || 0, 10);
+  $('#studyHasBondSwitch').prop('checked', hasBond === 1);
+  toggleBondSection(hasBond === 1);
+
+  $('#bondContractNo').val(item.contract_no || '');
+  $('#bondContractDate').val(item.contract_date || '');
+
+  const mult = parseFloat(item.service_multiplier || 0);
+  if ([0.0, 1.0, 2.0, 3.0].includes(mult)) {
+    $('#bondMultiplierSelect').val(mult.toFixed(1));
+    $('#bondMultiplierCustom').addClass('d-none');
+  } else {
+    $('#bondMultiplierSelect').val('custom');
+    $('#bondMultiplierCustom').removeClass('d-none').val(mult);
+  }
+
+  $('#bondTotalServiceDays').val(item.total_service_days || 0);
+  $('#bondPenaltyAmount').val(item.bond_penalty_amount || 0);
+  $('#bondStatusSelect').val(item.bond_status || 'waiting');
+  $('#bondGuarantor1Name').val(item.guarantor_1_name || '');
+  $('#bondGuarantor1Pos').val(item.guarantor_1_pos || '');
+  $('#bondGuarantor2Name').val(item.guarantor_2_name || '');
+  $('#bondGuarantor2Pos').val(item.guarantor_2_pos || '');
+  $('#bondReturnDutyDate').val(item.return_duty_date || '');
+  $('#bondStartDate').val(item.bond_start_date || '');
+  $('#bondEndDate').val(item.bond_end_date || '');
+  $('#bondDischargeDocNo').val(item.discharge_doc_no || '');
+  $('#bondDischargeDate').val(item.discharge_date || '');
+
+  // ไฟล์แนบเดิม
+  const docUrl = item.study_doc_url || item.bond_doc_url || '';
+  if (docUrl) {
+    $('#studyDocUrlExisting').val(docUrl);
+    $('#studyExistingFileLink').attr('href', docUrl);
+    $('#studyExistingFileContainer').removeClass('d-none');
+  } else {
+    $('#studyDocUrlExisting').val('');
+    $('#studyExistingFileContainer').addClass('d-none');
+  }
+
+  $('#editStudyBondModalLabel').text('แก้ไขข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน');
+  const modal = new bootstrap.Modal(document.getElementById('editStudyBondModal'));
+  modal.show();
+}
+
+function removeStudyExistingFile() {
+  $('#studyDocUrlExisting').val('');
+  $('#studyExistingFileContainer').addClass('d-none');
+}
+
+/**
+ * 10. ดูรายละเอียด (View Detail Modal)
+ */
+function viewStudyBondDetail(studyId) {
+  const item = studyBondsData.find(r => parseInt(r.study_id, 10) === parseInt(studyId, 10));
+  if (!item) return;
+
+  currentViewingStudyId = studyId;
+
+  const pin = item.staff_id;
+  const fullName = ((item.title_th || '') + (item.fname_th || '') + ' ' + (item.lname_th || '')).trim() || `PIN #${pin}`;
+  const pos = (item.position_title || 'บุคลากร') + (item.department ? ` • ${item.department}` : '');
+
+  // Header Avatar
+  if (item.photo_url) {
+    $('#vStudyAvatarContainer').html(`<img src="${item.photo_url}" alt="${fullName}" class="rounded-circle border" style="width: 50px; height: 50px; object-fit: cover;">`);
+  } else {
+    const initial = (item.fname_th || 'U').charAt(0);
+    $('#vStudyAvatarContainer').html(`<div class="rounded-circle bg-light d-flex align-items-center justify-content-center border fw-bold text-muted fs-5" style="width: 50px; height: 50px;">${initial}</div>`);
+  }
+
+  $('#vStudyPinBadge').text(`PIN #${pin}`);
+  $('#vStudyStaffName').text(fullName);
+  $('#vStudyStaffPosition').text(pos);
+
+  // การศึกษาต่อ
+  $('#vStudyDegreeLevel').text(item.degree_level || '-');
+  $('#vStudyProgramName').text(item.program_name || '-');
+  $('#vStudyInstitution').text((item.institution || '-') + (item.country && item.country !== 'ไทย' ? ` (${item.country})` : ''));
+
+  let modTxt = item.study_modality || '-';
+  if (modTxt === 'full_time_leave') modTxt = 'ลาศึกษาเต็มเวลาราชการ';
+  else if (modTxt === 'part_time_off_hours') modTxt = 'ศึกษานอกเวลาราชการ';
+  else if (modTxt === 'informal_study') modTxt = 'ลาทำวิทยานิพนธ์/ค้นคว้าอิสระ';
+  else if (modTxt === 'partial_leave') modTxt = 'ลาศึกษาบางเวลา';
+  $('#vStudyModalityBadge').html(`<span class="badge bg-light text-dark border">${modTxt}</span>`);
+
+  let fundTxt = item.funding_name || item.funding_type || 'ทุนส่วนตัว';
+  let salTxt = item.salary_status === 'with_salary' ? 'ได้รับเงินเดือน' : (item.salary_status === 'without_salary' ? 'ไม่ได้รับเงินเดือน' : 'ศึกษานอกเวลา');
+  $('#vStudyFunding').text(`${fundTxt} (${salTxt})`);
+
+  let stTxt = item.study_status || 'studying';
+  if (stTxt === 'studying') $('#vStudyStatusBadge').html('<span class="badge bg-primary-subtle text-primary border border-primary-subtle">กำลังศึกษาต่อ</span>');
+  else if (stTxt === 'extended') $('#vStudyStatusBadge').html('<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">ขยายเวลา</span>');
+  else if (stTxt === 'graduated') $('#vStudyStatusBadge').html('<span class="badge bg-success-subtle text-success border border-success-subtle">สำเร็จการศึกษา</span>');
+  else $('#vStudyStatusBadge').html('<span class="badge bg-danger-subtle text-danger border border-danger-subtle">ยุติ/พ้นสภาพ</span>');
+
+  const sStart = formatThaiDate(item.approved_start_date);
+  const sEnd = formatThaiDate(item.actual_end_date || item.approved_end_date);
+  $('#vStudyApprovedDates').text(`${sStart} - ${sEnd}`);
+  $('#vStudyApprovalDoc').text(item.approval_doc_no ? `${item.approval_doc_no} (ลว. ${formatThaiDate(item.approval_doc_date) || '-'})` : '-');
+
+  if (item.thesis_title) {
+    $('#vStudyThesisTitle').text(item.thesis_title);
+    $('#vStudyThesisContainer').removeClass('d-none');
+  } else {
+    $('#vStudyThesisContainer').addClass('d-none');
+  }
+
+  // สัญญาชดใช้ทุน
+  const hasBond = parseInt(item.has_bond || 0, 10);
+  const mult = parseFloat(item.service_multiplier || 0);
+
+  if (hasBond === 0 || mult === 0) {
+    $('#vBondProgressBox').addClass('d-none');
+    $('#vBondContractNo').text('ไม่มีภาระสัญญาผูกพัน');
+    $('#vBondContractDate').text('-');
+    $('#vBondMultiplier').text('0.0 เท่า');
+    $('#vBondStartDate').text('-');
+    $('#vBondEndDate').text('-');
+    $('#vBondStatusBadge').html('<span class="badge bg-success-subtle text-success">ปลอดภาระสัญญา</span>');
+    $('#vBondGuarantor1').text('-');
+    $('#vBondGuarantor2').text('-');
+    $('#vBondPenaltyAmount').text('0.00 บาท');
+    $('#vBondDischargeContainer').addClass('d-none');
+  } else {
+    $('#vBondProgressBox').removeClass('d-none');
+    $('#vBondContractNo').text(item.contract_no || 'มีสัญญา');
+    $('#vBondContractDate').text(formatThaiDate(item.contract_date) || '-');
+    $('#vBondMultiplier').text(`${mult} เท่า (${parseInt(item.total_service_days || 0, 10).toLocaleString()} วัน)`);
+    $('#vBondStartDate').text(formatThaiDate(item.bond_start_date) || '-');
+    $('#vBondEndDate').text(formatThaiDate(item.bond_end_date) || '-');
+
+    const served = parseInt(item.days_served || 0, 10);
+    const total = parseInt(item.total_service_days || 0, 10);
+    const remain = parseInt(item.days_remaining || 0, 10);
+    const pct = parseFloat(item.progress_percent || 0);
+
+    $('#vBondDaysServed').text(`ชดใช้แล้ว: ${served.toLocaleString()} วัน`);
+    $('#vBondDaysRemaining').text(`คงเหลือ: ${remain.toLocaleString()} วัน`);
+    $('#vBondTotalDays').text(`รวม: ${total.toLocaleString()} วัน`);
+    $('#vBondProgressBar').css('width', `${pct}%`);
+    $('#vBondProgressPercentBadge').text(`${pct}%`).removeClass().addClass(pct >= 80 ? 'badge bg-success rounded-pill fw-bold' : (pct >= 40 ? 'badge bg-info rounded-pill fw-bold' : 'badge bg-primary rounded-pill fw-bold'));
+
+    let bstBadge = '';
+    if (item.bond_status === 'discharged') bstBadge = '<span class="badge bg-success-subtle text-success">ปลอดหนี้ผูกพันแล้ว</span>';
+    else if (item.bond_status === 'in_service') bstBadge = '<span class="badge bg-warning-subtle text-warning-emphasis">อยู่ระหว่างชดใช้ทุน</span>';
+    else if (item.bond_status === 'breached') bstBadge = '<span class="badge bg-danger-subtle text-danger">ผิดสัญญา</span>';
+    else bstBadge = '<span class="badge bg-secondary-subtle text-secondary">รอชดใช้ทุน</span>';
+    $('#vBondStatusBadge').html(bstBadge);
+
+    $('#vBondGuarantor1').text(item.guarantor_1_name ? `${item.guarantor_1_name} (${item.guarantor_1_pos || '-'})` : '-');
+    $('#vBondGuarantor2').text(item.guarantor_2_name ? `${item.guarantor_2_name} (${item.guarantor_2_pos || '-'})` : '-');
+    $('#vBondPenaltyAmount').text(parseFloat(item.bond_penalty_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' บาท');
+
+    if (item.discharge_doc_no || item.discharge_date) {
+      $('#vBondDischargeDoc').text(`${item.discharge_doc_no || '-'} (ลว. ${formatThaiDate(item.discharge_date) || '-'})`);
+      $('#vBondDischargeContainer').removeClass('d-none');
+    } else {
+      $('#vBondDischargeContainer').addClass('d-none');
+    }
+  }
+
+  // หมายเหตุ & ไฟล์แนบ
+  if (item.study_remarks || item.bond_remarks) {
+    $('#vStudyRemarks').text(item.study_remarks || item.bond_remarks);
+    $('#vStudyRemarksContainer').removeClass('d-none');
+  } else {
+    $('#vStudyRemarksContainer').addClass('d-none');
+  }
+
+  const docUrl = item.study_doc_url || item.bond_doc_url || '';
+  if (docUrl) {
+    $('#vStudyDocLinkContainer').html(`
+      <a href="${docUrl}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1.5 shadow-2xs">
+        <i class="fa-solid fa-file-pdf me-1 text-danger"></i> เปิดดูไฟล์คำสั่ง / สัญญาชดใช้ทุน
+      </a>
+    `);
+  } else {
+    $('#vStudyDocLinkContainer').html('<span class="text-muted small">ไม่มีการแนบไฟล์เอกสาร</span>');
+  }
+
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+  if (isAdmin) {
+    $('#btnEditFromStudyDetailModal').removeClass('d-none');
+  } else {
+    $('#btnEditFromStudyDetailModal').addClass('d-none');
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('viewStudyBondDetailModal'));
+  modal.show();
+}
+
+function editStudyBondFromDetailModal() {
+  const modalEl = document.getElementById('viewStudyBondDetailModal');
+  const modal = bootstrap.Modal.getInstance(modalEl);
+  if (modal) modal.hide();
+  if (currentViewingStudyId) {
+    setTimeout(function() {
+      editStudyBondRecord(currentViewingStudyId);
+    }, 300);
+  }
+}
+
+/**
+ * 11. ส่งฟอร์มบันทึกข้อมูล (Save & Upload)
+ */
+function submitStudyBondForm() {
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  if (!isAdmin) {
+    Swal.fire({
+      icon: 'error',
+      title: '🔒 สิทธิ์ไม่เพียงพอ',
+      text: 'การบันทึกข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน สงวนสิทธิ์สำหรับเจ้าหน้าที่ฝ่ายบุคคล (HR Admin) เท่านั้นค่ะ'
+    });
+    return;
+  }
+
+  let staffPin = $('#studyStaffPin').val();
+  if (!staffPin) {
+    staffPin = $('#studyModalStaffSelect').val();
+    if (staffPin) {
+      $('#studyStaffPin').val(staffPin);
+    }
+  }
+  if (!staffPin) {
+    Swal.fire({ icon: 'warning', title: 'กรุณาเลือกบุคลากร', text: 'กรุณาระบุบุคลากรผู้ศึกษาต่อก่อนบันทึกค่ะ' });
+    return;
+  }
+
+  const degree = $('#studyDegreeLevel').val();
+  const program = ($('#studyProgramName').val() || '').trim();
+  const institution = ($('#studyInstitution').val() || '').trim();
+  const startStr = $('#studyApprovedStartDate').val();
+  const endStr = $('#studyApprovedEndDate').val();
+
+  if (!program || !startStr || !endStr) {
+    Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบถ้วน', text: 'กรุณาระบุชื่อหลักสูตร วันที่เริ่ม และวันที่สิ้นสุดการศึกษาค่ะ' });
+    return;
+  }
+
+  const userPin = window.currentUserPin || '';
+  const fileInput = document.getElementById('studyFileInput');
+
+  // ตรวจสอบการอัปโหลดไฟล์
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    if (file.size > 15 * 1024 * 1024) {
+      Swal.fire({ icon: 'error', title: 'ไฟล์มีขนาดใหญ่เกินไป', text: 'กรุณาเลือกไฟล์ขนาดไม่เกิน 15MB ค่ะ' });
+      return;
+    }
+
+    Swal.fire({
+      title: 'กำลังอัปโหลดไฟล์เอกสาร...',
+      html: '<div class="spinner-border text-warning spinner-border-sm me-2"></div>ระบบกำลังส่งไฟล์ไปยังเซิร์ฟเวอร์ Ubuntu...',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64Data = e.target.result;
+      const payload = {
+        user_pin: staffPin,
+        folder_type: 'study_bonds',
+        original_name: file.name,
+        base64_data: base64Data
+      };
+
+      google.script.run
+        .withSuccessHandler(function(uploadRes) {
+          if (uploadRes && uploadRes.status === 'success' && uploadRes.file_url) {
+            executeSaveStudyBond(uploadRes.file_url);
+          } else {
+            Swal.fire({ icon: 'error', title: 'อัปโหลดไฟล์ไม่สำเร็จ', text: uploadRes ? uploadRes.message : 'เกิดข้อผิดพลาดในการบันทึกไฟล์' });
+          }
+        })
+        .withFailureHandler(function(err) {
+          Swal.fire({ icon: 'error', title: 'อัปโหลดไฟล์ไม่สำเร็จ', text: err.message || err });
+        })
+        .uploadServerFile(payload);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    // ใช้ไฟล์เดิมหากมี
+    const existingUrl = $('#studyDocUrlExisting').val() || '';
+    executeSaveStudyBond(existingUrl);
+  }
+}
+
+function executeSaveStudyBond(docUrl) {
+  const staffPin = $('#studyStaffPin').val();
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const userPin = window.currentUserPin || '';
+
+  const multVal = $('#bondMultiplierSelect').val();
+  const mult = multVal === 'custom' ? parseFloat($('#bondMultiplierCustom').val() || 0) : parseFloat(multVal || 0);
+
+  const payload = {
+    record: {
+      study_id: parseInt($('#studyRecordId').val() || 0, 10),
+      bond_id: parseInt($('#studyBondId').val() || 0, 10),
+      staff_id: parseInt(staffPin, 10),
+      operator_role: userRole,
+      operator_pin: parseInt(userPin, 10),
+
+      // ข้อมูลศึกษาต่อ
+      study_modality: $('#studyModality').val(),
+      work_impact: $('#studyWorkImpact').val(),
+      degree_level: $('#studyDegreeLevel').val(),
+      program_name: $('#studyProgramName').val().trim(),
+      institution: $('#studyInstitution').val().trim(),
+      country: $('#studyCountry').val().trim() || 'ไทย',
+      funding_type: $('#studyFundingType').val(),
+      funding_name: $('#studyFundingName').val().trim(),
+      salary_status: $('#studySalaryStatus').val(),
+      approved_start_date: $('#studyApprovedStartDate').val(),
+      approved_end_date: $('#studyApprovedEndDate').val(),
+      actual_end_date: $('#studyActualEndDate').val() || null,
+      approval_doc_no: $('#studyApprovalDocNo').val().trim() || null,
+      approval_doc_date: $('#studyApprovalDocDate').val() || null,
+      study_status: $('#studyStatus').val(),
+      thesis_title: $('#studyThesisTitle').val().trim() || null,
+      study_doc_url: docUrl || null,
+      study_remarks: $('#studyRemarks').val().trim() || null,
+
+      // สัญญาและการชดใช้ทุน
+      has_bond: $('#studyHasBondSwitch').is(':checked') ? 1 : 0,
+      contract_no: $('#bondContractNo').val().trim() || null,
+      contract_date: $('#bondContractDate').val() || null,
+      service_multiplier: mult,
+      total_service_days: parseInt($('#bondTotalServiceDays').val() || 0, 10),
+      bond_penalty_amount: parseFloat($('#bondPenaltyAmount').val() || 0),
+      guarantor_1_name: $('#bondGuarantor1Name').val().trim() || null,
+      guarantor_1_pos: $('#bondGuarantor1Pos').val().trim() || null,
+      guarantor_2_name: $('#bondGuarantor2Name').val().trim() || null,
+      guarantor_2_pos: $('#bondGuarantor2Pos').val().trim() || null,
+      return_duty_date: $('#bondReturnDutyDate').val() || null,
+      bond_start_date: $('#bondStartDate').val() || null,
+      bond_end_date: $('#bondEndDate').val() || null,
+      bond_status: $('#bondStatusSelect').val(),
+      discharge_doc_no: $('#bondDischargeDocNo').val().trim() || null,
+      discharge_date: $('#bondDischargeDate').val() || null,
+      bond_doc_url: docUrl || null,
+      bond_remarks: $('#studyRemarks').val().trim() || null
+    }
+  };
+
+  Swal.fire({
+    title: 'กำลังบันทึกข้อมูล...',
+    html: '<div class="spinner-border text-warning spinner-border-sm me-2"></div>กำลังบันทึกข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน...',
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading()
+  });
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.status === 'success') {
+        const modalEl = document.getElementById('editStudyBondModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ!',
+          text: res.message || 'บันทึกข้อมูลการศึกษาต่อและสัญญาเรียบร้อยแล้วค่ะ',
+          timer: 2000,
+          showConfirmButton: false
+        });
+
+        // รีเฟรชตาราง
+        loadStudyBondsModule(null, true);
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'บันทึกไม่สำเร็จ',
+          text: res ? res.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล'
+        });
+      }
+    })
+    .withFailureHandler(function(err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาด',
+        text: err.message || err
+      });
+    })
+    .saveStudyBondRecord(payload);
+}
+
+/**
+ * 12. ลบข้อมูลการศึกษาต่อและสัญญาชดใช้ทุน (Delete Record)
+ */
+function deleteStudyBondRecordPrompt(studyId, bondId, staffPin, programName) {
+  const userRole = (window.currentUserRole || 'staff').toLowerCase();
+  const userPin = window.currentUserPin || '';
+  const isAdmin = ['super_admin', 'hr_admin', 'admin'].includes(userRole);
+
+  if (!isAdmin) {
+    Swal.fire({
+      icon: 'error',
+      title: 'สิทธิ์ไม่เพียงพอ',
+      text: 'การลบข้อมูลการศึกษาต่อและสัญญา สงวนสิทธิ์เฉพาะเจ้าหน้าที่ฝ่ายบุคคล (HR Admin) เท่านั้นค่ะ'
+    });
+    return;
+  }
+
+  Swal.fire({
+    title: 'ยืนยันการลบรายการ?',
+    html: `คุณต้องการลบข้อมูลการศึกษาต่อ <strong>"${programName}"</strong><br>และสัญญาชดใช้ทุนที่ผูกไว้ทั้งหมดหรือไม่?<br><span class="text-danger small">* การดำเนินการนี้ไม่สามารถย้อนกลับได้</span>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> ลบข้อมูลทันที',
+    cancelButtonText: 'ยกเลิก'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      Swal.fire({
+        title: 'กำลังลบข้อมูล...',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.status === 'success') {
+            Swal.fire({
+              icon: 'success',
+              title: 'ลบสำเร็จ',
+              text: 'ลบข้อมูลการศึกษาต่อและสัญญาเรียบร้อยแล้วค่ะ',
+              timer: 1800,
+              showConfirmButton: false
+            });
+            loadStudyBondsModule(null, true);
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'ลบไม่สำเร็จ',
+              text: res ? res.message : 'เกิดข้อผิดพลาด'
+            });
+          }
+        })
+        .withFailureHandler(function(err) {
+          Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด',
+            text: err.message || err
+          });
+        })
+        .deleteStudyBondRecord(studyId, bondId, staffPin, userRole, userPin);
+    }
+  });
+}
+
+/**
+ * ฟังก์ชันแปลงวันที่ภาษาไทย
+ */
+function formatThaiDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  return `${d.getDate()} ${thMonths[d.getMonth()]} ${d.getFullYear() + 543}`;
+}
+
+function formatThaiDateShort(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const shortYear = String((d.getFullYear() + 543) % 100).padStart(2, '0');
+  return `${d.getDate()} ${thMonths[d.getMonth()]} ${shortYear}`;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+</script>

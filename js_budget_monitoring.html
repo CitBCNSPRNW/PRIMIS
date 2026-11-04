@@ -1,0 +1,1098 @@
+<script>
+/**
+ * =========================================================================
+ * js_budget_monitoring.html : ระบบประวัติการฝึกอบรมและรางวัล (HRD & Honors Engine)
+ * รองรับ Form 1 (อบรม/ดูงาน) และทะเบียนรางวัล ผลงานดีเด่น และเกียรติยศ
+ * วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์
+ * =========================================================================
+ */
+
+window.allTrainingRecords = [];
+window.allAwardsRecords = [];
+window.trainingMasterDataTable = null;
+window.awardsMasterDataTable = null;
+window.currentTrainingSubTab = 'training';
+
+/**
+ * สลับแท็บย่อยระหว่าง "อบรม" กับ "รางวัล"
+ */
+function switchTrainingAwardSubTab(tab) {
+  window.currentTrainingSubTab = tab;
+  if (tab === 'training') {
+    if (window.trainingMasterDataTable) {
+      window.trainingMasterDataTable.columns.adjust().draw(false);
+    }
+  } else if (tab === 'awards') {
+    if (window.awardsMasterDataTable) {
+      window.awardsMasterDataTable.columns.adjust().draw(false);
+    }
+  }
+}
+
+/**
+ * ฟังก์ชันหลักเปิดและโหลดข้อมูลโมดูลการอบรมและรางวัล
+ */
+function loadTrainingAwardsModule(forceRefresh) {
+  showPpmsLoading('กำลังโหลดระบบการอบรมและรางวัล...', 'กำลังดึงประวัติการพัฒนาตนเองและผลงานเกียรติยศ');
+  const safetyTimer = setTimeout(function() {
+    hidePpmsLoading();
+  }, 12000);
+
+  // 1. ตรวจสอบให้แน่ใจว่าโหลดรายชื่อบุคลากรแล้ว เพื่อใช้ใน Staff Picker
+  ensurePersonnelListLoaded(function(staffList) {
+    populateTrainingAwardsStaffPickers(staffList);
+
+    const curRole = (window.currentUserRole || 'guest').toLowerCase();
+    const myPin = Number(window.currentUserPin || 0);
+
+    const filterPayload = {
+      operator_role: curRole,
+      operator_pin: myPin
+    };
+
+    // 2. ดึงข้อมูลการฝึกอบรม (Training)
+    google.script.run
+      .withSuccessHandler(function(trRes) {
+        if (trRes && trRes.status === 'success') {
+          window.allTrainingRecords = trRes.data || [];
+        } else {
+          window.allTrainingRecords = [];
+        }
+
+        // 3. ดึงข้อมูลรางวัล (Awards)
+        google.script.run
+          .withSuccessHandler(function(awRes) {
+            clearTimeout(safetyTimer);
+            hidePpmsLoading();
+
+            if (awRes && awRes.status === 'success') {
+              window.allAwardsRecords = awRes.data || [];
+            } else {
+              window.allAwardsRecords = [];
+            }
+
+            // คำนวณตัวเลขสถิติและสร้างตาราง
+            processTrainingAwardsMetrics();
+            populateYearFilterDropdowns();
+            renderTrainingTable(window.allTrainingRecords);
+            renderAwardsTable(window.allAwardsRecords);
+          })
+          .withFailureHandler(function(err) {
+            clearTimeout(safetyTimer);
+            hidePpmsLoading();
+            console.error('Failed to load awards:', err);
+            processTrainingAwardsMetrics();
+            renderTrainingTable(window.allTrainingRecords);
+          })
+          .getAwardsRecords(filterPayload);
+      })
+      .withFailureHandler(function(err) {
+        clearTimeout(safetyTimer);
+        hidePpmsLoading();
+        console.error('Failed to load trainings:', err);
+        Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อระบบประวัติการอบรมได้', 'error');
+      })
+      .getTrainingRecords(filterPayload);
+  });
+}
+
+/**
+ * คำนวณและอัปเดตตัวเลขในการ์ดสรุปสถิติ 4 ใบ
+ */
+function processTrainingAwardsMetrics() {
+  const trainings = window.allTrainingRecords || [];
+  const awards = window.allAwardsRecords || [];
+
+  // 1. หลักสูตรอบรมสะสมที่ผ่านการรับรองแล้ว
+  const approvedTrainings = trainings.filter(function(t) { return t.approval_status === 'approved'; });
+  $('#statTotalTrainingCount').text(approvedTrainings.length);
+
+  // 2. ชั่วโมงอบรมสะสมรวม
+  let totalHours = 0.0;
+  approvedTrainings.forEach(function(t) {
+    totalHours += parseFloat(t.training_hours || 0);
+  });
+  $('#statTotalTrainingHours').text(Math.round(totalHours * 10) / 10);
+
+  // 3. รางวัลที่ได้รับ
+  const approvedAwards = awards.filter(function(a) { return a.approval_status === 'approved'; });
+  $('#statTotalAwardsCount').text(approvedAwards.length);
+
+  // 4. รายการรอ HR ตรวจสอบ
+  const pendingTrainings = trainings.filter(function(t) { return t.approval_status === 'pending'; }).length;
+  const pendingAwards = awards.filter(function(a) { return a.approval_status === 'pending'; }).length;
+  const totalPending = pendingTrainings + pendingAwards;
+
+  $('#statPendingVerificationCount').text(totalPending);
+  if (totalPending > 0) {
+    $('#statPendingVerificationCount').addClass('text-danger animate__animated animate__pulse animate__infinite');
+  } else {
+    $('#statPendingVerificationCount').removeClass('text-danger animate__animated animate__pulse animate__infinite');
+  }
+}
+
+/**
+ * เติมตัวเลือกปี พ.ศ. ในตัวกรองอัตโนมัติจากข้อมูลจริง
+ */
+function populateYearFilterDropdowns() {
+  const trainingYears = {};
+  (window.allTrainingRecords || []).forEach(function(t) {
+    if (t.start_date) {
+      const yr = new Date(t.start_date).getFullYear();
+      if (!isNaN(yr)) {
+        const bYr = yr < 2400 ? yr + 543 : yr;
+        trainingYears[bYr] = true;
+      }
+    }
+  });
+
+  const $trYearSelect = $('#trainingFilterYear');
+  const curTrYear = $trYearSelect.val() || 'all';
+  $trYearSelect.find('option:not(:first)').remove();
+  Object.keys(trainingYears).sort().reverse().forEach(function(y) {
+    $trYearSelect.append('<option value="' + y + '">พ.ศ. ' + y + '</option>');
+  });
+  $trYearSelect.val(curTrYear);
+
+  const awardYears = {};
+  (window.allAwardsRecords || []).forEach(function(a) {
+    if (a.award_year) {
+      awardYears[a.award_year] = true;
+    }
+  });
+
+  const $awYearSelect = $('#awardsFilterYear');
+  const curAwYear = $awYearSelect.val() || 'all';
+  $awYearSelect.find('option:not(:first)').remove();
+  Object.keys(awardYears).sort().reverse().forEach(function(y) {
+    $awYearSelect.append('<option value="' + y + '">พ.ศ. ' + y + '</option>');
+  });
+  $awYearSelect.val(curAwYear);
+}
+
+/**
+ * เติมตัวเลือกข้าราชการ/บุคลากรใน Staff Picker ของ Modal
+ */
+function populateTrainingAwardsStaffPickers(staffList) {
+  const activeStaff = (staffList || []).filter(function(s) {
+    if (typeof isStaffActiveOrStudying === 'function') {
+      return isStaffActiveOrStudying(s);
+    }
+    return true;
+  });
+
+  ['#trainingStaffSelect', '#awardStaffSelect'].forEach(function(selId) {
+    const $select = $(selId);
+    $select.empty();
+    $select.append('<option value="">-- ค้นหาและเลือกบุคลากร (พิมพ์ PIN หรือชื่อ) --</option>');
+
+    activeStaff.forEach(function(s) {
+      const pin = String(s.pin || s.user_pin || s.id);
+      const name = (s.title_th || '') + (s.fname_th || s.master_fname || '') + ' ' + (s.lname_th || s.master_lname || '');
+      const pos = s.position_title || s.position || '';
+      const optText = '#' + pin + ' ' + name + (pos ? ' (' + pos + ')' : '');
+      $select.append($('<option>', {
+        value: pin,
+        text: optText,
+        'data-pin': pin,
+        'data-name': name,
+        'data-pos': pos
+      }));
+    });
+
+    if ($.fn.select2) {
+      $select.select2({
+        dropdownParent: $(selId === '#trainingStaffSelect' ? '#trainingRecordModal' : '#awardRecordModal'),
+        width: '100%',
+        placeholder: '-- ค้นหาและเลือกบุคลากร --',
+        allowClear: true,
+        matcher: (typeof select2MatcherWithPin === 'function') ? select2MatcherWithPin : undefined
+      });
+    }
+  });
+}
+
+/**
+ * เรนเดอร์ตารางประวัติการฝึกอบรม (Training DataTables)
+ */
+function renderTrainingTable(records) {
+  if (window.trainingMasterDataTable) {
+    window.trainingMasterDataTable.destroy();
+  }
+
+  const $tbody = $('#trainingMasterTableBody');
+  $tbody.empty();
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  if (!records || records.length === 0) {
+    $tbody.html('<tr><td colspan="9" class="text-center py-4 text-muted">ไม่พบข้อมูลประวัติการฝึกอบรม</td></tr>');
+    $('#trainingCountBadge').text('แสดง 0 จาก 0 รายการ');
+    return;
+  }
+
+  $('#trainingCountBadge').text('แสดง ' + records.length + ' รายการ');
+
+  records.forEach(function(r) {
+    const pin = String(r.staff_id || r.pin || '');
+    const nameTh = (r.title_th || '') + (r.fname_th || r.master_fname || '') + ' ' + (r.lname_th || r.master_lname || '');
+    const posTitle = r.position_title || r.position || r.master_position || 'บุคลากร';
+    const rawPhoto = r.photo_url || r.master_photo || '';
+    const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+    // วันที่
+    const startThai = r.start_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.start_date) : r.start_date) : '-';
+    const endThai = r.end_date ? (typeof formatThaiDateShort === 'function' ? formatThaiDateShort(r.end_date) : r.end_date) : '-';
+    const datesStr = (startThai === endThai) ? startThai : (startThai + ' - ' + endThai);
+
+    // ชั่วโมง
+    const hours = r.training_hours ? (r.training_hours + ' ชม.') : '-';
+
+    // วุฒิบัตร
+    let docBtn = '<span class="text-muted small">-</span>';
+    if (r.doc_url) {
+      docBtn = '<a href="' + r.doc_url + '" target="_blank" class="btn btn-outline-primary btn-sm px-2 py-0 rounded-pill shadow-2xs" title="คลิกดูไฟล์วุฒิบัตร" style="font-size: 0.74rem;">' +
+        '<i class="fa-solid fa-file-lines me-1"></i>วุฒิบัตร</a>';
+    }
+
+    // สถานะการรับรอง
+    let stBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac;"><i class="fa-solid fa-circle-check me-1"></i>รับรองแล้ว</span>';
+    if (r.approval_status === 'pending') {
+      stBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;"><i class="fa-solid fa-clock me-1"></i>รอตรวจสอบ</span>';
+    } else if (r.approval_status === 'rejected') {
+      const reasonTip = r.rejection_reason ? (' title="' + r.rejection_reason + '"') : '';
+      stBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;"' + reasonTip + '><i class="fa-solid fa-circle-xmark me-1"></i>ส่งกลับแก้ไข</span>';
+    }
+
+    // ปุ่มการจัดการ
+    let btns = '<div class="btn-group btn-group-sm text-nowrap shadow-2xs" role="group">';
+    
+    // ปุ่มตรวจสอบสำหรับ HR
+    if (isAdmin && r.approval_status === 'pending') {
+      btns += '<button type="button" class="btn btn-warning btn-sm px-2 py-1 text-white fw-bold" onclick="openVerifyRecordModal(\'training\', ' + r.id + ')" title="ตรวจหลักฐานและรับรองผล" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-stamp me-1"></i>ตรวจ</button>';
+    }
+
+    // ปุ่มแก้ไข (HR แก้ได้ทุกรายการ / Staff แก้ได้เฉพาะของตนเองที่ยังไม่อนุมัติ)
+    if (isAdmin || (Number(r.staff_id) === myPin && r.approval_status !== 'approved')) {
+      btns += '<button type="button" class="btn btn-outline-warning btn-sm px-2 py-1" onclick="editTrainingRecord(' + r.id + ')" title="แก้ไขข้อมูล" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-pen-to-square"></i></button>';
+    }
+
+    // ปุ่มลบ
+    if (isAdmin || (Number(r.staff_id) === myPin && r.approval_status !== 'approved')) {
+      btns += '<button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="deleteTrainingRecordById(' + r.id + ')" title="ลบรายการ" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-trash"></i></button>';
+    }
+
+    btns += '</div>';
+
+    const trHtml = '<tr>' +
+      '<td class="text-center"><span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#' + pin + '</span></td>' +
+      '<td><div class="d-flex align-items-center gap-2">' +
+      '<img src="' + avatarUrl + '" alt="' + nameTh + '" class="rounded-circle border" style="width: 32px; height: 32px; min-width: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=DEFAULT_STAFF_AVATAR">' +
+      '<div class="min-w-0"><span class="fw-bold text-dark d-block text-truncate" style="font-size: 0.86rem; line-height: 1.25;">' + nameTh + '</span>' +
+      '<small class="text-muted d-block text-truncate" style="font-size: 0.72rem;">' + posTitle + '</small></div>' +
+      '</div></td>' +
+      '<td><div><span class="fw-bold text-dark" style="font-size: 0.86rem;">' + r.course_name + '</span></div>' +
+      '<div class="text-muted small mt-1"><span class="badge bg-light text-secondary border me-1">' + (r.development_type || 'อบรม') + '</span>' +
+      '<span class="badge bg-light text-muted border">' + (r.country || 'ไทย') + '</span></div></td>' +
+      '<td><span class="text-secondary small">' + (r.organizer || '-') + '</span></td>' +
+      '<td><span class="small fw-semibold text-dark">' + datesStr + '</span></td>' +
+      '<td class="text-center"><span class="fw-bold text-primary">' + hours + '</span></td>' +
+      '<td class="text-center">' + docBtn + '</td>' +
+      '<td class="text-center">' + stBadge + '</td>' +
+      '<td class="text-center text-nowrap" style="width: 125px; min-width: 125px;">' + btns + '</td>' +
+      '</tr>';
+
+    $tbody.append(trHtml);
+  });
+
+  window.trainingMasterDataTable = $('#trainingMasterTable').DataTable({
+    autoWidth: false,
+    pageLength: 10,
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "ค้นหาหลักสูตร, บุคลากร, หน่วยงานที่จัด...",
+      lengthMenu: "แสดง _MENU_ แถวต่อหน้า",
+      info: "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ รายการ",
+      infoEmpty: "ไม่พบข้อมูล",
+      infoFiltered: "(กรองจากทั้งหมด _MAX_ รายการ)",
+      zeroRecords: "ไม่พบข้อมูลตรงกับคำค้นหา",
+      paginate: {
+        previous: "ก่อนหน้า",
+        next: "ถัดไป"
+      }
+    },
+    columnDefs: [
+      { className: 'text-nowrap align-middle', targets: [0, 4, 5, 6, 7, 8] },
+      { className: 'align-middle', targets: [1, 2, 3] },
+      { orderable: false, targets: [8] }
+    ]
+  });
+}
+
+/**
+ * เรนเดอร์ตารางทะเบียนรางวัล (Awards DataTables)
+ */
+function renderAwardsTable(records) {
+  if (window.awardsMasterDataTable) {
+    window.awardsMasterDataTable.destroy();
+  }
+
+  const $tbody = $('#awardsMasterTableBody');
+  $tbody.empty();
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  if (!records || records.length === 0) {
+    $tbody.html('<tr><td colspan="9" class="text-center py-4 text-muted">ไม่พบข้อมูลทะเบียนรางวัล</td></tr>');
+    $('#awardsCountBadge').text('แสดง 0 จาก 0 รายการ');
+    return;
+  }
+
+  $('#awardsCountBadge').text('แสดง ' + records.length + ' รายการ');
+
+  records.forEach(function(a) {
+    const pin = String(a.staff_id || a.pin || '');
+    const nameTh = (a.title_th || '') + (a.fname_th || a.master_fname || '') + ' ' + (a.lname_th || a.master_lname || '');
+    const posTitle = a.position_title || a.position || a.master_position || 'บุคลากร';
+    const rawPhoto = a.photo_url || a.master_photo || '';
+    const avatarUrl = (typeof formatStaffPhotoUrl === 'function' ? formatStaffPhotoUrl(rawPhoto) : '') || DEFAULT_STAFF_AVATAR;
+
+    // เกียรติบัตร/โล่
+    let docBtn = '<span class="text-muted small">-</span>';
+    if (a.doc_url) {
+      docBtn = '<a href="' + a.doc_url + '" target="_blank" class="btn btn-outline-warning btn-sm px-2 py-0 rounded-pill shadow-2xs text-dark" title="คลิกดูไฟล์ภาพถ่ายเกียรติบัตร" style="font-size: 0.74rem;">' +
+        '<i class="fa-solid fa-image me-1"></i>เกียรติบัตร</a>';
+    }
+
+    // สถานะการรับรอง
+    let stBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac;"><i class="fa-solid fa-circle-check me-1"></i>รับรองแล้ว</span>';
+    if (a.approval_status === 'pending') {
+      stBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d;"><i class="fa-solid fa-clock me-1"></i>รอตรวจสอบ</span>';
+    } else if (a.approval_status === 'rejected') {
+      const reasonTip = a.rejection_reason ? (' title="' + a.rejection_reason + '"') : '';
+      stBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;"' + reasonTip + '><i class="fa-solid fa-circle-xmark me-1"></i>ส่งกลับแก้ไข</span>';
+    }
+
+    // ระดับรางวัล Badge
+    let levelBadge = '<span class="badge rounded-pill px-2 py-1 bg-light text-secondary border">' + (a.award_level || 'ระดับสถาบัน') + '</span>';
+    if (a.award_level === 'ระดับชาติ' || a.award_level === 'นานาชาติ') {
+      levelBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold text-white shadow-2xs" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);"><i class="fa-solid fa-star me-1"></i>' + a.award_level + '</span>';
+    } else if (a.award_level === 'ระดับกระทรวง') {
+      levelBadge = '<span class="badge rounded-pill px-2 py-1 fw-bold bg-primary-subtle text-primary border"><i class="fa-solid fa-shield me-1"></i>ระดับกระทรวง</span>';
+    }
+
+    // ปุ่มการจัดการ
+    let btns = '<div class="btn-group btn-group-sm text-nowrap shadow-2xs" role="group">';
+    
+    if (isAdmin && a.approval_status === 'pending') {
+      btns += '<button type="button" class="btn btn-warning btn-sm px-2 py-1 text-white fw-bold" onclick="openVerifyRecordModal(\'awards\', ' + a.id + ')" title="ตรวจหลักฐานและรับรองผล" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-stamp me-1"></i>ตรวจ</button>';
+    }
+
+    if (isAdmin || (Number(a.staff_id) === myPin && a.approval_status !== 'approved')) {
+      btns += '<button type="button" class="btn btn-outline-warning btn-sm px-2 py-1" onclick="editAwardRecord(' + a.id + ')" title="แก้ไขข้อมูล" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-pen-to-square"></i></button>';
+    }
+
+    if (isAdmin || (Number(a.staff_id) === myPin && a.approval_status !== 'approved')) {
+      btns += '<button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="deleteAwardRecordById(' + a.id + ')" title="ลบรายการ" style="font-size: 0.76rem;">' +
+        '<i class="fa-solid fa-trash"></i></button>';
+    }
+
+    btns += '</div>';
+
+    const trHtml = '<tr>' +
+      '<td class="text-center"><span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-0 fw-bold" style="font-size: 0.72rem;">#' + pin + '</span></td>' +
+      '<td><div class="d-flex align-items-center gap-2">' +
+      '<img src="' + avatarUrl + '" alt="' + nameTh + '" class="rounded-circle border" style="width: 32px; height: 32px; min-width: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=DEFAULT_STAFF_AVATAR">' +
+      '<div class="min-w-0"><span class="fw-bold text-dark d-block text-truncate" style="font-size: 0.86rem; line-height: 1.25;">' + nameTh + '</span>' +
+      '<small class="text-muted d-block text-truncate" style="font-size: 0.72rem;">' + posTitle + '</small></div>' +
+      '</div></td>' +
+      '<td><div><span class="fw-bold text-dark" style="font-size: 0.86rem;">' + a.award_name + '</span></div>' +
+      (a.award_category ? ('<div class="text-muted small mt-1"><span class="badge bg-light text-dark border">' + a.award_category + '</span></div>') : '') +
+      '</td>' +
+      '<td><span class="text-secondary small">' + (a.awarding_agency || '-') + '</span></td>' +
+      '<td class="text-center"><span class="fw-bold text-secondary">' + (a.award_year || '-') + '</span></td>' +
+      '<td class="text-center">' + levelBadge + '</td>' +
+      '<td class="text-center">' + docBtn + '</td>' +
+      '<td class="text-center">' + stBadge + '</td>' +
+      '<td class="text-center text-nowrap" style="width: 125px; min-width: 125px;">' + btns + '</td>' +
+      '</tr>';
+
+    $tbody.append(trHtml);
+  });
+
+  window.awardsMasterDataTable = $('#awardsMasterTable').DataTable({
+    autoWidth: false,
+    pageLength: 10,
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "ค้นหารางวัล, บุคลากร, หน่วยงานที่มอบ...",
+      lengthMenu: "แสดง _MENU_ แถวต่อหน้า",
+      info: "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ รายการ",
+      infoEmpty: "ไม่พบข้อมูล",
+      infoFiltered: "(กรองจากทั้งหมด _MAX_ รายการ)",
+      zeroRecords: "ไม่พบข้อมูลตรงกับคำค้นหา",
+      paginate: {
+        previous: "ก่อนหน้า",
+        next: "ถัดไป"
+      }
+    },
+    columnDefs: [
+      { className: 'text-nowrap align-middle', targets: [0, 4, 5, 6, 7, 8] },
+      { className: 'align-middle', targets: [1, 2, 3] },
+      { orderable: false, targets: [8] }
+    ]
+  });
+}
+
+/**
+ * กรองตารางการฝึกอบรม
+ */
+function applyTrainingFilters() {
+  const yearFilter = $('#trainingFilterYear').val();
+  const typeFilter = $('#trainingFilterType').val();
+  const statusFilter = $('#trainingFilterStatus').val();
+
+  const filtered = (window.allTrainingRecords || []).filter(function(r) {
+    if (yearFilter !== 'all' && r.start_date) {
+      const yr = new Date(r.start_date).getFullYear();
+      const bYr = String(yr < 2400 ? yr + 543 : yr);
+      if (bYr !== yearFilter) return false;
+    }
+    if (typeFilter !== 'all' && r.development_type !== typeFilter) {
+      return false;
+    }
+    if (statusFilter !== 'all' && r.approval_status !== statusFilter) {
+      return false;
+    }
+    return true;
+  });
+
+  renderTrainingTable(filtered);
+}
+
+/**
+ * กรองตารางรางวัล
+ */
+function applyAwardsFilters() {
+  const yearFilter = $('#awardsFilterYear').val();
+  const levelFilter = $('#awardsFilterLevel').val();
+  const statusFilter = $('#awardsFilterStatus').val();
+
+  const filtered = (window.allAwardsRecords || []).filter(function(a) {
+    if (yearFilter !== 'all' && String(a.award_year) !== yearFilter) {
+      return false;
+    }
+    if (levelFilter !== 'all' && a.award_level !== levelFilter) {
+      return false;
+    }
+    if (statusFilter !== 'all' && a.approval_status !== statusFilter) {
+      return false;
+    }
+    return true;
+  });
+
+  renderAwardsTable(filtered);
+}
+
+/**
+ * ตรวจสอบความถูกต้องของวันที่อบรม
+ */
+function validateTrainingDates() {
+  const start = $('#trainingStartDate').val();
+  const end = $('#trainingEndDate').val();
+  if (start && end && start > end) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'วันที่ไม่สอดคล้อง',
+      text: 'วันที่เริ่มต้นการอบรม ต้องไม่มากกว่าวันที่สิ้นสุดค่ะ',
+      confirmButtonColor: '#0284c7'
+    });
+    $('#trainingEndDate').val(start);
+  }
+}
+
+function onTrainingLocationChanged() {
+  const loc = $('#trainingLocationType').val();
+  if (loc === 'in_country') {
+    $('#trainingCountry').val('ไทย');
+  } else if ($('#trainingCountry').val() === 'ไทย') {
+    $('#trainingCountry').val('');
+  }
+}
+
+/**
+ * เปิด Modal บันทึกการฝึกอบรม
+ */
+function openAddTrainingModal(preselectPin) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  $('#trainingRecordId').val('0');
+  $('#trainingExistingDocUrl').val('');
+  $('#trainingCourseName').val('');
+  $('#trainingOrganizer').val('');
+  $('#trainingDevType').val('อบรม');
+  $('#trainingStartDate').val('');
+  $('#trainingEndDate').val('');
+  $('#trainingHours').val('');
+  $('#trainingLocationType').val('in_country');
+  $('#trainingCountry').val('ไทย');
+  $('#trainingDocFile').val('');
+  $('#trainingRemarks').val('');
+  $('#trainingDocPreviewLink').addClass('d-none');
+
+  if (isAdmin) {
+    $('#trainingStaffPickerContainer').removeClass('d-none');
+    $('#trainingStaffSelfContainer').addClass('d-none');
+    if (preselectPin) {
+      $('#trainingStaffSelect').val(String(preselectPin)).trigger('change');
+    } else {
+      $('#trainingStaffSelect').val('').trigger('change');
+    }
+  } else {
+    $('#trainingStaffPickerContainer').addClass('d-none');
+    $('#trainingStaffSelfContainer').removeClass('d-none');
+    const myName = window.currentUserName || ('บุคลากร PIN #' + myPin);
+    $('#trainingStaffSelfName').val('#' + myPin + ' ' + myName);
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('trainingRecordModal'));
+  modal.show();
+}
+
+/**
+ * แก้ไขประวัติการอบรม
+ */
+function editTrainingRecord(id) {
+  const record = (window.allTrainingRecords || []).find(function(r) { return r.id == id; });
+  if (!record) return;
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  if (!isAdmin && record.approval_status === 'approved') {
+    Swal.fire('ไม่สามารถแก้ไขได้', 'รายการนี้ได้รับการรับรองจาก HR แล้ว หากต้องการแก้ไขโปรดติดต่อฝ่ายบุคคลค่ะ', 'info');
+    return;
+  }
+
+  $('#trainingRecordId').val(record.id);
+  $('#trainingExistingDocUrl').val(record.doc_url || '');
+  $('#trainingCourseName').val(record.course_name || '');
+  $('#trainingOrganizer').val(record.organizer || '');
+  $('#trainingDevType').val(record.development_type || 'อบรม');
+  $('#trainingStartDate').val(record.start_date || '');
+  $('#trainingEndDate').val(record.end_date || '');
+  $('#trainingHours').val(record.training_hours || '');
+  $('#trainingLocationType').val(record.location_type || 'in_country');
+  $('#trainingCountry').val(record.country || 'ไทย');
+  $('#trainingDocFile').val('');
+  $('#trainingRemarks').val(record.remarks || '');
+
+  if (record.doc_url) {
+    $('#trainingDocAnchor').attr('href', record.doc_url);
+    $('#trainingDocPreviewLink').removeClass('d-none');
+  } else {
+    $('#trainingDocPreviewLink').addClass('d-none');
+  }
+
+  if (isAdmin) {
+    $('#trainingStaffPickerContainer').removeClass('d-none');
+    $('#trainingStaffSelfContainer').addClass('d-none');
+    $('#trainingStaffSelect').val(String(record.staff_id)).trigger('change');
+  } else {
+    $('#trainingStaffPickerContainer').addClass('d-none');
+    $('#trainingStaffSelfContainer').removeClass('d-none');
+    const myName = window.currentUserName || ('บุคลากร PIN #' + myPin);
+    $('#trainingStaffSelfName').val('#' + myPin + ' ' + myName);
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('trainingRecordModal'));
+  modal.show();
+}
+
+/**
+ * บันทึกประวัติการอบรม (รองรับการอัปโหลดวุฒิบัตร)
+ */
+function submitTrainingRecordForm() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  let staffPin = isAdmin ? $('#trainingStaffSelect').val() : myPin;
+  if (!staffPin) {
+    Swal.fire('กรุณาเลือกบุคลากร', 'โปรดเลือกบุคลากรผู้เข้ารับการอบรม', 'warning');
+    return;
+  }
+
+  const courseName = $('#trainingCourseName').val().trim();
+  const organizer = $('#trainingOrganizer').val().trim();
+  const startDate = $('#trainingStartDate').val();
+  const endDate = $('#trainingEndDate').val();
+
+  if (!courseName || !organizer || !startDate || !endDate) {
+    Swal.fire('ข้อมูลไม่ครบถ้วน', 'กรุณาระบุชื่อหลักสูตร, หน่วยงานที่จัด และวันที่เริ่ม-สิ้นสุด', 'warning');
+    return;
+  }
+
+  showPpmsLoading('กำลังบันทึกข้อมูล...', 'กำลังบันทึกประวัติการฝึกอบรม');
+
+  const fileInput = document.getElementById('trainingDocFile');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      google.script.run
+        .withSuccessHandler(function(upRes) {
+          if (upRes && upRes.status === 'success') {
+            doSaveTrainingData(upRes.file_url);
+          } else {
+            hidePpmsLoading();
+            Swal.fire('อัปโหลดไฟล์ไม่สำเร็จ', upRes ? upRes.message : 'เกิดข้อผิดพลาดในการอัปโหลด', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('อัปโหลดไฟล์ล้มเหลว', err ? err.message : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ไฟล์ได้', 'error');
+        })
+        .uploadServerFile({
+          user_pin: staffPin,
+          folder_type: 'training',
+          original_name: file.name,
+          base64_data: e.target.result
+        });
+    };
+    reader.readAsDataURL(file);
+  } else {
+    doSaveTrainingData($('#trainingExistingDocUrl').val() || '');
+  }
+}
+
+function doSaveTrainingData(docUrl) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+  const staffPin = isAdmin ? Number($('#trainingStaffSelect').val()) : myPin;
+
+  const payload = {
+    record: {
+      id: Number($('#trainingRecordId').val()) || 0,
+      staff_id: staffPin,
+      course_name: $('#trainingCourseName').val().trim(),
+      organizer: $('#trainingOrganizer').val().trim(),
+      start_date: $('#trainingStartDate').val(),
+      end_date: $('#trainingEndDate').val(),
+      training_hours: parseFloat($('#trainingHours').val()) || 0.0,
+      development_type: $('#trainingDevType').val(),
+      location_type: $('#trainingLocationType').val(),
+      country: $('#trainingCountry').val().trim() || 'ไทย',
+      doc_url: docUrl || null,
+      remarks: $('#trainingRemarks').val().trim() || null,
+      operator_role: curRole,
+      operator_pin: myPin
+    }
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        const modalEl = document.getElementById('trainingRecordModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ!',
+          text: res.message || 'บันทึกประวัติการฝึกอบรมเรียบร้อยแล้ว',
+          timer: 1800,
+          showConfirmButton: false
+        });
+
+        loadTrainingAwardsModule(true);
+      } else {
+        Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('ข้อผิดพลาดการเชื่อมต่อ', err ? err.message : 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
+    })
+    .saveTrainingRecord(payload);
+}
+
+/**
+ * ลบประวัติการฝึกอบรม
+ */
+function deleteTrainingRecordById(id) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const myPin = Number(window.currentUserPin || 0);
+
+  Swal.fire({
+    title: 'ยืนยันการลบรายการ?',
+    text: 'ต้องการลบประวัติการฝึกอบรมนี้ใช่หรือไม่ การกระทำนี้ไม่สามารถย้อนคืนได้',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'ใช่, ลบข้อมูล',
+    cancelButtonText: 'ยกเลิก'
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังลบข้อมูล...', 'กำลังลบรายการจากฐานข้อมูล');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire('ลบสำเร็จ!', res.message || 'ลบข้อมูลเรียบร้อยแล้ว', 'success');
+            loadTrainingAwardsModule(true);
+          } else {
+            Swal.fire('ลบไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการลบ', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('ข้อผิดพลาด', err ? err.message : 'ไม่สามารถเชื่อมต่อได้', 'error');
+        })
+        .deleteTrainingRecord(id, curRole, myPin);
+    }
+  });
+}
+
+/**
+ * เปิด Modal บันทึกรางวัล
+ */
+function openAddAwardModal(preselectPin) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  $('#awardRecordId').val('0');
+  $('#awardExistingDocUrl').val('');
+  $('#awardName').val('');
+  $('#awardAgency').val('');
+  $('#awardYear').val(new Date().getFullYear() + 543);
+  $('#awardDate').val('');
+  $('#awardLevel').val('ระดับสถาบัน');
+  $('#awardCategory').val('ด้านการสอน');
+  $('#awardDocFile').val('');
+  $('#awardRemarks').val('');
+  $('#awardDocPreviewLink').addClass('d-none');
+
+  if (isAdmin) {
+    $('#awardStaffPickerContainer').removeClass('d-none');
+    $('#awardStaffSelfContainer').addClass('d-none');
+    if (preselectPin) {
+      $('#awardStaffSelect').val(String(preselectPin)).trigger('change');
+    } else {
+      $('#awardStaffSelect').val('').trigger('change');
+    }
+  } else {
+    $('#awardStaffPickerContainer').addClass('d-none');
+    $('#awardStaffSelfContainer').removeClass('d-none');
+    const myName = window.currentUserName || ('บุคลากร PIN #' + myPin);
+    $('#awardStaffSelfName').val('#' + myPin + ' ' + myName);
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('awardRecordModal'));
+  modal.show();
+}
+
+/**
+ * แก้ไขข้อมูลรางวัล
+ */
+function editAwardRecord(id) {
+  const record = (window.allAwardsRecords || []).find(function(a) { return a.id == id; });
+  if (!record) return;
+
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  if (!isAdmin && record.approval_status === 'approved') {
+    Swal.fire('ไม่สามารถแก้ไขได้', 'รายการนี้ได้รับการรับรองจาก HR แล้ว หากต้องการแก้ไขโปรดติดต่อฝ่ายบุคคลค่ะ', 'info');
+    return;
+  }
+
+  $('#awardRecordId').val(record.id);
+  $('#awardExistingDocUrl').val(record.doc_url || '');
+  $('#awardName').val(record.award_name || '');
+  $('#awardAgency').val(record.awarding_agency || '');
+  $('#awardYear').val(record.award_year || '');
+  $('#awardDate').val(record.award_date || '');
+  $('#awardLevel').val(record.award_level || 'ระดับสถาบัน');
+  $('#awardCategory').val(record.award_category || 'ด้านการสอน');
+  $('#awardDocFile').val('');
+  $('#awardRemarks').val(record.remarks || '');
+
+  if (record.doc_url) {
+    $('#awardDocAnchor').attr('href', record.doc_url);
+    $('#awardDocPreviewLink').removeClass('d-none');
+  } else {
+    $('#awardDocPreviewLink').addClass('d-none');
+  }
+
+  if (isAdmin) {
+    $('#awardStaffPickerContainer').removeClass('d-none');
+    $('#awardStaffSelfContainer').addClass('d-none');
+    $('#awardStaffSelect').val(String(record.staff_id)).trigger('change');
+  } else {
+    $('#awardStaffPickerContainer').addClass('d-none');
+    $('#awardStaffSelfContainer').removeClass('d-none');
+    const myName = window.currentUserName || ('บุคลากร PIN #' + myPin);
+    $('#awardStaffSelfName').val('#' + myPin + ' ' + myName);
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('awardRecordModal'));
+  modal.show();
+}
+
+/**
+ * บันทึกข้อมูลรางวัล (รองรับการอัปโหลดเกียรติบัตร)
+ */
+function submitAwardRecordForm() {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+
+  let staffPin = isAdmin ? $('#awardStaffSelect').val() : myPin;
+  if (!staffPin) {
+    Swal.fire('กรุณาเลือกบุคลากร', 'โปรดเลือกบุคลากรผู้ได้รับรางวัล', 'warning');
+    return;
+  }
+
+  const awardName = $('#awardName').val().trim();
+  const agency = $('#awardAgency').val().trim();
+  const year = parseInt($('#awardYear').val(), 10);
+
+  if (!awardName || !agency || isNaN(year) || year < 2500) {
+    Swal.fire('ข้อมูลไม่ครบถ้วน', 'กรุณาระบุชื่อรางวัล, หน่วยงานผู้มอบ และปี พ.ศ. ให้ถูกต้อง', 'warning');
+    return;
+  }
+
+  showPpmsLoading('กำลังบันทึกข้อมูล...', 'กำลังบันทึกข้อมูลรางวัลและเกียรติประวัติ');
+
+  const fileInput = document.getElementById('awardDocFile');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      google.script.run
+        .withSuccessHandler(function(upRes) {
+          if (upRes && upRes.status === 'success') {
+            doSaveAwardData(upRes.file_url);
+          } else {
+            hidePpmsLoading();
+            Swal.fire('อัปโหลดไฟล์ไม่สำเร็จ', upRes ? upRes.message : 'เกิดข้อผิดพลาดในการอัปโหลด', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('อัปโหลดไฟล์ล้มเหลว', err ? err.message : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ไฟล์ได้', 'error');
+        })
+        .uploadServerFile({
+          user_pin: staffPin,
+          folder_type: 'awards',
+          original_name: file.name,
+          base64_data: e.target.result
+        });
+    };
+    reader.readAsDataURL(file);
+  } else {
+    doSaveAwardData($('#awardExistingDocUrl').val() || '');
+  }
+}
+
+function doSaveAwardData(docUrl) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const isAdmin = (curRole === 'super_admin' || curRole === 'hr_admin' || curRole === 'admin');
+  const myPin = Number(window.currentUserPin || 0);
+  const staffPin = isAdmin ? Number($('#awardStaffSelect').val()) : myPin;
+
+  const payload = {
+    record: {
+      id: Number($('#awardRecordId').val()) || 0,
+      staff_id: staffPin,
+      award_name: $('#awardName').val().trim(),
+      awarding_agency: $('#awardAgency').val().trim(),
+      award_year: parseInt($('#awardYear').val(), 10),
+      award_date: $('#awardDate').val() || null,
+      award_level: $('#awardLevel').val(),
+      award_category: $('#awardCategory').val(),
+      doc_url: docUrl || null,
+      remarks: $('#awardRemarks').val().trim() || null,
+      operator_role: curRole,
+      operator_pin: myPin
+    }
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        const modalEl = document.getElementById('awardRecordModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ!',
+          text: res.message || 'บันทึกข้อมูลรางวัลเรียบร้อยแล้ว',
+          timer: 1800,
+          showConfirmButton: false
+        });
+
+        loadTrainingAwardsModule(true);
+      } else {
+        Swal.fire('บันทึกไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('ข้อผิดพลาดการเชื่อมต่อ', err ? err.message : 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
+    })
+    .saveAwardRecord(payload);
+}
+
+/**
+ * ลบข้อมูลรางวัล
+ */
+function deleteAwardRecordById(id) {
+  const curRole = (window.currentUserRole || 'guest').toLowerCase();
+  const myPin = Number(window.currentUserPin || 0);
+
+  Swal.fire({
+    title: 'ยืนยันการลบรายการ?',
+    text: 'ต้องการลบข้อมูลรางวัลนี้ใช่หรือไม่ การกระทำนี้ไม่สามารถย้อนคืนได้',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'ใช่, ลบข้อมูล',
+    cancelButtonText: 'ยกเลิก'
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      showPpmsLoading('กำลังลบข้อมูล...', 'กำลังลบรายการจากฐานข้อมูล');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          hidePpmsLoading();
+          if (res && res.status === 'success') {
+            Swal.fire('ลบสำเร็จ!', res.message || 'ลบข้อมูลเรียบร้อยแล้ว', 'success');
+            loadTrainingAwardsModule(true);
+          } else {
+            Swal.fire('ลบไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาดในการลบ', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          hidePpmsLoading();
+          Swal.fire('ข้อผิดพลาด', err ? err.message : 'ไม่สามารถเชื่อมต่อได้', 'error');
+        })
+        .deleteAwardRecord(id, curRole, myPin);
+    }
+  });
+}
+
+/**
+ * เปิด Modal ตรวจสอบหลักฐานและรับรองผล (สำหรับ HR)
+ */
+function openVerifyRecordModal(type, id) {
+  $('#verifyRecordType').val(type);
+  $('#verifyRecordId').val(id);
+  $('#verifyRejectionReason').val('');
+
+  let record = null;
+  if (type === 'training') {
+    record = (window.allTrainingRecords || []).find(function(r) { return r.id == id; });
+    if (record) {
+      const nameTh = (record.title_th || '') + (record.fname_th || record.master_fname || '') + ' ' + (record.lname_th || record.master_lname || '');
+      $('#verifyStaffName').text('บุคลากร: #' + record.staff_id + ' ' + nameTh);
+      $('#verifyTitle').text(record.course_name);
+      $('#verifySubtitle').text('หน่วยงาน: ' + record.organizer + ' | วันที่: ' + (record.start_date || '') + ' | ชั่วโมง: ' + (record.training_hours || 0) + ' ชม.');
+    }
+  } else if (type === 'awards') {
+    record = (window.allAwardsRecords || []).find(function(a) { return a.id == id; });
+    if (record) {
+      const nameTh = (record.title_th || '') + (record.fname_th || record.master_fname || '') + ' ' + (record.lname_th || record.master_lname || '');
+      $('#verifyStaffName').text('บุคลากร: #' + record.staff_id + ' ' + nameTh);
+      $('#verifyTitle').text(record.award_name);
+      $('#verifySubtitle').text('ผู้มอบ: ' + record.awarding_agency + ' | ปี พ.ศ.: ' + (record.award_year || '-') + ' | ระดับ: ' + (record.award_level || ''));
+    }
+  }
+
+  if (record && record.doc_url) {
+    $('#verifyDocLink').attr('href', record.doc_url).show();
+    $('#verifyNoDocText').hide();
+  } else {
+    $('#verifyDocLink').hide();
+    $('#verifyNoDocText').show();
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('verifyRecordModal'));
+  modal.show();
+}
+
+/**
+ * ส่งคำสั่งรับรอง หรือส่งกลับแก้ไข
+ */
+function submitVerification(status) {
+  const type = $('#verifyRecordType').val();
+  const id = Number($('#verifyRecordId').val());
+  const reason = $('#verifyRejectionReason').val().trim();
+  const myPin = Number(window.currentUserPin || 0);
+
+  if (status === 'rejected' && !reason) {
+    Swal.fire('กรุณาระบุเหตุผล', 'โปรดระบุคำแนะนำหรือเหตุผลในการส่งกลับแก้ไข เพื่อให้บุคลากรทราบข้อที่ต้องปรับปรุงค่ะ', 'warning');
+    return;
+  }
+
+  showPpmsLoading('กำลังบันทึกการตรวจสอบ...', 'กำลังปรับปรุงสถานะการรับรองข้อมูล');
+
+  const handler = function(res) {
+    hidePpmsLoading();
+    if (res && res.status === 'success') {
+      const modalEl = document.getElementById('verifyRecordModal');
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+
+      Swal.fire({
+        icon: 'success',
+        title: status === 'approved' ? 'รับรองข้อมูลสำเร็จ!' : 'ส่งกลับแก้ไขเรียบร้อยแล้ว',
+        text: res.message || '',
+        timer: 1800,
+        showConfirmButton: false
+      });
+
+      loadTrainingAwardsModule(true);
+    } else {
+      Swal.fire('การประมวลผลไม่สำเร็จ', res ? res.message : 'เกิดข้อผิดพลาด', 'error');
+    }
+  };
+
+  const failHandler = function(err) {
+    hidePpmsLoading();
+    Swal.fire('ข้อผิดพลาด', err ? err.message : 'ไม่สามารถเชื่อมต่อได้', 'error');
+  };
+
+  if (type === 'training') {
+    google.script.run
+      .withSuccessHandler(handler)
+      .withFailureHandler(failHandler)
+      .updateTrainingApproval(id, status, reason, myPin);
+  } else if (type === 'awards') {
+    google.script.run
+      .withSuccessHandler(handler)
+      .withFailureHandler(failHandler)
+      .updateAwardApproval(id, status, reason, myPin);
+  }
+}
+</script>

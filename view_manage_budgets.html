@@ -1,0 +1,193 @@
+<!-- ====================================================
+VIEW: ศูนย์บริหารจัดการใบอนุญาตวิชาชีพและบัตรข้าราชการ (ก.พ.7 Form 7)
+Smart Nursing License & Civil Card Expiry Alert Center
+รองรับอาจารย์สายสอน (รวมอาจารย์จ้างเหมา), ข้าราชการ และพนักงานราชการ
+==================================================== -->
+<div id="view-manage-budgets" class="tab-pane-content d-none">
+
+  <!-- 1. Header Banner Card (Clean Minimalist White Card) -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <h4 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+            <i class="fa-solid fa-id-card-clip text-primary"></i> จัดการเอกสารประจำตัวราชการ และใบประกอบวิชาชีพพยาบาล
+          </h4>
+          <p class="text-muted small mb-0">
+            ระบบติดตามและแจ้งเตือนวันหมดอายุเอกสารสิทธิ์ราชการและวิชาชีพพยาบาล
+          </p>
+        </div>
+
+        <!-- Action Buttons (Top-Right) -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-medium shadow-xs" onclick="switchMainTab('manage-projects', $('#sidebarManageProjectsNav')[0])">
+            <i class="fa-solid fa-arrow-left me-1"></i> กลับหน้ารายชื่อ
+          </button>
+          <button class="btn btn-outline-primary btn-sm rounded-pill px-3 py-2 fw-medium shadow-xs d-none" id="btnToggleLicAdminHub" onclick="toggleLicenseAdminHub()">
+            <i class="fa-solid fa-users-gear me-1"></i> <span id="licHubToggleText">ดูภาพรวมทั้งวิทยาลัย</span>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-medium shadow-xs" onclick="loadLicenseCenterTable()">
+            <i class="fa-solid fa-rotate me-1 text-primary"></i> รีเฟรช
+          </button>
+          <button class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-bold shadow-xs text-white" id="btnAddLicenseRecordBtn" onclick="openAddLicenseModal()">
+            <i class="fa-solid fa-plus me-1"></i> เพิ่มข้อมูลเอกสาร
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Top Alert Stat Cards -->
+      <div class="row g-3 mt-3 pt-3 border-top">
+        <!-- Card 1: ทั้งหมดในระบบ -->
+        <div class="col-md-3 col-6">
+          <div class="card border rounded-3 p-3 shadow-xs h-100 bg-white" style="cursor: pointer;" onclick="filterLicenseTableByStatus('all')">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-muted small fw-medium">ทั้งหมดในระบบ</div>
+                <div class="fs-4 fw-bold text-dark mt-1" id="statLicTotal">0</div>
+                <div class="text-muted" style="font-size: 0.72rem;">ใบประกอบฯ และบัตรราชการ</div>
+              </div>
+              <div class="rounded-circle p-3 d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-certificate fs-5"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: ปกติ / ยังไม่หมดอายุ -->
+        <div class="col-md-3 col-6">
+          <div class="card border rounded-3 p-3 shadow-xs h-100 bg-white border-success-subtle" style="cursor: pointer;" onclick="filterLicenseTableByStatus('valid')">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-success small fw-bold">ปกติ (เกิน 90 วัน)</div>
+                <div class="fs-4 fw-bold text-success mt-1" id="statLicValid">0</div>
+                <div class="text-muted" style="font-size: 0.72rem;">สถานะพร้อมปฏิบัติหน้าที่</div>
+              </div>
+              <div class="rounded-circle p-3 d-flex align-items-center justify-content-center bg-success-subtle text-success" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-circle-check fs-5"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: เตือนล่วงหน้า 90 วัน -->
+        <div class="col-md-3 col-6">
+          <div class="card border rounded-3 p-3 shadow-xs h-100 bg-white border-warning-subtle" style="cursor: pointer;" onclick="filterLicenseTableByStatus('expiring_soon')">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-warning small fw-bold">ใกล้หมดอายุ (31-90 วัน)</div>
+                <div class="fs-4 fw-bold text-warning mt-1" id="statLicExpiring90">0</div>
+                <div class="text-muted" style="font-size: 0.72rem;">ควรเตรียมยื่นต่ออายุรอบ 5 ปี</div>
+              </div>
+              <div class="rounded-circle p-3 d-flex align-items-center justify-content-center bg-warning-subtle text-warning" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-triangle-exclamation fs-5"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: วิกฤต 30 วัน & หมดอายุแล้ว -->
+        <div class="col-md-3 col-6">
+          <div class="card border rounded-3 p-3 shadow-xs h-100 bg-white border-danger-subtle" style="cursor: pointer;" onclick="filterLicenseTableByStatus('critical_expired')">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-danger small fw-bold">วิกฤต (≤ 30 วัน) / หมดอายุ</div>
+                <div class="fs-4 fw-bold text-danger mt-1" id="statLicCriticalExpired">0</div>
+                <div class="text-muted" style="font-size: 0.72rem;">ต้องดำเนินการต่ออายุด่วนที่สุด</div>
+              </div>
+              <div class="rounded-circle p-3 d-flex align-items-center justify-content-center bg-danger-subtle text-danger" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-bell fs-5"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Controls Bar (แสดงเฉพาะแอดมินเท่านั้น / user ทั่วไปซ่อน) -->
+      <div class="row g-2 mt-2 pt-3 border-top align-items-center d-none" id="licFilterControlsBar">
+        <!-- เลือกบุคลากร -->
+        <div class="col-md-4">
+          <label class="form-label small fw-bold text-dark mb-1">เลือกบุคลากร:</label>
+          <select id="licFilterStaffSelect" class="form-select form-select-sm rounded-3" onchange="applyLicenseCenterFilters()">
+            <option value="all">-- บุคลากรทั้งหมด (119 คน) --</option>
+          </select>
+        </div>
+
+        <!-- กลุ่มเป้าหมาย: อาจารย์ / สายสนับสนุน -->
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-dark mb-1">กลุ่มเป้าหมาย:</label>
+          <select id="licFilterTargetGroup" class="form-select form-select-sm rounded-3" onchange="applyLicenseCenterFilters()">
+            <option value="all" selected>-- ทุกกลุ่มเป้าหมาย --</option>
+            <option value="teacher">อาจารย์</option>
+            <option value="support">สายสนับสนุน</option>
+          </select>
+        </div>
+
+        <!-- ประเภทเอกสาร (ใบประกอบวิชาชีพ vs บัตรข้าราชการ) -->
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-dark mb-1">ประเภทเอกสาร:</label>
+          <select id="licFilterDocCategory" class="form-select form-select-sm rounded-3" onchange="applyLicenseCenterFilters()">
+            <option value="all" selected>-- ทุกประเภทเอกสาร --</option>
+            <option value="license">🩺 ใบอนุญาตประกอบวิชาชีพ</option>
+            <option value="civil_card">🪪 บัตรข้าราชการ/บัตรพนักงานราชการ</option>
+          </select>
+        </div>
+
+        <!-- สถานะวันหมดอายุ -->
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-dark mb-1">สถานะวันหมดอายุ:</label>
+          <select id="licFilterStatusSelect" class="form-select form-select-sm rounded-3" onchange="applyLicenseCenterFilters()">
+            <option value="all" selected>-- แสดงทั้งหมด --</option>
+            <option value="valid">🟢 ปกติ (เกิน 90 วัน)</option>
+            <option value="expiring_soon">🟡 ใกล้หมดอายุ (31-90 วัน)</option>
+            <option value="critical_30">🚨 วิกฤต (≤ 30 วัน)</option>
+            <option value="expired">🔴 หมดอายุแล้ว</option>
+            <option value="critical_expired">🚨 วิกฤต (≤ 30 วัน) / หมดอายุ</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. Main DataTable Card -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mb-4">
+    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="fw-bold text-dark d-flex align-items-center gap-2">
+        <i class="fa-solid fa-table-list text-primary"></i> รายการเอกสารประจำตัวราชการและใบประกอบวิชาชีพพยาบาล
+        <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-1 small" id="licenseCountBadge">0 รายการ</span>
+      </div>
+      <div>
+        <button class="btn btn-outline-success btn-sm rounded-pill px-3 shadow-xs" onclick="exportLicenseReportCsv()">
+          <i class="fa-solid fa-file-csv me-1"></i> ส่งออกข้อมูล (CSV)
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="licenseMainTable" style="font-size: 0.85rem; width: 100%;">
+          <thead class="table-light text-muted">
+            <!-- หัวตารางจะถูกสร้างแบบ Dynamic ตามสิทธิ์ Admin / User -->
+            <tr>
+              <th class="ps-3 text-center" style="width: 50px;">ลำดับ</th>
+              <th style="min-width: 170px;" class="lic-admin-col">บุคลากรผู้ถือเอกสาร</th>
+              <th style="min-width: 140px;">ประเภท</th>
+              <th style="min-width: 200px;">ชื่อเอกสาร / บัตร</th>
+              <th style="min-width: 120px;">เลขที่เอกสาร</th>
+              <th style="min-width: 95px;" class="text-center">วันหมดอายุ</th>
+              <th style="min-width: 135px;" class="text-center">สถานะ / วันคงเหลือ</th>
+              <th class="text-center pe-3" style="width: 105px;">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="licenseMainTableBody">
+            <tr>
+              <td colspan="8" class="text-center py-5 text-muted">
+                <i class="fa-solid fa-spinner fa-spin me-2 text-primary"></i>กำลังโหลดข้อมูลใบอนุญาตและบัตรราชการ...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>

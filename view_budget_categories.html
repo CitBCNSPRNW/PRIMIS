@@ -1,0 +1,99 @@
+<!-- ====================================================
+VIEW: ประวัติการศึกษาทุกระดับ (Education History Module)
+รองรับ ป.ตรี / ป.โท / ป.เอก / ประกาศนียบัตรวิชาชีพ ก.พ.7
+==================================================== -->
+<div id="view-budget-categories" class="tab-pane-content d-none">
+  <!-- 1. Header Banner Card (Clean Minimalist White Card) -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <h4 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+            <i class="fa-solid fa-graduation-cap text-primary"></i> ประวัติการศึกษาและคุณวุฒิ
+          </h4>
+        </div>
+
+        <!-- Action Buttons (Top-Right) -->
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2 fw-semibold shadow-xs" onclick="switchMainTab('manage-projects', $('#sidebarManageProjectsNav')[0])">
+            <i class="fa-solid fa-arrow-left me-1"></i> กลับหน้ารายชื่อ
+          </button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-semibold shadow-xs" onclick="loadEducationRecords()" title="โหลดข้อมูลล่าสุด">
+            <i class="fa-solid fa-rotate me-1 text-primary"></i> รีเฟรชข้อมูล
+          </button>
+          <button class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-bold shadow-xs text-white btn-hr-admin-only d-none" id="btnAddEducationRecordBtn" onclick="openAddEducationModal()">
+            <i class="fa-solid fa-plus me-1"></i> เพิ่มข้อมูลการศึกษา
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Controls Bar (สำหรับ Admin / HR เท่านั้น) -->
+      <div class="row g-2 mt-3 pt-3 border-top align-items-center d-none" id="eduFilterControlsBar">
+        <div class="col-md-8 col-lg-7" id="eduFilterStaffCol">
+          <label class="form-label small fw-bold text-dark mb-1">
+            <i class="fa-solid fa-user-check me-1 text-primary"></i>เลือกบุคลากรที่ต้องการดูข้อมูล:
+          </label>
+          <select id="eduFilterStaffSelect" class="form-select form-select-sm rounded-3" onchange="filterEducationTableByStaff()">
+            <option value="all">-- แสดงประวัติการศึกษาของบุคลากรทั้งหมด (119 คน) --</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- HR Alert Banner: บุคลากรที่ยังไม่ได้กำหนดวุฒิการศึกษาสูงสุด -->
+      <div id="eduMissingHighestAlertBanner" class="alert alert-warning border-0 rounded-4 shadow-xs mt-3 mb-0 d-none align-items-center justify-content-between p-3" style="background: #fffbeb; border-left: 5px solid #f59e0b !important;">
+        <div class="d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-warning bg-opacity-25" style="width: 40px; height: 40px; min-width: 40px;">
+            <i class="fa-solid fa-triangle-exclamation text-warning fs-5"></i>
+          </div>
+          <div>
+            <div class="fw-bold text-dark" style="font-size: 0.90rem;">
+              ระบบแจ้งเตือน HR: พบมีบุคลากรที่ <span class="text-danger fw-bold">"ยังไม่ได้กำหนดวุฒิการศึกษาสูงสุด"</span> จำนวน <span id="eduMissingHighestCount" class="badge bg-danger rounded-pill px-2 py-0.5">0</span> ท่าน
+            </div>
+            <div class="small text-muted" id="eduMissingHighestNames">
+              กรุณากำหนดวุฒิการศึกษาสูงสุด เพื่อให้การประมวลผลรายงาน ก.พ.7 และข้อมูลการบริหารงานบุคคลมีความถูกต้องสมบูรณ์
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-warning btn-sm rounded-pill px-3 py-1 fw-bold shadow-2xs text-dark" onclick="filterMissingHighestDegrees()">
+            <i class="fa-solid fa-filter me-1"></i> กรองดูเฉพาะกลุ่มนี้
+          </button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-1" onclick="$('#eduMissingHighestAlertBanner').addClass('d-none')" title="ปิดชั่วคราว">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Main DataTable Card -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mb-4">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="educationMainTable" style="font-size: 0.835rem; width: 100%;">
+          <thead class="table-light text-muted">
+            <tr style="height: 36px;">
+              <th class="ps-3 text-center edu-nowrap" style="width: 45px;">ลำดับ</th>
+              <th style="min-width: 160px;" class="edu-nowrap">บุคลากร</th>
+              <th style="width: 120px;" class="edu-nowrap">ระดับการศึกษา</th>
+              <th style="min-width: 200px;">วุฒิการศึกษา</th>
+              <th style="min-width: 130px;">สาขาวิชา</th>
+              <th style="min-width: 140px;">สถานศึกษา</th>
+              <th style="width: 75px;" class="text-center edu-nowrap">ปีที่จบ</th>
+              <th style="width: 65px;" class="text-center edu-nowrap">ประเทศ</th>
+              <th style="width: 85px;" class="text-center edu-nowrap">วุฒิสูงสุด</th>
+              <th class="text-center pe-3 edu-nowrap" style="width: 80px;">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="educationMainTableBody">
+            <tr>
+              <td colspan="10" class="text-center py-4 text-muted">
+                <i class="fa-solid fa-spinner fa-spin me-2 text-primary"></i>กำลังโหลดข้อมูลประวัติการศึกษา...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

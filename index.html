@@ -1,188 +1,276 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  
-  <title>PRIMIS : ระบบสารสนเทศบุคลากรกลาง วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์</title>
-  
-  <!-- SEO & Social Open Graph Meta Tags -->
-  <meta name="description" content="PRIMIS (Personnel Records & Institutional Management Information System) ระบบสารสนเทศเพื่อการบริหารจัดการข้อมูลบุคลากรแกนกลาง วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์ คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก">
-  <meta name="author" content="งานเทคโนโลยีและสารสนเทศ (CiteCentre) & HRD BCNSPRNW">
-  <meta name="theme-color" content="#44b6df">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="PRIMIS">
+<meta charset="UTF-8">
+<title><?= config.APP_NAME ?></title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://citbcnsprnw.github.io/PRIMIS/">
-  <meta property="og:title" content="PRIMIS : ระบบสารสนเทศบุคลากรกลาง">
-  <meta property="og:description" content="Personnel Records & Institutional Management Information System วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์">
-  <meta property="og:image" content="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop">
+<!-- Google Fonts: Sarabun -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="PRIMIS : ระบบสารสนเทศบุคลากรกลาง">
-  <meta name="twitter:description" content="Personnel Records & Institutional Management Information System วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์">
-  <meta name="twitter:image" content="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop">
+<!-- Bootstrap 5 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Font Awesome 6 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+<!-- SweetAlert2 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<!-- Select2 CSS + Bootstrap 5 Theme -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css">
+<!-- jquery.Thailand.js CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/earthchie/jquery.Thailand.js@1.5.3/dist/jquery.Thailand.min.css">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop">
-  <link rel="apple-touch-icon" href="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop">
+<!-- Modular CSS Styling -->
+<?!= include('styles'); ?>
 
-  <!-- Google Font: Sarabun -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #f8fafc;
-      font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    /* Preloader Layer */
-    #preloader {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 99999;
-      transition: opacity 0.5s ease, visibility 0.5s ease;
-    }
-    #preloader.loaded {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-    .logo-container {
-      position: relative;
-      margin-bottom: 24px;
-    }
-    .logo-img {
-      width: 90px;
-      height: 90px;
-      border-radius: 50%;
-      object-fit: contain;
-      box-shadow: 0 10px 25px -5px rgba(68, 182, 223, 0.4);
-      background: #ffffff;
-      padding: 6px;
-      position: relative;
-      z-index: 2;
-    }
-    .logo-halo {
-      position: absolute;
-      top: -10px;
-      left: -10px;
-      right: -10px;
-      bottom: -10px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(68, 182, 223, 0.3) 0%, rgba(68, 182, 223, 0) 70%);
-      animation: pulse-halo 2.5s infinite ease-in-out;
-      z-index: 1;
-    }
-    @keyframes pulse-halo {
-      0%, 100% { transform: scale(1); opacity: 0.6; }
-      50% { transform: scale(1.2); opacity: 0.2; }
-    }
-    .brand-title {
-      font-size: 1.75rem;
-      font-weight: 700;
-      color: #1e3a8a;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-    .brand-subtitle {
-      font-size: 0.95rem;
-      color: #475569;
-      margin-bottom: 24px;
-      font-weight: 400;
-    }
-    .spinner-ring {
-      display: inline-block;
-      width: 38px;
-      height: 38px;
-      border: 3px solid #e2e8f0;
-      border-radius: 50%;
-      border-top-color: #44b6df;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 14px;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .status-text {
-      font-size: 0.85rem;
-      color: #94a3b8;
-    }
-
-    /* Fullscreen iFrame */
-    #primisFrame {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      border: none;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      z-index: 1;
-      display: block;
-    }
-  </style>
+<!-- Early Global Fallback Variables (Prevent ReferenceError before js_app loads) -->
+<script>
+  window.DEFAULT_STAFF_AVATAR = 'https:' + '//cdn-icons-png.flaticon.com/512/3135/3135715.png';
+  var DEFAULT_STAFF_AVATAR = window.DEFAULT_STAFF_AVATAR;
+</script>
 </head>
 <body>
 
-  <!-- Premium Preloader -->
-  <div id="preloader">
-    <div class="logo-container">
-      <div class="logo-halo"></div>
-      <img src="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop" alt="BCNSPRNW Logo" class="logo-img">
+<!-- 0. Public Landing Portal -->
+<?!= include('view_landing'); ?>
+
+<!-- ====================================================
+App View Container (Sidebar + Main Workspace)
+==================================================== -->
+<div id="appView" class="w-100 d-none" style="display: flex; min-height: 100vh;">
+
+<!-- ====================================================
+1. Left Sidebar Navigation
+==================================================== -->
+<aside class="sidebar-wrapper no-print">
+  <!-- Brand Card (Sky Blue Gradient with Logo, PRIMIS, Version & Institute) -->
+  <div class="brand-card">
+    <div class="d-flex align-items-center gap-2 w-100">
+      <img src="https://lh5.googleusercontent.com/d/1tDVKF6qFEl7_avxewudlClYsk9qkrgop" alt="BCNSPRNW PRIMIS Logo" class="brand-logo">
+      <div class="flex-grow-1 min-w-0">
+        <div class="d-flex align-items-center justify-content-between gap-1">
+          <span class="brand-title" style="letter-spacing: 0.03em;">PRIMIS</span>
+          <span class="badge bg-white text-dark rounded-pill px-2 py-0 fw-bold" style="font-size: 0.68rem;"><?= config.APP_VERSION ?></span>
+        </div>
+        <div id="sidebarUserBadge" class="brand-role-badge">ADMIN</div>
+      </div>
     </div>
-    <div class="brand-title">PRIMIS</div>
-    <div class="brand-subtitle">ระบบสารสนเทศบุคลากรกลาง (BCNSPRNW)</div>
-    <div class="spinner-ring"></div>
-    <div class="status-text">กำลังเชื่อมต่อระบบ กรุณารอสักครู่...</div>
+    <div class="w-100 mt-2 pt-2" style="border-top: 1px solid rgba(255, 255, 255, 0.25);">
+      <div class="fw-bold" style="font-size: 0.74rem; line-height: 1.25; color: #ffffff;">PRIMIS • สารสนเทศบุคลากร</div>
+      <div class="small" style="font-size: 0.65rem; line-height: 1.2; color: rgba(255, 255, 255, 0.88); margin-top: 2px;">วพบ.สวรรค์ประชารักษ์ นครสวรรค์</div>
+    </div>
   </div>
 
-  <!-- Google Apps Script Web App Fullscreen Frame -->
-  <iframe 
-    id="primisFrame" 
-    src="https://script.google.com/macros/s/AKfycbyVh4LyyTHrTSvOnLyLWZOrsjBpC6Hy1F6NF0b8v7H6_jLuXvoda86P_NK5c_SncAtH/exec"
-    allow="camera; microphone; geolocation; fullscreen; clipboard-read; clipboard-write"
-    onload="hidePreloader()">
-  </iframe>
+  <!-- Navigation Menu -->
+  <nav class="sidebar-nav">
+    <!-- หมวดที่ 1: ข้อมูลพื้นฐาน -->
+    <div class="sidebar-section-title px-3 pt-2 pb-1 small fw-bold text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em; color: #64748b;">
+      ข้อมูลพื้นฐาน
+    </div>
+    <a href="javascript:void(0)" class="nav-link active" onclick="openMyProfileTab(this)" id="sidebarMyProfileNav">
+      <i class="fa-solid fa-id-badge me-2"></i> ข้อมูลของฉัน
+    </a>
+    <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('dashboard', this)" id="sidebarDashboardNav">
+      <i class="fa-solid fa-chart-pie me-2"></i> แดชบอร์ดสถิติกำลังคน
+    </a>
+    <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('manage-projects', this)" id="sidebarManageProjectsNav">
+      <i class="fa-solid fa-id-card me-2"></i> ทะเบียนประวัติบุคลากร(รวม)
+    </a>
 
-  <script>
-    function hidePreloader() {
-      var loader = document.getElementById('preloader');
-      if (loader && !loader.classList.contains('loaded')) {
-        setTimeout(function() {
-          loader.classList.add('loaded');
-        }, 500);
-      }
-    }
+    <!-- หมวดที่ 2: เพิ่ม/แก้ไข ข้อมูลส่วนตัว (แสดงเฉพาะผู้เข้าสู่ระบบแล้ว) -->
+    <div id="catPersonalSection">
+      <div class="sidebar-section-title px-3 pt-3 pb-1 small fw-bold text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em; color: #64748b;">
+        เพิ่ม/แก้ไข ข้อมูลส่วนตัว
+      </div>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('budget-categories', this)" id="sidebarBudgetCategoriesNav">
+        <i class="fa-solid fa-graduation-cap me-2"></i> ประวัติการศึกษา & คุณวุฒิ
+      </a>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('disbursements', this)" id="sidebarDisbursementsNav">
+        <i class="fa-solid fa-book-open-reader me-2"></i> ระบบศึกษาต่อ & ชดใช้ทุน
+      </a>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('kpi-master', this)" id="sidebarKpiMasterNav">
+        <i class="fa-solid fa-medal me-2"></i> เครื่องราชฯ & เหรียญ ร.จ.พ.
+      </a>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('manage-budgets', this)" id="sidebarManageBudgetsNav">
+        <i class="fa-solid fa-certificate me-2"></i> ใบอนุญาตวิชาชีพ & บัตรราชการ
+      </a>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('kpi-monitoring', this)" id="sidebarKpiMonitoringNav">
+        <i class="fa-solid fa-trophy me-2"></i> ประวัติการอบรม & รางวัล
+      </a>
+    </div>
 
-    // Safety timeout: ซ่อน preloader ภายใน 3.5 วินาทีหาก iframe โหลดเสร็จก่อนแต่ event ช้า
-    setTimeout(function() {
-      hidePreloader();
-    }, 3500);
-  </script>
+    <!-- หมวดที่ 3: ผู้ดูแลระบบ (แสดงเฉพาะ Admin) -->
+    <div id="catAdminSection">
+      <div class="sidebar-section-title px-3 pt-3 pb-1 small fw-bold text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em; color: #64748b;">
+        การบริหารจัดการระบบ
+      </div>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('users', this)" id="sidebarUsersNav">
+        <i class="fa-solid fa-user-shield me-2"></i> จัดการผู้ใช้งานและสิทธิ์
+      </a>
+      <a href="javascript:void(0)" class="nav-link" onclick="switchMainTab('logs', this)" id="sidebarLogsNav">
+        <i class="fa-solid fa-clock-rotate-left me-2"></i> ประวัติการใช้งานระบบ (Logs)
+      </a>
+    </div>
+
+    <!-- ปุ่มออกจากระบบ / เข้าสู่ระบบ (Footer Sidebar) -->
+    <a href="javascript:void(0)" class="nav-link text-primary mt-4" onclick="openLoginModal()" id="sidebarLoginBtn">
+      <i class="fa-solid fa-right-to-bracket me-2"></i> เข้าสู่ระบบเจ้าหน้าที่
+    </a>
+
+  </nav>
+</aside>
+
+<!-- ====================================================
+2. Right Main Workspace
+==================================================== -->
+<div class="main-workspace">
+
+  <!-- Top Header Bar -->
+  <header class="top-header-bar no-print">
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 shadow-sm" onclick="switchMainTab('dashboard', $('#sidebarDashboardNav')[0])" title="ไปที่แดชบอร์ดภาพรวม">
+        <i class="fa-solid fa-house me-1"></i> หน้าหลัก
+      </button>
+      <div class="inst-pill d-flex align-items-center gap-2">
+        <div class="inst-icon"><i class="fa-solid fa-building-columns"></i></div>
+        <span>วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์</span>
+        <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-1 fw-bold ms-2 shadow-sm" style="font-size: 0.72rem;">
+          <i class="fa-solid fa-code-branch me-1"></i><?= config.APP_VERSION ?>
+        </span>
+      </div>
+    </div>
+
+    <!-- Right Profile Dropdown -->
+    <div class="dropdown" id="topProfileDropdownContainer">
+      <div class="user-profile-pill" id="topProfilePill" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+        <div class="user-avatar" id="topUserAvatar"><i class="fa-solid fa-user"></i></div>
+        <div class="text-start me-1">
+          <div class="fw-bold small" id="topUserName">บุคคลทั่วไป (Guest)</div>
+          <div class="text-muted" style="font-size: 0.72rem;" id="topUserRole">โหมดดูรายงานสาธารณะ</div>
+        </div>
+        <i class="fa-solid fa-chevron-down text-muted small ms-1 d-none" id="topProfileChevron"></i>
+        <button class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-bold ms-1" onclick="openLoginModal()" id="topLoginBtn">
+          เข้าสู่ระบบ
+        </button>
+      </div>
+      <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 mt-2 p-2" id="topProfileDropdownMenu" style="min-width: 230px; font-size: 0.88rem;">
+        <li class="px-3 py-2 border-bottom mb-1">
+          <div class="fw-bold text-dark" id="dropdownUserName">เจ้าหน้าที่</div>
+          <div class="text-muted small" id="dropdownUserRole">STAFF</div>
+        </li>
+        <li>
+          <a class="dropdown-item rounded-3 py-2 d-flex align-items-center gap-2" href="javascript:void(0)" onclick="viewMyOwnProfile()">
+            <i class="fa-solid fa-id-card-clip text-primary" style="width: 18px;"></i>
+            <span>ดูประวัติ ก.พ.7 ของฉัน</span>
+          </a>
+        </li>
+        <li>
+          <a class="dropdown-item rounded-3 py-2 d-flex align-items-center gap-2" href="javascript:void(0)" onclick="openResetPasswordModal()">
+            <i class="fa-solid fa-key text-warning" style="width: 18px;"></i>
+            <span>เปลี่ยนรหัสผ่าน (Reset Password)</span>
+          </a>
+        </li>
+        <li><hr class="dropdown-divider my-1"></li>
+        <li>
+          <a class="dropdown-item rounded-3 py-2 d-flex align-items-center gap-2 text-danger fw-semibold" href="javascript:void(0)" onclick="doLogout()">
+            <i class="fa-solid fa-right-from-bracket" style="width: 18px;"></i>
+            <span>ออกจากระบบ</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Modular Content Tabs (Views) -->
+  <?!= include('view_dashboard'); ?>
+  <?!= include('view_manage_projects'); ?>
+  <?!= include('view_personnel_detail'); ?>
+  <?!= include('view_personnel_edit'); ?>
+  <?!= include('view_project_monitoring'); ?>
+  <?!= include('view_activity_monitoring'); ?>
+  <?!= include('view_budget_monitoring'); ?>
+  <?!= include('view_manage_budgets'); ?>
+  <?!= include('view_manage_budgets_v2'); ?>
+  <?!= include('view_budget_categories'); ?>
+  <?!= include('view_disbursements'); ?>
+  <?!= include('view_kpi_master'); ?>
+  <?!= include('view_kpi_monitoring'); ?>
+  <?!= include('view_users'); ?>
+  <?!= include('view_logs'); ?>
+
+  <!-- ====================================================
+       Global System Footer (แสดงผลด้านล่างทุกหน้า)
+  ==================================================== -->
+  <footer class="system-main-footer mt-auto pt-4 pb-3 border-top text-center no-print" style="border-color: rgba(226, 232, 240, 0.8) !important;">
+    <div class="container-fluid">
+      <div class="d-flex flex-column align-items-center justify-content-center gap-1">
+        <!-- Line 1: Personnel Records & Institutional Management Information System (PRIMIS) เด่นชัด -->
+        <div class="mb-1">
+          <span class="fw-bold text-dark fs-6 tracking-wide d-inline-block">
+            Personnel Records &amp; Institutional Management Information System (PRIMIS)
+          </span>
+        </div>
+        <!-- Line 2: สถาบันและหน่วยงานต้นสังกัด -->
+        <div class="text-secondary small fw-medium" style="font-size: 0.82rem;">
+          วิทยาลัยพยาบาลบรมราชชนนี สวรรค์ประชารักษ์ นครสวรรค์ • คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก
+        </div>
+        <!-- Line 3: ผู้พัฒนา -->
+        <div class="text-muted small mt-0.5" style="font-size: 0.74rem;">
+          <i class="fa-solid fa-laptop-code me-1 text-primary"></i>พัฒนาโดย งานเทคโนโลยีและสารสนเทศ (ภายใต้การกำกับโดยงานทรัพยากรบุคคล) CiteCentre &amp; HRD BCNSPRNW
+        </div>
+        <!-- Line 4 (บรรทัดล่างสุด): PRIMIS v1.7.04 ตามด้วย Build 2026.11.03 ต่อหลังกัน -->
+        <div class="d-flex align-items-center justify-content-center flex-wrap gap-2 mt-2">
+          <span class="badge bg-primary-subtle text-primary border rounded-pill px-3 py-1 fw-bold shadow-xs" style="font-size: 0.74rem; letter-spacing: 0.5px;">
+            <i class="fa-solid fa-code-branch text-primary me-1"></i>PRIMIS <?= config.APP_VERSION ?>
+          </span>
+          <span class="badge bg-light text-muted border rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+            <i class="fa-regular fa-calendar-check me-1"></i>Build <?= config.BUILD_DATE ?>
+          </span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</div> <!-- Close #appView Container -->
+
+<!-- 3. Modular Modals -->
+<?!= include('modals'); ?>
+
+<!-- 4. CDN Script Libraries -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<!-- jquery.Thailand.js (Dependencies & Library) -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/earthchie/jquery.Thailand.js@1.5.3/dependencies/JQL.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/earthchie/jquery.Thailand.js@1.5.3/dependencies/typeahead.bundle.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/earthchie/jquery.Thailand.js@1.5.3/dist/jquery.Thailand.min.js"></script>
+
+<!-- 5. Modular Client JavaScripts -->
+<?!= include('js_app'); ?>
+<?!= include('js_address_lookup'); ?>
+<?!= include('js_staff_picker'); ?>
+<?!= include('js_projects'); ?>
+<?!= include('js_user_roles'); ?>
+<?!= include('js_logs'); ?>
+<?!= include('js_budgets'); ?>
+<?!= include('js_budgets_v2'); ?>
+<?!= include('js_disbursements'); ?>
+<?!= include('js_charts'); ?>
+<?!= include('js_monitoring'); ?>
+<?!= include('js_budget_monitoring'); ?>
 
 </body>
 </html>

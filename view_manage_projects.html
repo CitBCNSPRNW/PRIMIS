@@ -1,0 +1,103 @@
+<!-- ====================================================
+VIEW: ทะเบียนประวัติบุคลากร (Personnel Management)
+==================================================== -->
+<div id="view-manage-projects" class="tab-pane-content d-none">
+  <!-- Card Header -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <h4 class="fw-bold mb-1" style="color: #1e293b;">
+            <i class="fa-solid fa-users-gear text-primary me-2"></i> ทะเบียนประวัติบุคลากร(รวม)
+          </h4>
+          <p class="text-muted small mb-0">
+            ระบบบริหารจัดการรายละเอียดปลีกย่อย 33 คอลัมน์ เชื่อมโยงกับฐานข้อมูลกลาง staff_master อย่างปลอดภัย
+          </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button id="btnImportSeedData" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-2 shadow-sm" onclick="doImportSeedData()" title="นำเข้า 3 บุคลากรตัวอย่างจาก ex_person.md">
+            <i class="fa-solid fa-file-import me-1 text-primary"></i> นำเข้าข้อมูลตัวอย่าง (3 ท่าน)
+          </button>
+          <button id="btnCreatePersonnel" class="btn btn-sm btn-primary rounded-pill px-3 py-2 shadow-sm fw-semibold" onclick="openCreatePersonnelModal()">
+            <i class="fa-solid fa-user-plus me-1"></i> เพิ่มข้อมูลบุคลากร
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Controls Bar -->
+      <div class="row g-2 mt-3 pt-3 border-top align-items-center filter-row-mobile">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold text-secondary mb-1">สายงาน:</label>
+          <select id="filterJobLine" class="form-select form-select-sm rounded-pill" onchange="applyPersonnelFilters()">
+            <option value="all">-- ทุกสายงาน --</option>
+            <option value="สายสอน">สายสอน (อาจารย์)</option>
+            <option value="สายสนับสนุน">สายสนับสนุน</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold text-secondary mb-1">สถานะการปฏิบัติงาน:</label>
+          <select id="filterWorkStatus" class="form-select form-select-sm rounded-pill" onchange="applyPersonnelFilters()">
+            <option value="active" selected>🟢 ปฏิบัติงานปัจจุบัน (Active)</option>
+            <option value="all">📋 แสดงทั้งหมด (รวมผู้พ้นสภาพ)</option>
+            <option value="ปกติ/ปฏิบัติงาน/ข้าราชการ/รับโอน">ปกติ/ปฏิบัติงาน/ข้าราชการ/รับโอน</option>
+            <option value="ลาศึกษาต่อ">ลาศึกษาต่อ</option>
+            <option value="ช่วยราชการ">ช่วยราชการ (ทุกประเภท)</option>
+            <option value="ย้ายข้าราชการมา สบช.">ย้ายข้าราชการมา สบช.</option>
+            <option value="ตัดโอนตำแหน่ง/เงินเดือน มา สบช.">ตัดโอนตำแหน่ง/เงินเดือน มา สบช.</option>
+            <option value="มาช่วยราชการจากใน สบช.">มาช่วยราชการจากใน สบช.</option>
+            <option value="มาช่วยราชการจากนอก สบช.">มาช่วยราชการจากนอก สบช.</option>
+            <option value="ไปช่วยราชการภายใน สบช.">ไปช่วยราชการภายใน สบช.</option>
+            <option value="ไปช่วยราชการนอก สบช.">ไปช่วยราชการนอก สบช.</option>
+            <option value="โอนย้ายไปใน สบช.">🟣 โอนย้ายไปใน สบช.</option>
+            <option value="โอนย้ายไปนอก สบช.">🟪 โอนย้ายไปนอก สบช.</option>
+            <option value="ลาออก">🔴 ลาออก</option>
+            <option value="เกษียณอายุ">⚪ เกษียณอายุ</option>
+            <option value="เสียชีวิต">⚫ เสียชีวิต</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold text-secondary mb-1">ค้นหาด่วน:</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text rounded-start-pill bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+            <input type="text" id="quickSearchPersonnel" class="form-control rounded-end-pill" placeholder="พิมพ์ PIN, ชื่อ, เลขตำแหน่ง..." onkeyup="filterPersonnelTableClient(this.value)">
+          </div>
+        </div>
+        <div class="col-md-3 text-end d-flex align-items-end justify-content-end gap-2 pt-3 pt-md-0">
+          <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="loadPersonnelTable(true)">
+            <i class="fa-solid fa-arrows-rotate me-1"></i> รีเฟรชข้อมูล
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Personnel DataTable Card -->
+  <div class="card border-0 shadow-sm rounded-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="table-responsive">
+        <table id="personnelTable" class="table table-hover align-middle w-100" style="font-size: 0.85rem;">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 55px;" class="text-center">PIN</th>
+              <th>บุคลากร</th>
+              <th>ตำแหน่ง / สังกัด</th>
+              <th class="mobile-hide-col">ประเภท</th>
+              <th class="mobile-hide-col">สายงาน</th>
+              <th class="mobile-hide-col">วุฒิสูงสุด</th>
+              <th class="mobile-hide-col">สถานะ</th>
+              <th class="text-center text-nowrap" style="width: 145px; min-width: 140px;">การจัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="personnelTableBody">
+            <!-- Render via DataTables & JS -->
+            <tr>
+              <td colspan="8" class="text-center py-4 text-muted">
+                <i class="fa-solid fa-spinner fa-spin text-orange me-2"></i> กำลังโหลดทะเบียนบุคลากร...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

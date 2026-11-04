@@ -1,0 +1,775 @@
+<script>
+/**
+ * =========================================================================
+ * Global Application Controller (js_app.html)
+ * ระบบฐานข้อมูลบุคลากรกลาง (BCNSPRNW HR-DB)
+ * =========================================================================
+ */
+
+// Global State
+let currentAdminUser = null;
+let currentPersonnelList = [];
+let availableStaffList = [];
+window.DEFAULT_STAFF_AVATAR = 'https:' + '//cdn-icons-png.flaticon.com/512/3135/3135715.png';
+var DEFAULT_STAFF_AVATAR = window.DEFAULT_STAFF_AVATAR;
+
+// Helper: Escape HTML
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Helper: แปลง URL รูปภาพให้รองรับทั้ง Google Drive, Server URL, และ Fallback
+function formatStaffPhotoUrl(rawUrl, fallback = DEFAULT_STAFF_AVATAR) {
+  if (!rawUrl || typeof rawUrl !== 'string') return fallback;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return fallback;
+
+  // 1. ตรวจจับ Google Drive link และแปลงเป็น Direct View / Thumbnail link
+  const driveFileMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveFileMatch && driveFileMatch[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + driveFileMatch[1];
+  }
+  const driveIdMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (driveIdMatch && driveIdMatch[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + driveIdMatch[1];
+  }
+
+  // 2. ถ้าเป็น http/https ให้ใช้ตรงๆ
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  // 3. ถ้าเป็น relative path บนเซิร์ฟเวอร์
+  return 'http://122.154.179.132/' + trimmed.replace(/^\/+/, '');
+}
+
+// Helper: สร้าง Avatar วงกลม พร้อม Fallback อักษรย่อ
+function renderStaffAvatarHtml(avatarUrl, name, size = 38) {
+  const initial = (name || 'U').replace(/^(นาย|นาง|นางสาว|ดร\.|ผศ\.|รศ\.|อ\.)\s*/, '').trim().charAt(0) || 'U';
+  const resolvedUrl = formatStaffPhotoUrl(avatarUrl);
+  if (resolvedUrl) {
+    return `<img src="${resolvedUrl}" class="rounded-circle border" style="width:${size}px;height:${size}px;min-width:${size}px;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,0.12);" onerror="this.onerror=null;this.replaceWith(createFallbackAvatarEl('${initial}', ${size}));">`;
+  }
+  return `<div class="staff-avatar-fallback" style="width:${size}px;height:${size}px;min-width:${size}px;">${initial}</div>`;
+}
+
+function createFallbackAvatarEl(initial, size = 38) {
+  const div = document.createElement('div');
+  div.className = 'staff-avatar-fallback';
+  div.style.width = size + 'px';
+  div.style.height = size + 'px';
+  div.innerText = initial || 'U';
+  return div;
+}
+
+// Document Ready
+$(document).ready(function() {
+  restoreSavedSession();
+  loadHrDashboardStats();
+
+  // ล้างเฉพาะรหัสผ่านให้ว่างเปล่าเสมอ
+  $('#landingPasswordInput').val('');
+  $('#loginPasswordInput').val('');
+
+  // Modal Backdrop Cleaner
+  $(document).on('hidden.bs.modal', '.modal', function () {
+    setTimeout(function() {
+      if ($('.modal.show').length === 0) {
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open').css({
+          'overflow': '',
+          'padding-right': ''
+        });
+      }
+    }, 150);
+  });
+});
+
+// Triple-Storage Session Persistence
+function saveStorageItem(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) {}
+  try { sessionStorage.setItem(key, value); } catch (e) {}
+  try {
+    const d = new Date();
+    d.setTime(d.getTime() + (30 * 24 * 60 * 60 * 1000));
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+  } catch (e) {}
+}
+
+function getStorageItem(key) {
+  let val = null;
+  try { val = localStorage.getItem(key); } catch (e) {}
+  if (!val) {
+    try { val = sessionStorage.getItem(key); } catch (e) {}
+  }
+  if (!val) {
+    try {
+      const name = encodeURIComponent(key) + "=";
+      const ca = document.cookie.split(';');
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(name) === 0) {
+          val = decodeURIComponent(c.substring(name.length, c.length));
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+  return val;
+}
+
+function removeStorageItem(key) {
+  try { localStorage.removeItem(key); } catch (e) {}
+  try { sessionStorage.removeItem(key); } catch (e) {}
+  try {
+    document.cookie = `${encodeURIComponent(key)}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax`;
+  } catch (e) {}
+}
+
+function restoreSavedSession() {
+  try {
+    const saved = getStorageItem('hr_session_user');
+    if (saved) {
+      const userObj = JSON.parse(saved);
+      if (userObj && (userObj.pin || userObj.email)) {
+        console.log('Restoring saved session for:', userObj.name || userObj.pin);
+        applyUserLoggedIn(userObj, true, true);
+
+        // ซิงค์สิทธิ์ล่าสุดจากฐานข้อมูลแบบเรียลไทม์ ป้องกันสิทธิ์ค้างจาก LocalStorage
+        const myPin = userObj.pin || userObj.id;
+        if (myPin && typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(function(res) {
+              if (res && res.status === 'success' && res.data && res.data.role) {
+                const latestRole = res.data.role.toLowerCase();
+                const curRole = (userObj.role || userObj.user_type || '').toLowerCase();
+                if (latestRole !== curRole) {
+                  console.log('Role updated from server:', curRole, '->', latestRole);
+                  userObj.role = latestRole;
+                  if (res.data.can_export != null) userObj.can_export = res.data.can_export;
+                  if (res.data.can_manage_bonds != null) userObj.can_manage_bonds = res.data.can_manage_bonds;
+                  if (res.data.can_manage_insignia != null) userObj.can_manage_insignia = res.data.can_manage_insignia;
+                  applyUserLoggedIn(userObj, true, true);
+                }
+              }
+            })
+            .getMyEffectiveRole(myPin);
+        }
+
+        // สลับเข้าสู่ระบบอัตโนมัติ (ข้ามหน้า Landing Page ไปยัง ข้อมูลของฉัน)
+        $('#landingView').addClass('d-none');
+        $('#appView').removeClass('d-none');
+        openMyProfileTab(document.getElementById('sidebarMyProfileNav'));
+        return;
+      }
+    }
+
+    // กรณีไม่มี Session ค้างอยู่ ให้ตรวจสอบว่ามี PIN ที่จำไว้หรือไม่
+    const savedPin = getStorageItem('bcn_saved_user_id');
+    if (savedPin) {
+      $('#landingUsernameInput').val(savedPin);
+      $('#loginUsernameInput').val(savedPin);
+      $('#landingRememberMeCheck').prop('checked', true);
+    } else {
+      $('#landingUsernameInput').val('');
+      $('#loginUsernameInput').val('');
+    }
+
+    enforceUiPermissions('guest');
+  } catch (e) {
+    console.warn('Restore session error:', e);
+    enforceUiPermissions('guest');
+  }
+}
+
+function toggleSidebarMenu(submenuId, headerEl) {
+  const $sub = $(`#${submenuId}`);
+  const $hdr = $(headerEl);
+  if ($sub.hasClass('d-none')) {
+    $sub.removeClass('d-none');
+    $hdr.addClass('open');
+  } else {
+    $sub.addClass('d-none');
+    $hdr.removeClass('open');
+  }
+}
+
+// Switch Sidebar Navigation Tabs
+function switchMainTab(tabName, linkElem) {
+  // ตรวจสอบและป้องกัน Guest เข้าถึงแท็บส่วนตัวหรือแท็บแอดมินโดยตรง
+  const isGuest = (!window.currentUserPin || (window.currentUserRole || 'guest').toLowerCase() === 'guest');
+  const protectedTabs = ['budget-categories', 'disbursements', 'kpi-master', 'manage-budgets', 'kpi-monitoring', 'users', 'logs'];
+  if (isGuest && protectedTabs.includes(tabName)) {
+    Swal.fire({
+      icon: 'info',
+      title: '🔒 กรุณาเข้าสู่ระบบเจ้าหน้าที่',
+      html: `
+        <div class="py-2 text-start">
+          <p class="mb-2 text-dark">เมนูนี้สงวนสิทธิ์สำหรับเจ้าหน้าที่และบุคลากรของวิทยาลัยฯ ที่เข้าสู่ระบบแล้วเท่านั้นค่ะ</p>
+          <div class="alert alert-primary py-2 px-3 small rounded-3 mb-0">
+            <i class="fa-solid fa-shield-halved me-1"></i> เพื่อความปลอดภัยของข้อมูล บุคคลทั่วไป (Guest) สามารถดูได้เฉพาะหน้าแดชบอร์ดภาพรวมและทำเนียบประวัติสาธารณะค่ะ
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: '<i class="fa-solid fa-right-to-bracket me-1"></i> เข้าสู่ระบบเจ้าหน้าที่',
+      cancelButtonText: 'กลับหน้าแดชบอร์ด',
+      confirmButtonColor: '#1d4ed8'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        openLoginModal();
+      } else {
+        switchMainTab('dashboard', document.getElementById('sidebarDashboardNav'));
+      }
+    });
+    return;
+  }
+
+  $('.sidebar-nav .nav-link').removeClass('active');
+  if (linkElem) {
+    $(linkElem).addClass('active');
+    const $parentSub = $(linkElem).closest('.nav-submenu');
+    if ($parentSub.length) {
+      $parentSub.removeClass('d-none');
+      $parentSub.prev('.nav-category-header').addClass('open');
+    }
+  }
+
+  $('.tab-pane-content').addClass('d-none');
+  
+  if (tabName === 'dashboard') {
+    $('#view-dashboard').removeClass('d-none');
+    loadHrDashboardStats();
+  } else if (tabName === 'manage-projects') {
+    $('#view-manage-projects').removeClass('d-none');
+    if (typeof loadPersonnelTable === 'function') {
+      loadPersonnelTable();
+    }
+  } else if (tabName === 'budget-categories') {
+    $('#view-budget-categories').removeClass('d-none');
+    if (typeof loadEducationRecords === 'function') {
+      loadEducationRecords();
+    }
+  } else if (tabName === 'disbursements') {
+    $('#view-disbursements').removeClass('d-none');
+    if (typeof loadStudyBondsModule === 'function') {
+      loadStudyBondsModule();
+    }
+  } else if (tabName === 'kpi-master') {
+    $('#view-kpi-master').removeClass('d-none');
+    if (typeof loadInsigniaModule === 'function') {
+      loadInsigniaModule();
+    }
+  } else if (tabName === 'kpi-monitoring') {
+    $('#view-kpi-monitoring').removeClass('d-none');
+    if (typeof loadTrainingAwardsModule === 'function') {
+      loadTrainingAwardsModule();
+    }
+  } else if (tabName === 'manage-budgets') {
+    $('#view-manage-budgets').removeClass('d-none');
+    if (typeof loadLicenseCenterTable === 'function') {
+      loadLicenseCenterTable();
+    }
+  } else if (tabName === 'users') {
+    const curRole = (window.currentUserRole || 'guest').toLowerCase();
+    if (curRole !== 'super_admin') {
+      Swal.fire({
+        icon: 'warning',
+        title: '🛡️ สงวนสิทธิ์เฉพาะ Super Admin',
+        text: 'เมนูจัดการผู้ใช้งานและมอบหมายสิทธิ์ สงวนสิทธิ์สำหรับ Super Admin เท่านั้นค่ะ',
+        confirmButtonColor: '#1d4ed8'
+      });
+      switchMainTab('dashboard', document.getElementById('sidebarDashboardNav'));
+      return;
+    }
+    $('#view-users').removeClass('d-none');
+    if (typeof loadUserRolesTable === 'function') {
+      loadUserRolesTable();
+    }
+  } else if (tabName === 'logs') {
+    $('#view-logs').removeClass('d-none');
+    if (typeof loadHrLogsModule === 'function') {
+      loadHrLogsModule();
+    }
+  }
+}
+
+// UI Role-Based Permissions Enforcement
+function enforceUiPermissions(role) {
+  const normRole = (role || 'guest').toLowerCase();
+  const isAdmin = (normRole === 'super_admin' || normRole === 'hr_admin');
+  const isSuperAdmin = (normRole === 'super_admin');
+  const isGuest = (normRole === 'guest' || !window.currentUserPin);
+  window.currentUserRole = normRole;
+
+  // 1. Sidebar: หมวดการบริหารจัดการระบบ (แสดงเฉพาะ Super Admin และ HR Admin)
+  if (isAdmin) {
+    $('#catAdminSection').removeClass('d-none');
+    // เมนูจัดการผู้ใช้งานและสิทธิ์ สงวนสิทธิ์เฉพาะ Super Admin เท่านั้น
+    if (isSuperAdmin) {
+      $('#sidebarUsersNav').removeClass('d-none');
+    } else {
+      $('#sidebarUsersNav').addClass('d-none');
+    }
+  } else {
+    $('#catAdminSection').addClass('d-none');
+    $('#sidebarUsersNav').addClass('d-none');
+  }
+
+  // 2. Sidebar: หมวดที่ 2 เพิ่ม/แก้ไข ข้อมูลส่วนตัว และเมนูข้อมูลของฉัน (ซ่อนจาก Guest 100%)
+  if (isGuest) {
+    $('#catPersonalSection').addClass('d-none');
+    $('#sidebarMyProfileNav').addClass('d-none');
+  } else {
+    $('#catPersonalSection').removeClass('d-none');
+    $('#sidebarMyProfileNav').removeClass('d-none');
+  }
+
+  // 3. ทะเบียนประวัติบุคลากร: ซ่อนปุ่มแอดมิน (สร้าง/นำเข้า) จากผู้ใช้ทั่วไป
+  if (isAdmin) {
+    $('#btnImportSeedData').removeClass('d-none');
+    $('#btnCreatePersonnel').removeClass('d-none');
+  } else {
+    $('#btnImportSeedData').addClass('d-none');
+    $('#btnCreatePersonnel').addClass('d-none');
+  }
+
+  // 4. สิทธิ์การจัดการเอกสารและพันธกิจ ก.พ.7:
+  // - ใบอนุญาตวิชาชีพและบัตรราชการ (#btnAddLicenseRecordBtn): แสดงสำหรับผู้ใช้ที่เข้าสู่ระบบแล้วทุกคน (Staff + Admin) แต่ซ่อนจาก Guest
+  if (!isGuest) {
+    $('#btnAddLicenseRecordBtn').removeClass('d-none');
+  } else {
+    $('#btnAddLicenseRecordBtn').addClass('d-none');
+  }
+
+  // - ฟังก์ชันเฉพาะ HR Admin / Super Admin (ปุ่มเพิ่มการศึกษา, ตัวกรองทั้งวิทยาลัย, ปุ่มสลับภาพรวม)
+  if (isAdmin) {
+    $('.btn-hr-admin-only').removeClass('d-none');
+    $('#btnAddEducationRecordBtn').removeClass('d-none');
+    $('#eduFilterControlsBar').removeClass('d-none');
+    $('#licFilterControlsBar').removeClass('d-none');
+    $('#btnToggleLicAdminHub').removeClass('d-none');
+  } else {
+    $('.btn-hr-admin-only').addClass('d-none');
+    $('#btnAddEducationRecordBtn').addClass('d-none');
+    $('#eduFilterControlsBar').addClass('d-none');
+    $('#licFilterControlsBar').addClass('d-none');
+    $('#btnToggleLicAdminHub').addClass('d-none');
+  }
+}
+
+// Loading Modal Helper
+function showPpmsLoading(title = 'กำลังประมวลผลข้อมูล...', subtitle = 'กรุณารอสักครู่ ระบบกำลังเชื่อมต่อฐานข้อมูล cit_mis_db') {
+  Swal.fire({
+    title: `<div class="fw-bold text-dark fs-5 mt-2">${title}</div>`,
+    html: `
+      <div class="py-2 text-center">
+        <div class="spinner-border text-warning my-3" style="width: 3rem; height: 3rem; border-width: 0.25em; color: #f97316 !important;" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="text-secondary small fw-medium">${subtitle}</div>
+        <div class="badge bg-light text-muted border rounded-pill mt-3 px-3 py-1" style="font-size: 0.72rem;">
+          <i class="fa-solid fa-shield-halved text-success me-1"></i> ระบบฐานข้อมูลบุคลากรกลาง (HR-DB)
+        </div>
+      </div>
+    `,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    customClass: {
+      popup: 'rounded-4 shadow-lg border-0 p-4'
+    }
+  });
+}
+
+function hidePpmsLoading() {
+  Swal.close();
+}
+
+// Global Aliases for System Loading (ตาม Master Blueprint)
+window.showPpmsLoading = showPpmsLoading;
+window.hidePpmsLoading = hidePpmsLoading;
+window.showSystemLoading = showPpmsLoading;
+window.hideSystemLoading = hidePpmsLoading;
+
+// Landing Portal & Navigation Control
+function enterPublicDashboard() {
+  $('#landingView').addClass('d-none');
+  $('#appView').removeClass('d-none');
+  switchMainTab('dashboard', document.getElementById('sidebarDashboardNav'));
+}
+
+// เปิดหน้า "ข้อมูลของฉัน" สำหรับบุคลากรที่เข้าสู่ระบบ
+function openMyProfileTab(linkElem) {
+  const pin = window.currentUserPin;
+  if (!pin) {
+    Swal.fire({
+      icon: 'info',
+      title: 'กรุณาเข้าสู่ระบบ',
+      text: 'กรุณาเข้าสู่ระบบเจ้าหน้าที่เพื่อดูและจัดการข้อมูลส่วนตัวของท่าน',
+      showCancelButton: true,
+      confirmButtonText: '<i class="fa-solid fa-right-to-bracket me-1"></i> เข้าสู่ระบบ',
+      cancelButtonText: 'ดูแดชบอร์ดภาพรวม',
+      confirmButtonColor: '#1d4ed8'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        openLoginModal();
+      } else {
+        switchMainTab('dashboard', document.getElementById('sidebarDashboardNav'));
+      }
+    });
+    return;
+  }
+
+  // ปรับสถานะ Active บน Sidebar
+  $('.sidebar-nav .nav-link').removeClass('active');
+  if (linkElem) {
+    $(linkElem).addClass('active');
+  } else {
+    $('#sidebarMyProfileNav').addClass('active');
+  }
+
+  // เรียกเปิด In-Pane รายละเอียดประวัติบุคลากรของตนเอง
+  if (typeof openPersonnelInPaneDetail === 'function') {
+    openPersonnelInPaneDetail(pin);
+  } else {
+    setTimeout(function() {
+      if (typeof openPersonnelInPaneDetail === 'function') {
+        openPersonnelInPaneDetail(pin);
+      }
+    }, 200);
+  }
+}
+
+function openLoginModal() {
+  const modal = new bootstrap.Modal(document.getElementById('loginModal'));
+  modal.show();
+}
+
+function toggleLandingPasswordVisibility() {
+  const input = document.getElementById('landingPasswordInput');
+  const icon = document.getElementById('landingPasswordEyeIcon');
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) {
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+    }
+  } else {
+    input.type = 'password';
+    if (icon) {
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
+  }
+}
+
+// Switch Dual Login Tabs on Landing Page (PIN vs Google)
+function switchLandingLoginTab(tabType) {
+  if (tabType === 'google') {
+    $('#tabBtnPin').removeClass('active');
+    $('#tabBtnGoogle').addClass('active');
+    $('#paneLoginPin').addClass('d-none');
+    $('#paneLoginGoogle').removeClass('d-none');
+  } else {
+    $('#tabBtnGoogle').removeClass('active');
+    $('#tabBtnPin').addClass('active');
+    $('#paneLoginGoogle').addClass('d-none');
+    $('#paneLoginPin').removeClass('d-none');
+  }
+}
+
+function doLandingStaffLogin() {
+  const username = ($('#landingUsernameInput').val() || '').trim();
+  const password = $('#landingPasswordInput').val() || '';
+  if (!username || !password) {
+    Swal.fire('กรุณาระบุข้อมูล', 'กรุณากรอกรหัสประจำตัว/PIN และรหัสผ่าน', 'warning');
+    return;
+  }
+  const isRemember = $('#landingRememberMeCheck').length ? $('#landingRememberMeCheck').is(':checked') : true;
+  executeStaffLogin(username, password, isRemember);
+}
+
+function doStaffPasswordLogin() {
+  const username = ($('#loginUsernameInput').val() || '').trim();
+  const password = $('#loginPasswordInput').val() || '';
+  if (!username || !password) {
+    Swal.fire('กรุณาระบุข้อมูล', 'กรุณากรอกรหัสประจำตัว/PIN และรหัสผ่าน', 'warning');
+    return;
+  }
+  executeStaffLogin(username, password, true);
+}
+
+function executeStaffLogin(username, password, isRemember = true) {
+  showPpmsLoading('กำลังเข้าสู่ระบบ...', 'กำลังตรวจสอบข้อมูลสิทธิ์และรหัสผ่านจาก staff_master');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        applyUserLoggedIn(res.data, false, isRemember);
+        bootstrap.Modal.getInstance(document.getElementById('loginModal'))?.hide();
+        $('#landingView').addClass('d-none');
+        $('#appView').removeClass('d-none');
+        openMyProfileTab(document.getElementById('sidebarMyProfileNav'));
+      } else {
+        Swal.fire({
+          title: 'เข้าสู่ระบบไม่สำเร็จ',
+          text: res ? res.message : 'รหัสประจำตัวหรือรหัสผ่านไม่ถูกต้อง',
+          icon: 'error'
+        });
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+    })
+    .staffPasswordLogin(username, password);
+}
+
+function doGoogleLogin() {
+  showPpmsLoading('กำลังเข้าสู่ระบบผ่าน Google...', 'กำลังตรวจสอบบัญชีผู้ใช้งาน');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        applyUserLoggedIn(res.data, false, true);
+        bootstrap.Modal.getInstance(document.getElementById('loginModal'))?.hide();
+        $('#landingView').addClass('d-none');
+        $('#appView').removeClass('d-none');
+        openMyProfileTab(document.getElementById('sidebarMyProfileNav'));
+      } else {
+        Swal.fire('เข้าสู่ระบบไม่สำเร็จ', res ? res.message : 'ไม่พบบัญชีในระบบ', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+    })
+    .loginWithGoogle();
+}
+
+function applyUserLoggedIn(user, isSilent = false, isRemember = true) {
+  currentAdminUser = user;
+  
+  if (isRemember) {
+    // จดจำแบบ Triple-Storage (เหมือนระบบสแกนนิ้ว เพื่อการเข้าใช้งานอัตโนมัติในครั้งถัดไป)
+    saveStorageItem('hr_session_user', JSON.stringify(user));
+    if (user.pin) {
+      saveStorageItem('bcn_saved_user_id', user.pin);
+    }
+  } else {
+    // กรณีผู้ใช้ไม่ติ๊กถูก: จดจำเฉพาะ session ปัจจุบันเท่านั้น (ปิดเบราว์เซอร์แล้วจะถูกล้างทิ้งทันที)
+    try { sessionStorage.setItem('hr_session_user', JSON.stringify(user)); } catch (e) {}
+    try { localStorage.removeItem('hr_session_user'); } catch (e) {}
+    try {
+      document.cookie = 'hr_session_user=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax';
+    } catch (e) {}
+  }
+
+  const roleName = (user.role || user.user_type || 'staff').toLowerCase();
+  window.currentUserRole = roleName;
+  window.currentUserPin = user.pin || user.id || '';
+
+  // บังคับการแสดงผลเมนูและปุ่มตามระดับสิทธิ์ RBAC
+  enforceUiPermissions(roleName);
+
+  $('#sidebarUserBadge').text(roleName.toUpperCase());
+  $('#topUserName').text(user.name || 'เจ้าหน้าที่');
+  $('#topUserRole').text((user.position_title || 'บุคลากร') + ' (' + roleName.toUpperCase() + ')');
+  $('#topLoginBtn').addClass('d-none');
+  $('#topProfileChevron').removeClass('d-none');
+  $('#topProfilePill').attr('data-bs-toggle', 'dropdown');
+  $('#dropdownUserName').text(user.name || 'เจ้าหน้าที่');
+  $('#dropdownUserRole').text((user.position_title || 'บุคลากร') + ' (' + roleName.toUpperCase() + ')');
+
+  $('#sidebarLoginBtn').html('<i class="fa-solid fa-right-from-bracket me-2"></i> ออกจากระบบ')
+    .attr('onclick', 'doLogout()')
+    .removeClass('text-primary').addClass('text-danger');
+
+  if (user.photo_url) {
+    $('#topUserAvatar').html(`<img src="${user.photo_url}" class="rounded-circle border" style="width: 34px; height: 34px; object-fit: cover;">`);
+  }
+
+  if (!isSilent) {
+    Swal.fire({
+      title: 'ยินดีต้อนรับ',
+      text: `สวัสดีค่ะ คุณ${user.name} (สิทธิ์: ${roleName.toUpperCase()})`,
+      icon: 'success',
+      timer: 1800,
+      showConfirmButton: false
+    });
+  }
+}
+
+function doLogout() {
+  Swal.fire({
+    title: 'ออกจากระบบ?',
+    text: 'ท่านต้องการออกจากระบบฐานข้อมูลบุคลากรใช่หรือไม่',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#1d4ed8',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ออกจากระบบ',
+    cancelButtonText: 'ยกเลิก'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // 1. ล้าง Session และข้อมูลสิทธิ์ออกจาก Storage ทั้งหมด
+      removeStorageItem('hr_session_user');
+      currentAdminUser = null;
+      window.currentUserRole = 'guest';
+      window.currentUserPin = '';
+      enforceUiPermissions('guest');
+
+      // 2. ล้างรหัสผ่าน และเติม PIN เดิมหากมีการจำค่าไว้
+      $('#landingPasswordInput').val('');
+      $('#loginPasswordInput').val('');
+      const savedPin = getStorageItem('bcn_saved_user_id');
+      if (savedPin) {
+        $('#landingUsernameInput').val(savedPin);
+        $('#loginUsernameInput').val(savedPin);
+        $('#landingRememberMeCheck').prop('checked', true);
+      } else {
+        $('#landingUsernameInput').val('');
+        $('#loginUsernameInput').val('');
+      }
+
+      // 3. สลับ UI กลับสู่หน้า Landing Page โดยไม่สั่ง reload เพื่อป้องกันข้อผิดพลาด Sandbox iframe
+      $('#appView').addClass('d-none');
+      $('#landingView').removeClass('d-none');
+      switchLandingLoginTab('pin');
+
+      // 4. รีเซ็ตปุ่มและโปรไฟล์ที่แถบหัว
+      $('#topLoginBtn').removeClass('d-none');
+      $('#topProfileChevron').addClass('d-none');
+      $('#topProfilePill').removeAttr('data-bs-toggle');
+      $('#sidebarLoginBtn').html('<i class="fa-solid fa-right-to-bracket me-2"></i> เข้าสู่ระบบ')
+        .attr('onclick', 'openLoginModal()')
+        .addClass('text-primary').removeClass('text-danger');
+      $('#topUserAvatar').html(createFallbackAvatarEl('U', 34));
+      $('#topUserName').text('ผู้เยี่ยมชม');
+      $('#topUserRole').text('ทั่วไป (Guest)');
+      $('#sidebarUserBadge').text('GUEST');
+      
+      // รีเซ็ต active menu กลับมาที่แดชบอร์ด
+      $('.sidebar-nav .nav-link').removeClass('active');
+      $('#sidebarDashboardNav').addClass('active');
+
+      Swal.fire({
+        title: 'ออกจากระบบสำเร็จ',
+        text: 'ท่านได้ออกจากระบบเรียบร้อยแล้วค่ะ',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    }
+  });
+}
+
+// -------------------------------------------------------------------------
+// ดูโปรไฟล์ ก.พ.7 ของตนเอง (In-Pane Full Width)
+// -------------------------------------------------------------------------
+function viewMyOwnProfile() {
+  const pin = window.currentUserPin;
+  if (!pin) {
+    Swal.fire('แจ้งเตือน', 'กรุณาเข้าสู่ระบบก่อนดูข้อมูลโปรไฟล์ส่วนบุคคล', 'info');
+    return;
+  }
+  if (typeof openPersonnelInPaneDetail === 'function') {
+    openPersonnelInPaneDetail(pin);
+  } else {
+    switchMainTab('manage-projects', $('#sidebarManageProjectsNav')[0]);
+  }
+}
+
+// -------------------------------------------------------------------------
+// ฟังก์ชันจัดการ Reset Password (แก้ไขเฉพาะรหัสผ่านของตนเองลงใน staff_master)
+// -------------------------------------------------------------------------
+function openResetPasswordModal() {
+  if (!currentAdminUser && !window.currentUserPin) {
+    Swal.fire('แจ้งเตือน', 'กรุณาเข้าสู่ระบบก่อนเปลี่ยนรหัสผ่าน', 'info');
+    return;
+  }
+
+  const userName = currentAdminUser ? currentAdminUser.name : $('#topUserName').text();
+  const userPin = window.currentUserPin || (currentAdminUser ? currentAdminUser.pin : '-');
+
+  $('#resetPassUserName').text(userName || 'เจ้าหน้าที่');
+  $('#resetPassUserPin').text('#' + userPin);
+  $('#resetCurrentPassInput').val('');
+  $('#resetNewPassInput').val('');
+  $('#resetConfirmPassInput').val('');
+
+  const modal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+  modal.show();
+}
+
+function togglePasswordInput(inputId, btnEl) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const icon = btnEl.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) {
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+    }
+  } else {
+    input.type = 'password';
+    if (icon) {
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
+  }
+}
+
+function doSubmitResetPassword() {
+  const currentPin = window.currentUserPin || (currentAdminUser ? (currentAdminUser.pin || currentAdminUser.id) : '');
+  const currentPass = ($('#resetCurrentPassInput').val() || '').trim();
+  const newPass = ($('#resetNewPassInput').val() || '').trim();
+  const confirmPass = ($('#resetConfirmPassInput').val() || '').trim();
+
+  if (!currentPass || !newPass || !confirmPass) {
+    Swal.fire('กรุณาระบุข้อมูลให้ครบ', 'กรุณากรอกรหัสผ่านเดิม รหัสผ่านใหม่ และยืนยันรหัสผ่านใหม่', 'warning');
+    return;
+  }
+
+  if (newPass.length < 4) {
+    Swal.fire('รหัสผ่านสั้นเกินไป', 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', 'warning');
+    return;
+  }
+
+  if (newPass !== confirmPass) {
+    Swal.fire('รหัสผ่านไม่ตรงกัน', 'รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง', 'warning');
+    return;
+  }
+
+  showPpmsLoading('กำลังเปลี่ยนรหัสผ่าน...', 'กำลังอัปเดตรหัสผ่านใหม่ลงใน staff_master');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hidePpmsLoading();
+      if (res && res.status === 'success') {
+        bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal'))?.hide();
+        Swal.fire({
+          title: 'เปลี่ยนรหัสผ่านสำเร็จ',
+          text: res.message || 'รหัสผ่านใหม่ของท่านได้รับการบันทึกเรียบร้อยแล้วค่ะ',
+          icon: 'success'
+        });
+      } else {
+        Swal.fire('ไม่สามารถเปลี่ยนรหัสผ่านได้', res ? res.message : 'เกิดข้อผิดพลาดในการตรวจสอบรหัสผ่าน', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      hidePpmsLoading();
+      Swal.fire('การเชื่อมต่อขัดข้อง', err.message, 'error');
+    })
+    .changePassword(currentPin, currentPass, newPass);
+}
+</script>

@@ -1,0 +1,486 @@
+<!-- ====================================================
+VIEW: รายละเอียดประวัติบุคลากรแบบเต็มหน้าจอ (In-Pane Full Width - No Modal Pop-up)
+รูปแบบสไตล์ FONMIS สะอาดตา โปร่ง โทนสีขาว-น้ำเงินสถาบัน
+==================================================== -->
+<div id="view-personnel-detail" class="tab-pane-content d-none">
+  
+  <!-- 1. Header Bar: Breadcrumb + ชื่องาน + ปุ่มกลับหน้ารายชื่อ -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <span class="badge rounded-pill px-3 py-1 fw-bold bg-primary-subtle text-primary border border-primary-subtle mb-1">
+            <i class="fa-solid fa-id-card me-1"></i> ข้อมูลทะเบียนประวัติ ก.พ.7
+          </span>
+          <h3 class="fw-bold mb-0 text-primary" style="font-size: 1.55rem;">
+            ข้อมูลบุคลากร
+          </h3>
+        </div>
+        <div>
+          <button type="button" class="btn text-white rounded-pill px-4 py-2 fw-semibold shadow-sm" onclick="closePersonnelDetailPane()" style="background-color: #e04f3d; border-color: #e04f3d; font-size: 0.95rem;">
+            <i class="fa-solid fa-arrow-left me-2"></i>กลับหน้ารายชื่อ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ส่วนที่ 1: รายละเอียดประวัติส่วนบุคคล (Profile Hero Section) -->
+  <!-- 🔔 NOTICE FOR FUTURE SCHEMA UPDATES: 
+       ส่วนนี้คือ 'รายละเอียดประวัติส่วนบุคคล' หากในอนาคตมีการเพิ่มคอลัมน์ใหม่ในฐานข้อมูล 
+       ไอจังจะเตือนนายท่านและนำฟิลด์มาใส่เพิ่มเติมในบล็อก 2 คอลัมน์ด้านล่างนี้ทันที 
+  -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+    <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+          <i class="fa-solid fa-user-tie text-primary"></i> รายละเอียดประวัติส่วนบุคคล
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn text-white rounded-pill px-3 py-1 fw-semibold shadow-sm d-none" id="btnPrintKp7Report" style="background-color: #10b981; border-color: #10b981; font-size: 0.84rem;">
+            <i class="fa-solid fa-print me-1"></i> พิมพ์รายงาน ก.พ.7
+          </button>
+          <button type="button" class="btn text-white rounded-pill px-3 py-1 fw-semibold shadow-sm d-none" id="btnEditPersonnelProfile" onclick="openPersonnelEditInPane()" style="background-color: #f59e0b; border-color: #f59e0b; font-size: 0.84rem;">
+            <i class="fa-solid fa-user-pen me-1"></i> แก้ไขข้อมูลส่วนตัว
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-4">
+        <!-- ฝั่งซ้าย: รูปถ่ายบุคลากรขนาดใหญ่ -->
+        <div class="col-lg-3 col-md-4 text-center">
+          <div class="profile-photo-wrapper mx-auto bg-white rounded-4 border shadow-sm overflow-hidden" style="max-width: 215px;">
+            <div class="position-relative w-100" style="aspect-ratio: 3/4; max-height: 250px; background-color: #f8fafc;">
+              <img id="inPaneAvatarImg" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile Photo" class="w-100 h-100 d-block" style="object-fit: cover; object-position: center top;" onerror="this.onerror=null;this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
+            </div>
+          </div>
+          <div class="mt-3" id="inPaneWorkStatusBadgeContainer">
+            <span id="inPaneWorkStatusBadge" class="badge rounded-pill bg-success-subtle text-success border px-3 py-1 fw-bold">
+              <i class="fa-solid fa-circle-check me-1"></i>กำลังปฏิบัติงาน
+            </span>
+          </div>
+        </div>
+
+        <!-- ฝั่งขวา: ข้อมูลแบ่งหมวดหมู่ชัดเจน สไตล์ FONMIS Clean Minimalist Grouped Layout -->
+        <div class="col-lg-9 col-md-8">
+          <div class="d-flex flex-column gap-3" style="font-size: 0.92rem; line-height: 1.6;">
+
+            <!-- ================= หมวดที่ 1: ข้อมูลตัวตนและการติดต่อ (Identity & Contact) ================= -->
+            <div class="pb-3 border-bottom">
+              <!-- แถวบน: เลขที่ตำแหน่ง (ขวาสุด/เด่น) -->
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase text-primary fw-bold small tracking-wide">
+                  <i class="fa-solid fa-address-card me-1"></i> ข้อมูลตัวตนและการติดต่อ
+                </span>
+                <div>
+                  <span class="text-secondary small fw-semibold me-1">เลขที่ตำแหน่ง :</span>
+                  <span id="inPanePosNo" class="badge bg-light text-dark border px-2 py-1 fw-bold fs-6">-</span>
+                </div>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">ชื่อ - สกุล (ไทย) :</span>
+                  <span id="inPaneNameTh" class="fw-bold text-dark ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">ชื่อ - สกุล (อังกฤษ) :</span>
+                  <span id="inPaneNameEn" class="text-secondary ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">เพศ :</span>
+                  <span id="inPaneGender" class="text-primary ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">วัน/เดือน/ปี เกิด :</span>
+                  <span id="inPaneBirthDate" class="text-dark ms-1">-</span>
+                  <span id="inPaneAgeBadge" class="badge bg-light text-secondary border ms-1">อายุ - ปี</span>
+                </div>
+                <div class="col-12">
+                  <span class="text-secondary fw-semibold">ช่องทางการติดต่อ :</span>
+                  <span id="inPaneContact" class="text-dark ms-1">-</span>
+                </div>
+                <div class="col-12">
+                  <span class="text-secondary fw-semibold">ที่อยู่ :</span>
+                  <span id="inPaneAddress" class="text-dark ms-1">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= หมวดที่ 2: ตำแหน่ง สังกัด และประเภทบุคลากร (Position & Affiliation) ================= -->
+            <div class="pb-3 border-bottom">
+              <div class="text-uppercase text-primary fw-bold small tracking-wide mb-2">
+                <i class="fa-solid fa-sitemap me-1"></i> ตำแหน่งและสังกัด
+              </div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">ตำแหน่งทางการบริหาร :</span>
+                  <span id="inPaneAdminPos" class="fw-semibold text-dark ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">ตำแหน่งทางวิชาการ :</span>
+                  <span id="inPaneAcadPos" class="fw-bold text-primary ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">ตำแหน่งทางวิชาชีพ / ปัจจุบัน :</span>
+                  <span id="inPaneProfPos" class="fw-semibold text-dark ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">สังกัดกลุ่ม / งาน :</span>
+                  <span id="inPaneDept" class="fw-semibold text-dark ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">ประเภทบุคลากร :</span>
+                  <span id="inPaneEmpType" class="text-dark ms-1">-</span>
+                  <span id="inPaneStaffType" class="badge bg-primary-subtle text-primary border ms-1">-</span>
+                </div>
+                <div class="col-md-6" id="inPaneAcademicBranchRow">
+                  <span class="text-secondary fw-semibold">สังกัดสาขาวิชา :</span>
+                  <span id="inPaneAcademicBranch" class="fw-semibold text-primary ms-1">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= หมวดที่ 3: ความเชี่ยวชาญ & บทบาทหลักสูตร (Expertise & Academic Roles) ================= -->
+            <div class="pb-3 border-bottom" id="inPaneExpertiseContainer">
+              <div class="text-uppercase text-primary fw-bold small tracking-wide mb-2">
+                <i class="fa-solid fa-graduation-cap me-1"></i> ความเชี่ยวชาญและบทบาทหลักสูตร
+              </div>
+
+              <!-- แสดงเฉพาะสายสอน -->
+              <div id="inPaneTeachingExpertiseSection" class="row g-2">
+                <div class="col-md-6">
+                  <div class="text-secondary fw-semibold small">ความเชี่ยวชาญ ด้านการเรียนการสอน / Faculty Practice :</div>
+                  <div id="inPaneExpertiseTeaching" class="fw-semibold text-dark ps-2 border-start border-2 border-primary mt-1">-</div>
+                </div>
+                <div class="col-md-6">
+                  <div class="text-secondary fw-semibold small">ความเชี่ยวชาญ ด้านวิจัย :</div>
+                  <div id="inPaneExpertiseResearch" class="fw-semibold text-dark ps-2 border-start border-2 border-info mt-1">-</div>
+                </div>
+                <div class="col-md-6 mt-2">
+                  <span class="text-secondary fw-semibold">ประเภทอาจารย์ หลักสูตรพยาบาลศาสตรบัณฑิต :</span>
+                  <span id="inPaneBachelorRole" class="text-dark fw-semibold ms-1">-</span>
+                </div>
+                <div class="col-md-6 mt-2">
+                  <span class="text-secondary fw-semibold">ประเภทอาจารย์ หลักสูตรพยาบาลศาสตรมหาบัณฑิต :</span>
+                  <span id="inPaneMasterRole" class="text-dark fw-semibold ms-1">-</span>
+                </div>
+              </div>
+
+              <!-- แสดงเฉพาะสายสนับสนุน -->
+              <div id="inPaneSupportDutySection" class="d-none">
+                <div class="text-secondary fw-semibold small">หน้าที่ความรับผิดชอบหลัก / งานที่ได้รับมอบหมาย :</div>
+                <div id="inPaneExpertise" class="fw-semibold text-dark ps-2 border-start border-2 border-secondary mt-1">-</div>
+              </div>
+            </div>
+
+            <!-- ================= หมวดที่ 4: สถานะและระยะเวลาการปฏิบัติงาน (Tenure & Milestones) ================= -->
+            <div>
+              <div class="row g-2 align-items-center mb-2">
+                <div class="col-md-6">
+                  <span class="text-uppercase text-primary fw-bold small tracking-wide">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i> สถานะและระยะเวลาการปฏิบัติงาน
+                  </span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary small fw-semibold me-1">สถานะปัจจุบัน :</span>
+                  <span id="inPaneCurrentStatus" class="fw-semibold text-dark">-</span>
+                  <span id="inPaneSecondmentBadge" class="badge bg-info-subtle text-info border border-info-subtle rounded-pill ms-1 d-none" style="font-size: 0.72rem;">
+                    <i class="fa-solid fa-map-location-dot me-1"></i><span id="inPaneSecondmentLoc">-</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- วันสำคัญในการปฏิบัติงานแบบคลีนมินิมอล ไม่เด่นเกินไป กลมกลืนกับหมวด 1 และ 2 -->
+              <div class="row g-2 small">
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">วันที่เริ่มทำงานในหน่วยงาน :</span>
+                  <span id="inPaneStartDate" class="fw-semibold text-dark ms-1">-</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">วันที่รับราชการ (ก.พ. ครั้งแรก) :</span>
+                  <span id="inPaneGovDate" class="fw-semibold text-dark ms-1">-</span>
+                </div>
+                <div class="col-md-6" id="inPaneKksRow">
+                  <span class="text-secondary fw-semibold">
+                    <i class="fa-solid fa-award me-1" style="color: #7c3aed;"></i> ปรับตำแหน่งเป็นอาจารย์ (ก.ค.ศ.) :
+                  </span>
+                  <span id="inPaneKksDate" class="fw-semibold ms-1" style="color: #6d28d9;">-</span>
+                  <span id="inPaneKksTenureBadge" class="badge rounded-pill ms-1 d-none" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-size: 0.72rem;">-</span>
+                  <div id="inPaneKksOrderRow" class="text-muted mt-1 d-none" style="font-size: 0.78rem;">
+                    <i class="fa-solid fa-file-signature me-1" style="color: #7c3aed;"></i> คำสั่งแต่งตั้ง ก.ค.ศ. : <span id="inPaneKksOrderNo" class="text-dark fw-semibold">-</span>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-secondary fw-semibold">วันที่สิ้นสุดการปฏิบัติงาน (เกษียณ 60 ปี) :</span>
+                  <span id="inPaneRetireDate" class="fw-semibold text-danger ms-1">-</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. ส่วนที่ 2: แถบข้อมูลตามพันธกิจต่างๆ ด้านล่าง (Mission Tabs) -->
+  <div class="card border-0 shadow-sm rounded-4" style="background: #ffffff;">
+    <div class="card-header bg-white border-0 pt-3 px-4 pb-0">
+      <ul class="nav nav-tabs border-bottom-0 fonmis-mission-tabs" id="missionDetailTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tab-edu-btn" data-bs-toggle="tab" data-bs-target="#pane-mission-edu" type="button" role="tab">
+            <i class="fa-solid fa-graduation-cap me-1"></i> ประวัติการศึกษา
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-study-btn" data-bs-toggle="tab" data-bs-target="#pane-mission-study" type="button" role="tab">
+            <i class="fa-solid fa-book-open-reader me-1"></i> ระบบศึกษาต่อ & ชดใช้ทุน (สบช.)
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-insignia-btn" data-bs-toggle="tab" data-bs-target="#pane-mission-insignia" type="button" role="tab">
+            <i class="fa-solid fa-medal me-1"></i> เครื่องราชฯ & เหรียญ ร.จ.พ.
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-license-btn" data-bs-toggle="tab" data-bs-target="#pane-mission-license" type="button" role="tab">
+            <i class="fa-solid fa-certificate me-1"></i> ใบอนุญาตวิชาชีพ & บัตรราชการ
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-training-btn" data-bs-toggle="tab" data-bs-target="#pane-mission-training" type="button" role="tab">
+            <i class="fa-solid fa-chalkboard-user me-1"></i> ประวัติการฝึกอบรม & พัฒนาตนเอง
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-awards-btn" data-bs-toggle="tab" data-bs-target="#pane-mission-awards" type="button" role="tab">
+            <i class="fa-solid fa-trophy me-1"></i> รางวัลและเกียรติประวัติ
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="tab-content" id="missionDetailTabsContent">
+        
+        <!-- Tab 1: ประวัติการศึกษา -->
+        <div class="tab-pane fade show active" id="pane-mission-edu" role="tabpanel">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 text-dark">
+              <i class="fa-solid fa-graduation-cap text-primary me-2"></i>ประวัติการศึกษาและการพัฒนาคุณวุฒิ
+            </h6>
+            <div class="d-flex align-items-center gap-3">
+              <span class="text-muted small" id="inPaneEduCount">ทั้งหมด 0 รายการ</span>
+              <button class="btn btn-sm text-white rounded-pill px-3 shadow-sm btn-hr-admin-only d-none" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="openAddMissionModal('edu')">
+                <i class="fa-solid fa-plus me-1"></i> เพิ่มประวัติการศึกษา
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" style="font-size: 0.88rem;">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;" class="text-center">ลำดับ</th>
+                  <th style="width: 130px;">ระดับการศึกษา</th>
+                  <th>ประเภทหลักสูตร / วุฒิการศึกษา</th>
+                  <th>สาขาวิชา</th>
+                  <th style="width: 90px;" class="text-center">ปีที่จบ</th>
+                  <th>สถานศึกษา</th>
+                  <th style="width: 90px;" class="text-center">ประเทศ</th>
+                  <th style="width: 100px;" class="text-center">วุฒิสูงสุด</th>
+                </tr>
+              </thead>
+              <tbody id="inPaneEduTableBody">
+                <tr>
+                  <td colspan="8" class="text-center py-4 text-muted">ไม่มีข้อมูลประวัติการศึกษา</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 2: ระบบศึกษาต่อ & ชดใช้ทุน (สบช.) -->
+        <div class="tab-pane fade" id="pane-mission-study" role="tabpanel">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 text-dark">
+              <i class="fa-solid fa-handshake-angle text-primary me-2"></i>ข้อมูลการศึกษาต่อ ทะเบียนสัญญา และการนับวันชดใช้ทุน (สถาบันพระบรมราชชนก)
+            </h6>
+            <div class="d-flex align-items-center gap-3">
+              <span class="text-muted small" id="inPaneStudyCount">ทั้งหมด 0 รายการ</span>
+              <button class="btn btn-sm text-white rounded-pill px-3 shadow-sm btn-hr-admin-only d-none" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="openAddMissionModal('study')">
+                <i class="fa-solid fa-plus me-1"></i> เพิ่มข้อมูลศึกษาต่อ/ทุน
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" style="font-size: 0.88rem;">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;" class="text-center">ลำดับ</th>
+                  <th>รูปแบบศึกษาต่อ (4 รูปแบบ สบช.)</th>
+                  <th>ระดับ / หลักสูตรที่ศึกษา</th>
+                  <th>สถานศึกษา</th>
+                  <th>แหล่งทุน</th>
+                  <th>ช่วงเวลาศึกษา</th>
+                  <th>สัญญาเลขที่</th>
+                  <th class="text-center">อัตราชดใช้ทุน</th>
+                  <th class="text-center">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="inPaneStudyTableBody">
+                <tr>
+                  <td colspan="9" class="text-center py-4 text-muted">ไม่มีบันทึกข้อมูลการศึกษาต่อหรือสัญญาชดใช้ทุน</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 3: เครื่องราชอิสริยาภรณ์ & เหรียญ ร.จ.พ. -->
+        <div class="tab-pane fade" id="pane-mission-insignia" role="tabpanel">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 text-dark">
+              <i class="fa-solid fa-medal text-warning me-2"></i>ประวัติการรับพระราชทานเครื่องราชอิสริยาภรณ์ และเหรียญจักรพรรดิมาลา (ร.จ.พ.)
+            </h6>
+            <button class="btn btn-sm text-white rounded-pill px-3 shadow-sm btn-hr-admin-only d-none" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="openAddMissionModal('insignia')">
+              <i class="fa-solid fa-plus me-1"></i> เพิ่มเครื่องราชฯ
+            </button>
+          </div>
+          <div class="alert alert-light border rounded-3 p-3 mb-3 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="fw-bold text-dark small"><i class="fa-solid fa-clock-rotate-left me-1 text-primary"></i> การครองชั้นตราและการขอพระราชทานชั้นถัดไป:</div>
+              <div class="text-muted small">ต้องครองชั้นตราเดิมครบ 5 ปีบริบูรณ์ และมีอายุราชการตามเกณฑ์ของระเบียบสำนักนายกรัฐมนตรี</div>
+            </div>
+            <div class="text-end">
+              <span class="badge bg-primary-subtle text-primary border rounded-pill px-3 py-1">เกณฑ์ ร.จ.พ.: รับราชการครบ 25 ปี</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" style="font-size: 0.88rem;">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;" class="text-center">ลำดับ</th>
+                  <th>ชั้นตราเครื่องราชอิสริยาภรณ์</th>
+                  <th class="text-center">ปีที่ได้รับ (พ.ศ.)</th>
+                  <th>วันที่ประกาศในราชกิจจานุเบกษา</th>
+                  <th>เล่ม / ตอน / หน้า</th>
+                  <th class="text-center">สถานะการครองชั้นตรา</th>
+                </tr>
+              </thead>
+              <tbody id="inPaneInsigniaTableBody">
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-muted">ยังไม่มีบันทึกข้อมูลเครื่องราชอิสริยาภรณ์ในระบบ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 4: ใบอนุญาตประกอบวิชาชีพ & บัตรข้าราชการ -->
+        <div class="tab-pane fade" id="pane-mission-license" role="tabpanel">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 text-dark">
+              <i class="fa-solid fa-certificate text-success me-2"></i>ทะเบียนใบอนุญาตประกอบวิชาชีพ และบัตรประจำตัวเจ้าหน้าที่ของรัฐ
+            </h6>
+            <div class="d-flex align-items-center gap-3">
+              <span class="text-muted small" id="inPaneLicenseCount">ทั้งหมด 0 รายการ</span>
+              <button class="btn btn-sm text-white rounded-pill px-3 shadow-sm btn-hr-admin-only d-none" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="openAddLicenseModal(window.currentViewingPin || window.currentUserPin)">
+                <i class="fa-solid fa-plus me-1"></i> เพิ่มใบอนุญาต/บัตร
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" style="font-size: 0.88rem;">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 45px;" class="text-center">ลำดับ</th>
+                  <th style="width: 130px;">ประเภท</th>
+                  <th>ชื่อใบอนุญาต / บัตร</th>
+                  <th>เลขที่เอกสาร</th>
+                  <th>สภา / ผู้ออกบัตร</th>
+                  <th class="text-center">วันออกบัตร</th>
+                  <th class="text-center">วันหมดอายุ</th>
+                  <th class="text-center">วันคงเหลือ</th>
+                  <th class="text-center">รอบที่</th>
+                  <th class="text-center">สถานะ</th>
+                  <th class="text-center" style="width: 85px;">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="inPaneLicenseTableBody">
+                <tr>
+                  <td colspan="11" class="text-center py-4 text-muted">ไม่มีข้อมูลใบอนุญาตประกอบวิชาชีพหรือบัตรข้าราชการ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 5: ประวัติการฝึกอบรม & พัฒนาตนเอง -->
+        <div class="tab-pane fade" id="pane-mission-training" role="tabpanel">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 text-dark">
+              <i class="fa-solid fa-chalkboard-user text-info me-2"></i>ประวัติการฝึกอบรม สัมมนา และการพัฒนาทรัพยากรบุคคล (HRD)
+            </h6>
+            <button class="btn btn-sm text-white rounded-pill px-3 shadow-sm btn-hr-admin-only d-none" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="openAddMissionModal('training')">
+              <i class="fa-solid fa-plus me-1"></i> เพิ่มประวัติการฝึกอบรม
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" style="font-size: 0.88rem;">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;" class="text-center">ลำดับ</th>
+                  <th>ชื่อหลักสูตร / โครงการฝึกอบรม</th>
+                  <th>หน่วยงานที่จัด</th>
+                  <th>ระยะเวลา / วันที่เข้าร่วม</th>
+                  <th class="text-center">จำนวนชั่วโมง</th>
+                  <th class="text-center">หลักฐานแนบ</th>
+                </tr>
+              </thead>
+              <tbody id="inPaneTrainingTableBody">
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-muted">ยังไม่มีบันทึกประวัติการฝึกอบรม</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 6: รางวัลและเกียรติประวัติ -->
+        <div class="tab-pane fade" id="pane-mission-awards" role="tabpanel">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 text-dark">
+              <i class="fa-solid fa-trophy text-warning me-2"></i>ทะเบียนรางวัล ผลงานดีเด่น และเกียรติประวัติแห่งความภาคภูมิใจ
+            </h6>
+            <button class="btn btn-sm text-white rounded-pill px-3 shadow-sm btn-hr-admin-only d-none" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="openAddMissionModal('awards')">
+              <i class="fa-solid fa-plus me-1"></i> เพิ่มรางวัล/ผลงาน
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" style="font-size: 0.88rem;">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;" class="text-center">ลำดับ</th>
+                  <th>ชื่อรางวัล / ผลงานดีเด่น</th>
+                  <th>หน่วยงานผู้มอบรางวัล</th>
+                  <th class="text-center">ปีที่ได้รับ (พ.ศ.)</th>
+                  <th class="text-center">ระดับรางวัล</th>
+                </tr>
+              </thead>
+              <tbody id="inPaneAwardsTableBody">
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">ยังไม่มีบันทึกข้อมูลรางวัลและเกียรติประวัติ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
