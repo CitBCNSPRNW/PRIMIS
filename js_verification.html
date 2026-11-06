@@ -86,7 +86,7 @@ function renderInPaneVerificationHub(verifData) {
     const actionContainer = $('#verifActions_' + sec.key);
     const rowContainer = $('#verifRow_' + sec.key);
 
-    rowContainer.removeClass('border-success border-danger border-warning bg-success-subtle bg-danger-subtle');
+    rowContainer.removeClass('border-success border-danger border-warning border-info bg-success-subtle bg-danger-subtle bg-info-subtle');
 
     if (status === 'verified') {
       verifiedCount++;
@@ -98,6 +98,30 @@ function renderInPaneVerificationHub(verifData) {
       actionContainer.html(
         '<button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2.5 py-0.5 text-muted" style="font-size: 0.72rem;" onclick="openReportIssueModal(\'' + sec.key + '\', \'' + sec.name + '\')">' +
         '<i class="fa-solid fa-pen me-1"></i> แจ้งแก้ไข' +
+        '</button>'
+      );
+    } else if (status === 'resolved') {
+      // ฝ่ายบุคคลปรับปรุงข้อมูลให้แล้ว รอให้บุคลากรกดยืนยันรับรอง
+      const resolveDate = item.resolved_at ? formatDateThaiShort(item.resolved_at) : 'เมื่อเร็วๆ นี้';
+      badgeContainer.html(
+        '<div class="mt-1">' +
+          '<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2.5 py-0.5 fw-bold">' +
+            '<i class="fa-solid fa-wand-magic-sparkles me-1 text-info"></i>ฝ่ายบุคคล (HR) ได้ปรับปรุงแก้ไขข้อมูลให้แล้ว (' + resolveDate + ')' +
+          '</span>' +
+          '<div class="small text-dark mt-1 p-2 rounded bg-info bg-opacity-10 border border-info-subtle" style="font-size: 0.74rem;">' +
+            '<i class="fa-solid fa-circle-check text-success me-1"></i>ฝ่ายบุคคลได้ตรวจสอบและปรับปรุงทะเบียนประวัติเรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันความถูกต้อง' +
+          '</div>' +
+        '</div>'
+      );
+      rowContainer.addClass('border-info');
+
+      // ปุ่มยืนยันข้อมูล
+      actionContainer.html(
+        '<button type="button" class="btn btn-success btn-sm rounded-pill px-3 py-1 fw-bold shadow-xs" onclick="submitVerificationAction(\'' + sec.key + '\', \'verified\')">' +
+          '<i class="fa-solid fa-check me-1"></i> ข้อมูลถูกต้อง ยืนยัน' +
+        '</button>' +
+        '<button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-0.5 text-muted ms-1" style="font-size: 0.72rem;" onclick="openReportIssueModal(\'' + sec.key + '\', \'' + sec.name + '\')">' +
+          '<i class="fa-solid fa-pen me-1"></i> แจ้งเพิ่มเติม' +
         '</button>'
       );
     } else if (status === 'issue_reported') {
@@ -147,27 +171,50 @@ function renderInPaneVerificationHub(verifData) {
   $('#verifProgressBar').css('width', pct + '%').attr('aria-valuenow', pct);
 
   if (pct === 100) {
-    $('#verifProgressBar').removeClass('bg-primary bg-warning').addClass('bg-success');
+    $('#verifProgressBar').removeClass('bg-primary bg-warning bg-danger').addClass('bg-success');
     $('#verifOverallBadge').removeClass('bg-secondary bg-warning bg-danger').addClass('bg-success').html('<i class="fa-solid fa-check-double me-1"></i>รับรองครบ 100% แล้ว');
     $('#btnConfirmAllVerif').addClass('d-none');
+
+    // Smart Auto-Collapse: เมื่อรับรองครบ 100% แล้ว ให้พับเก็บอัตโนมัติเพื่อไม่ให้บัง Profile
+    toggleVerifHubCollapse(false);
+    if (lastUpdatedAt) {
+      $('#verifCompactDateText').text('รับรองข้อมูลครบถ้วนเมื่อ: ' + formatDateThaiShort(lastUpdatedAt));
+    }
   } else if (hasIssue) {
     $('#verifProgressBar').removeClass('bg-primary bg-success').addClass('bg-danger');
     $('#verifOverallBadge').removeClass('bg-secondary bg-success bg-warning').addClass('bg-danger').html('<i class="fa-solid fa-bell me-1"></i>มีรายการแจ้งแก้ไข');
     $('#btnConfirmAllVerif').removeClass('d-none');
+    // ขยายกล่องให้อัตโนมัติหากมีรายการแจ้งแก้ไข
+    toggleVerifHubCollapse(true);
   } else if (verifiedCount > 0) {
     $('#verifProgressBar').removeClass('bg-primary bg-success bg-danger').addClass('bg-warning');
     $('#verifOverallBadge').removeClass('bg-secondary bg-success bg-danger').addClass('bg-warning text-dark').html('<i class="fa-solid fa-hourglass-half me-1"></i>รับรองบางส่วน (' + pct + '%)');
     $('#btnConfirmAllVerif').removeClass('d-none');
+    toggleVerifHubCollapse(true);
   } else {
     $('#verifProgressBar').removeClass('bg-warning bg-success bg-danger').addClass('bg-primary');
     $('#verifOverallBadge').removeClass('bg-warning bg-success bg-danger').addClass('bg-secondary text-white').html('⏳ รอดำเนินการ');
     $('#btnConfirmAllVerif').removeClass('d-none');
+    toggleVerifHubCollapse(true);
   }
 
   if (lastUpdatedAt) {
     $('#verifLastUpdateText').text('อัปเดตล่าสุด: ' + formatDateThaiShort(lastUpdatedAt));
   } else {
     $('#verifLastUpdateText').text('ยังไม่มีประวัติการรับรอง');
+  }
+}
+
+/**
+ * สลับมุมมองกล่องรับรองความถูกต้อง (Compact Mode vs Full Hub)
+ */
+function toggleVerifHubCollapse(forceExpand) {
+  if (forceExpand === true) {
+    $('#verifHubCompactBar').addClass('d-none');
+    $('#inPaneVerificationHubCard').removeClass('d-none');
+  } else {
+    $('#inPaneVerificationHubCard').addClass('d-none');
+    $('#verifHubCompactBar').removeClass('d-none');
   }
 }
 
@@ -376,11 +423,16 @@ function renderVerificationKPIStats(summary) {
  * เรนเดอร์ตาราง Universal DataTable ของการยืนยันข้อมูล
  */
 function renderVerificationMonitorTable(list) {
+  // 1. ทำลาย DataTable เดิมก่อน empty DOM เสมอ เพื่อป้องกัน DataTables กู้คืน DOM 120 แถวเดิมกลับมาทับ
+  if ($.fn.DataTable.isDataTable('#verificationMonitorTable')) {
+    $('#verificationMonitorTable').DataTable().destroy();
+  }
+
   const tbody = $('#verificationMonitorTbody');
   tbody.empty();
 
   if (!list || list.length === 0) {
-    tbody.html('<tr><td colspan="10" class="text-center py-5 text-muted">ไม่พบข้อมูลบุคลากรตามเงื่อนไขที่เลือก</td></tr>');
+    tbody.html('<tr><td colspan="10" class="text-center py-5 text-muted"><i class="fa-solid fa-folder-open me-2 text-secondary"></i>ไม่พบข้อมูลบุคลากรตามเงื่อนไขที่เลือก</td></tr>');
     return;
   }
 
@@ -470,11 +522,7 @@ function renderVerificationMonitorTable(list) {
     tbody.append(tr);
   });
 
-  // Init DataTables หากยังไม่ได้เริ่ม
-  if ($.fn.DataTable.isDataTable('#verificationMonitorTable')) {
-    $('#verificationMonitorTable').DataTable().destroy();
-  }
-
+  // Init DataTables บน DOM ที่เรนเดอร์ใหม่
   window.verifDataTable = $('#verificationMonitorTable').DataTable({
     pageLength: 10,
     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
@@ -500,6 +548,8 @@ function renderSectionStatusPill(secData) {
   const status = secData ? secData.status : 'pending';
   if (status === 'verified') {
     return '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5" title="ยืนยันความถูกต้องแล้ว"><i class="fa-solid fa-check"></i></span>';
+  } else if (status === 'resolved') {
+    return '<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-0.5 shadow-2xs" title="HR ปรับปรุงข้อมูลแล้ว (รอบุคลากรรับรอง)"><i class="fa-solid fa-wand-magic-sparkles text-info"></i></span>';
   } else if (status === 'issue_reported') {
     return '<span class="badge bg-danger text-white rounded-pill px-2 py-0.5 shadow-2xs" title="แจ้งขอแก้ไข: ' + escapeHtml(secData.issue_detail || '') + '"><i class="fa-solid fa-bell"></i></span>';
   } else {
@@ -512,6 +562,15 @@ function renderSectionStatusPill(secData) {
  */
 function filterVerificationTable(type) {
   if (!window.allVerifMonitorList) return;
+
+  // Active Highlight การ์ดที่เลือก
+  $('.stat-hover-card').removeClass('border-primary border-success border-warning border-secondary border-danger border-2 shadow');
+  if (type === 'all') $('#statCardVerifTotal').addClass('border border-2 border-primary shadow');
+  else if (type === 'complete') $('#statCardVerifComplete').addClass('border border-2 border-success shadow');
+  else if (type === 'partial') $('#statCardVerifPartial').addClass('border border-2 border-warning shadow');
+  else if (type === 'none') $('#statCardVerifNone').addClass('border border-2 border-secondary shadow');
+  else if (type === 'issues') $('#statCardVerifIssues').addClass('border border-2 border-danger shadow');
+
   $('#verifStatusFilter').val(type);
   onVerifFilterChange();
 }
@@ -523,7 +582,7 @@ function onVerifFilterChange() {
   const statusFilter = $('#verifStatusFilter').val();
   const jobLineFilter = $('#verifJobLineFilter').val();
 
-  let filtered = window.allVerifMonitorList.slice();
+  let filtered = (window.allVerifMonitorList || []).slice();
 
   if (jobLineFilter !== 'all') {
     filtered = filtered.filter(function(item) {
@@ -732,6 +791,97 @@ function formatDateThaiShort(dStr) {
   } catch (e) {
     return dStr;
   }
+}
+
+// =========================================================================
+// 3. ระบบกระดิ่งแจ้งเตือนสำหรับฝ่ายบุคคล (HR Notification Engine)
+// =========================================================================
+
+/**
+ * โหลดรายการแจ้งเตือนสำหรับฝ่ายบุคคล (เรียกเฉพาะเมื่อเป็น hr_admin)
+ */
+function loadHrNotifications() {
+  const role = (window.currentUserRole || '').toLowerCase();
+  // ตามข้อกำหนดของนายท่าน: แสดงเฉพาะ HR Admin (ส่วน Super Admin สูงสุด และทั่วไป ไม่ต้อง)
+  if (role !== 'hr_admin') {
+    $('#hrNotificationBellContainer').addClass('d-none');
+    return;
+  }
+
+  $('#hrNotificationBellContainer').removeClass('d-none');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.status === 'success') {
+          updateHrBellNotificationUI(res.issues_list || [], res.issues_count || 0);
+        }
+      })
+      .withFailureHandler(function(err) {
+        console.warn('loadHrNotifications failed:', err);
+      })
+      .getHrNotificationItems();
+  }
+}
+
+/**
+ * อัปเดต UI กระดิ่งและเนื้อหา Dropdown
+ */
+function updateHrBellNotificationUI(items, count) {
+  const badge = $('#hrBellBadge');
+  const ddBadge = $('#hrBellDropdownBadge');
+  const bellIcon = $('#hrBellIcon');
+  const listContainer = $('#hrNotificationItemsList');
+
+  const c = typeof count === 'number' ? count : (items ? items.length : 0);
+  ddBadge.text(c + ' เรื่อง');
+
+  if (c > 0) {
+    badge.text(c).removeClass('d-none');
+    bellIcon.removeClass('text-secondary').addClass('text-danger fa-shake');
+  } else {
+    badge.addClass('d-none');
+    bellIcon.removeClass('text-danger fa-shake').addClass('text-secondary');
+  }
+
+  if (!items || items.length === 0) {
+    listContainer.html(
+      '<div class="text-center py-4 text-muted small">' +
+        '<i class="fa-regular fa-bell-slash fs-4 text-muted mb-2 d-block"></i>' +
+        'ไม่มีรายการแจ้งเตือนใหม่ในขณะนี้' +
+      '</div>'
+    );
+    return;
+  }
+
+  let html = '<div class="d-flex flex-column gap-1.5">';
+  items.forEach(function(it) {
+    const avatar = formatStaffPhotoUrl(it.photo_url || it.avatar);
+    const pin = it.pin || '';
+    const name = it.name_th || it.name || ('#' + pin);
+    const secName = it.section_name || it.section_key || 'ข้อมูลทั่วไป';
+    const detail = escapeHtml(it.issue_detail || 'ขอให้ตรวจสอบแก้ไขข้อมูล');
+    const timeStr = it.updated_at ? formatDateThaiShort(it.updated_at) : '';
+
+    html += 
+      '<div class="p-2.5 rounded-3 bg-light border hover-bg-light position-relative" style="cursor: pointer;" onclick="openViewVerifIssuesModal(\'' + pin + '\')">' +
+        '<div class="d-flex align-items-start gap-2">' +
+          '<img src="' + avatar + '" class="rounded-circle border" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null;this.src=window.DEFAULT_STAFF_AVATAR;">' +
+          '<div class="flex-grow-1" style="min-width: 0;">' +
+            '<div class="d-flex justify-content-between align-items-baseline">' +
+              '<span class="fw-bold text-dark small text-truncate d-inline-block" style="max-width: 140px;">' + escapeHtml(name) + '</span>' +
+              '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-1.5" style="font-size: 0.65rem;">แจ้งแก้ไข</span>' +
+            '</div>' +
+            '<div class="text-primary fw-semibold" style="font-size: 0.73rem;">' + escapeHtml(secName) + '</div>' +
+            '<div class="text-muted small text-truncate" style="font-size: 0.72rem;">&ldquo;' + detail + '&rdquo;</div>' +
+            '<div class="text-muted mt-1" style="font-size: 0.66rem;"><i class="fa-regular fa-clock me-1"></i>' + timeStr + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+
+  listContainer.html(html);
 }
 </script>
 

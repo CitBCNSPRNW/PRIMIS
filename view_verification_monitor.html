@@ -40,7 +40,7 @@ VIEW: ศูนย์กำกับติดตามการตรวจส�
   <div class="row g-3 mb-4">
     <!-- Card 1: บุคลากรทั้งหมด -->
     <div class="col-6 col-md-4 col-xl">
-      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('all')">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" id="statCardVerifTotal" style="cursor: pointer;" onclick="filterVerificationTable('all')">
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <div class="text-muted small fw-medium">บุคลากรทั้งหมด</div>
@@ -56,7 +56,7 @@ VIEW: ศูนย์กำกับติดตามการตรวจส�
 
     <!-- Card 2: ยืนยันครบ 100% -->
     <div class="col-6 col-md-4 col-xl">
-      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('complete')">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" id="statCardVerifComplete" style="cursor: pointer;" onclick="filterVerificationTable('complete')">
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <div class="text-muted small fw-medium">ยืนยันครบ 100%</div>
@@ -74,7 +74,7 @@ VIEW: ศูนย์กำกับติดตามการตรวจส�
 
     <!-- Card 3: ยืนยันบางส่วน -->
     <div class="col-6 col-md-4 col-xl">
-      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('partial')">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" id="statCardVerifPartial" style="cursor: pointer;" onclick="filterVerificationTable('partial')">
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <div class="text-muted small fw-medium">ยืนยันบางส่วน</div>
@@ -90,7 +90,7 @@ VIEW: ศูนย์กำกับติดตามการตรวจส�
 
     <!-- Card 4: ยังไม่ยืนยันข้อมูลเลย -->
     <div class="col-6 col-md-6 col-xl">
-      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" style="cursor: pointer;" onclick="filterVerificationTable('none')">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card" id="statCardVerifNone" style="cursor: pointer;" onclick="filterVerificationTable('none')">
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <div class="text-muted small fw-medium">ยังไม่ยืนยันข้อมูล</div>
@@ -106,7 +106,7 @@ VIEW: ศูนย์กำกับติดตามการตรวจส�
 
     <!-- Card 5: แจ้งขอแก้ไขข้อมูล -->
     <div class="col-12 col-md-6 col-xl">
-      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card border-start border-danger border-4" style="cursor: pointer;" onclick="filterVerificationTable('issues')">
+      <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white stat-hover-card border-start border-danger border-4" id="statCardVerifIssues" style="cursor: pointer;" onclick="filterVerificationTable('issues')">
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <div class="text-muted small fw-medium">แจ้งขอแก้ไขข้อมูล</div>

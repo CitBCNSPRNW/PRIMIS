@@ -2066,6 +2066,10 @@ function savePersonnelEditForm() {
         if (typeof loadPersonnelTable === 'function') {
           loadPersonnelTable(true);
         }
+        // อัปเดตกระดิ่งแจ้งเตือน HR ทันที
+        if (typeof loadHrNotifications === 'function') {
+          loadHrNotifications();
+        }
       } else {
         Swal.fire('ข้อผิดพลาด', res ? res.message : 'ไม่สามารถบันทึกได้', 'error');
       }

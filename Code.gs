@@ -20,8 +20,8 @@ function getFiscalYearRange() {
 
 const CONFIG = {
   APP_NAME: 'PRIMIS : ระบบสารสนเทศบุคลากรกลาง (BCNSPRNW PRIMIS)',
-  APP_VERSION: 'v1.8.04',
-  BUILD_DATE: '2026.11.04',
+  APP_VERSION: 'v1.8.05',
+  BUILD_DATE: '2026.11.06',
   API_URL: 'http://122.154.179.132/HR/api.php',
   API_KEY: 'HrDbKey_2026_SNC_Secure!@#',
   getFiscalYearRange: getFiscalYearRange
@@ -315,7 +315,17 @@ function getPersonnelDetail(pin) {
 }
 
 function savePersonnelProfile(data) {
-  return callBackendApi('save_personnel_profile', data);
+  var res = callBackendApi('save_personnel_profile', data);
+  // Auto-Resolve Verification Issues เมื่อฝ่ายบุคคลบันทึกปรับปรุงข้อมูล ก.พ.7 สำเร็จ
+  try {
+    var targetPin = String(data.staff_id || data.pin || '').trim();
+    if (targetPin) {
+      autoResolveVerificationIssues(targetPin, data.operator_role || 'hr_admin', data.operator_pin || 0);
+    }
+  } catch (eResolve) {
+    console.warn('savePersonnelProfile auto-resolve error:', eResolve);
+  }
+  return res;
 }
 
 function getHrDashboardStats() {
@@ -1283,5 +1293,90 @@ function getVerificationMonitorList() {
       none: noneCount,
       issues: issueCount
     }
+  };
+}
+
+/**
+ * ปลดสถานะการแจ้งขอแก้ไขเป็น resolved อัตโนมัติเมื่อฝ่ายบุคคลปรับปรุงข้อมูล ก.พ.7
+ */
+function autoResolveVerificationIssues(pin, operatorRole, operatorPin) {
+  if (!pin) return;
+  var sPin = String(pin).trim();
+  var now = new Date().toISOString();
+  var sections = ['basic_info', 'career_service', 'education', 'license', 'insignia'];
+
+  // 1. ตรวจสอบและอัปเดตใน ScriptProperties
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('verif_' + sPin);
+  if (raw) {
+    try {
+      var verifObj = JSON.parse(raw);
+      var changed = false;
+      sections.forEach(function(sec) {
+        if (verifObj[sec] && (verifObj[sec].status === 'issue_reported' || verifObj[sec].status === 'pending')) {
+          verifObj[sec].status = 'resolved';
+          verifObj[sec].resolved_at = now;
+          verifObj[sec].resolved_by = operatorPin || 'HR';
+          changed = true;
+        }
+      });
+      if (changed) {
+        props.setProperty('verif_' + sPin, JSON.stringify(verifObj));
+      }
+    } catch (e) {}
+  }
+
+  // 2. เรียก API resolve_verification_issue บน Ubuntu
+  sections.forEach(function(sec) {
+    try {
+      callBackendApi('resolve_verification_issue', {
+        pin: sPin,
+        section_key: sec,
+        operator_pin: operatorPin || 'HR'
+      });
+    } catch (eApi) {}
+  });
+}
+
+/**
+ * ดึงรายการแจ้งเตือนงานบุคคลสำหรับกระดิ่ง HR
+ */
+function getHrNotificationItems() {
+  var monitorRes = getVerificationMonitorList();
+  var issuesList = [];
+  var secMap = {
+    'basic_info': '1. ข้อมูลส่วนบุคคล & ที่อยู่',
+    'career_service': '2. ตำแหน่ง สังกัด & ราชการ',
+    'education': '3. ประวัติการศึกษา & คุณวุฒิ',
+    'license': '4. ใบอนุญาตวิชาชีพ & บัตร',
+    'insignia': '5. เครื่องราชอิสริยาภรณ์'
+  };
+
+  if (monitorRes && monitorRes.status === 'success' && Array.isArray(monitorRes.data)) {
+    monitorRes.data.forEach(function(item) {
+      if (item.has_issue) {
+        ['basic_info', 'career_service', 'education', 'license', 'insignia'].forEach(function(secKey) {
+          var secData = item[secKey];
+          if (secData && secData.status === 'issue_reported') {
+            issuesList.push({
+              pin: item.pin,
+              name_th: item.name_th,
+              position_name: item.position_name,
+              photo_url: item.photo_url,
+              section_key: secKey,
+              section_name: secMap[secKey] || secKey,
+              issue_detail: secData.issue_detail || '',
+              updated_at: secData.updated_at || secData.created_at || ''
+            });
+          }
+        });
+      }
+    });
+  }
+
+  return {
+    status: 'success',
+    issues_count: issuesList.length,
+    issues_list: issuesList
   };
 }

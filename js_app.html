@@ -390,6 +390,17 @@ function enforceUiPermissions(role) {
     $('#licFilterControlsBar').addClass('d-none');
     $('#btnToggleLicAdminHub').addClass('d-none');
   }
+
+  // 5. กระดิ่งแจ้งเตือน HR มุมบนขวา: แสดงเฉพาะผู้ที่เป็น hr_admin (ส่วน super_admin สูงสุด และทั่วไป ไม่ต้อง)
+  const isHrAdmin = (normRole === 'hr_admin');
+  if (isHrAdmin) {
+    $('#hrNotificationBellContainer').removeClass('d-none');
+    if (typeof loadHrNotifications === 'function') {
+      loadHrNotifications();
+    }
+  } else {
+    $('#hrNotificationBellContainer').addClass('d-none');
+  }
 }
 
 // Loading Modal Helper

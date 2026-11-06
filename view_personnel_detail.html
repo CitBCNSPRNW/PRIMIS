@@ -25,6 +25,23 @@ VIEW: รายละเอียดประวัติบุคลากร�
     </div>
   </div>
 
+  <!-- 1.4 แถบกะทัดรัดเมื่อพับเก็บ หรือเมื่อรับรองครบ 100% แล้ว (Compact Mode Bar) -->
+  <div id="verifHubCompactBar" class="d-none alert alert-success border-0 shadow-sm rounded-4 mb-3 d-flex flex-wrap justify-content-between align-items-center py-2.5 px-3.5" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 6px solid #10b981 !important;">
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-success rounded-pill px-3 py-1.5 fw-bold shadow-xs">
+        <i class="fa-solid fa-circle-check me-1"></i>รับรองข้อมูลครบ 100% แล้ว
+      </span>
+      <span class="text-secondary small fw-medium" id="verifCompactDateText">
+        อัปเดตล่าสุด: -
+      </span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-semibold shadow-2xs" onclick="toggleVerifHubCollapse(true)">
+        <i class="fa-solid fa-chevron-down me-1"></i> ดูรายละเอียด / ขอแก้ไขเพิ่มเติม
+      </button>
+    </div>
+  </div>
+
   <!-- 1.5 กล่องตรวจสอบและรับรองความถูกต้องของข้อมูล (Staff Verification & Attestation Hub) -->
   <div class="card border-0 shadow-sm rounded-4 mb-4" id="inPaneVerificationHubCard" style="background: #ffffff; border-left: 6px solid #0284c7 !important;">
     <div class="card-body p-4">
@@ -49,6 +66,9 @@ VIEW: รายละเอียดประวัติบุคลากร�
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-bold shadow-xs text-white" id="btnConfirmAllVerif" onclick="confirmAllVerificationSections()">
             <i class="fa-solid fa-circle-check me-1.5"></i> รับรองว่าข้อมูลทุกส่วนถูกต้อง
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-medium shadow-2xs" id="btnCollapseVerifHub" onclick="toggleVerifHubCollapse(false)" title="พับเก็บเพื่อดูข้อมูล Profile">
+            <i class="fa-solid fa-chevron-up me-1"></i> พับเก็บ
           </button>
         </div>
       </div>
